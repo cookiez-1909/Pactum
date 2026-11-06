@@ -3,7 +3,7 @@
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::test_utils::{get_created_receipts, VMContextBuilder};
-use near_sdk::{testing_env, AccountId, PromiseError};
+use near_sdk::{test_vm_config, testing_env, AccountId, PromiseResult, RuntimeFeesConfig};
 
 use crate::types::{
     evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseTerms, ProposalStatus,
@@ -28,6 +28,28 @@ fn set_caller(name: &str) {
         .block_timestamp(NOW_SECONDS * 1_000_000_000)
         .prepaid_gas(near_sdk::Gas::from_tgas(300));
     testing_env!(context.build());
+}
+
+// Calls on_signed the way the contract calls itself back, with a given result from the MPC contract.
+fn deliver(c: &mut ReturnDeskController, id: U64, result: PromiseResult) -> Option<String> {
+    let mut context = VMContextBuilder::new();
+    context
+        .current_account_id(account("controller.testnet"))
+        .predecessor_account_id(account("controller.testnet"))
+        .block_timestamp(NOW_SECONDS * 1_000_000_000)
+        .prepaid_gas(near_sdk::Gas::from_tgas(300));
+    testing_env!(
+        context.build(),
+        test_vm_config(),
+        RuntimeFeesConfig::test(),
+        Default::default(),
+        vec![result]
+    );
+    c.on_signed(id)
+}
+
+fn response_bytes() -> Vec<u8> {
+    serde_json::to_vec(&signature_response()).unwrap()
 }
 
 fn contract(threshold: u32) -> ReturnDeskController {
@@ -210,8 +232,7 @@ fn cannot_approve_after_threshold() {
 fn stores_signature_for_anyone_to_read() {
     let mut c = contract(2);
     let id = approved_and_signing(&mut c);
-    set_caller("controller.testnet");
-    let signature = c.on_signed(id, Ok(signature_response()));
+    let signature = deliver(&mut c, id, PromiseResult::Successful(response_bytes()));
     let proposal = c.get_proposal(id).unwrap();
     assert_eq!(proposal.status, ProposalStatus::Signed);
     assert_eq!(proposal.signature, signature);
@@ -223,14 +244,40 @@ fn stores_signature_for_anyone_to_read() {
 fn failed_signature_can_be_retried_by_anyone() {
     let mut c = contract(2);
     let id = approved_and_signing(&mut c);
-    set_caller("controller.testnet");
-    assert_eq!(c.on_signed(id, Err(PromiseError::Failed)), None);
+    assert_eq!(deliver(&mut c, id, PromiseResult::Failed), None);
     assert_eq!(status(&c, id), ProposalStatus::Approved);
 
     set_caller("mallory.testnet");
     let _ = c.retry_signature(id);
     assert_eq!(status(&c, id), ProposalStatus::Signing);
     assert_eq!(c.get_proposal(id).unwrap().digest, c.case_digest(terms()));
+}
+
+// A bad response must not leave the proposal stuck: it must return to Approved so it can be signed again.
+#[test]
+fn malformed_responses_return_to_approved() {
+    let bad_results: Vec<Vec<u8>> = vec![
+        b"not json".to_vec(),
+        b"{}".to_vec(),
+        br#"{"big_r":{"affine_point":"abcd"},"s":{"scalar":"00"},"recovery_id":0}"#.to_vec(),
+        br#"{"signature":"ed25519:xyz"}"#.to_vec(),
+        vec![b'x'; 5000],
+    ];
+    let mut c = contract(2);
+    for (index, bytes) in bad_results.into_iter().enumerate() {
+        let mut distinct = terms();
+        distinct.case_id = format!("0x{:064x}", index + 100);
+        distinct.nonce = U64(index as u64 + 100);
+        set_caller("alice.testnet");
+        let id = c.propose_case(distinct);
+        let _ = c.approve_case(id);
+        set_caller("bob.testnet");
+        let _ = c.approve_case(id);
+        assert_eq!(deliver(&mut c, id, PromiseResult::Successful(bytes)), None);
+        let proposal = c.get_proposal(id).unwrap();
+        assert_eq!(proposal.status, ProposalStatus::Approved);
+        assert_eq!(proposal.signature, None);
+    }
 }
 
 #[test]
@@ -247,8 +294,7 @@ fn cannot_retry_before_approval() {
 fn cannot_sign_again_once_signed() {
     let mut c = contract(2);
     let id = approved_and_signing(&mut c);
-    set_caller("controller.testnet");
-    c.on_signed(id, Ok(signature_response()));
+    deliver(&mut c, id, PromiseResult::Successful(response_bytes()));
     set_caller("mallory.testnet");
     let _ = c.retry_signature(id);
 }

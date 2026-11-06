@@ -2,16 +2,16 @@
   "network": "sepolia",
   "chainId": 11155111,
   "stage": "complete",
-  "openBlock": "12077358",
+  "openBlock": "12077757",
   "contracts": {
-    "MockUSD": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
-    "VulnerableVault": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
-    "ReturnDesk": "0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba"
+    "MockUSD": "0x2420399c32c7642b5dc0a4f4468ed6f32d9d5169",
+    "VulnerableVault": "0x6bcfd19ff95cc0ec47d392a3e1e34549812a70e6",
+    "ReturnDesk": "0xdeb5d8c818a4798f515c9a8df90c0252cf31347e"
   },
-  "controllerAddress": "0x083939Bb99D1491d3836E3302E5a638D4543f27e",
+  "controllerAddress": "0xB2C5C434BC54b78e47D5efcd86de35Dd1BDF2896",
   "near": {
     "simulated": false,
-    "controllerAccount": "ctrl-aadc19d6.rd-stranger-93cc38385a.testnet",
+    "controllerAccount": "ctrl-14796df2.rd-stranger-93cc38385a.testnet",
     "derivationPath": "return-desk-1",
     "guardians": [
       "rd-guardian-a-3ff0494a5d.testnet",
@@ -20,11 +20,11 @@
     ],
     "threshold": 2,
     "txs": {
-      "deployController": "9KCE7g2F6ZUARvknJknQ4CBFfGZC4CPKVunxyATTNbM7",
-      "removeKeys": "8xSnZQfT1qjUVvesGrPBZ1v1nYokyuScXZyhBLBcQtxN",
-      "propose": "GvTyeLj9ZfpNrdkPwKtd69WtWH8bdycXi7xdyLPFASA4",
-      "approve1": "3oJ17oPgVbr7dLehhJCEoTFHRmUP8QsC4Dt6M6J3SGDL",
-      "approve2": "2VS2B79AzzozJ7LA8upLsSmkoH4KeXftifFXQ8FUxU3x"
+      "deployController": "TkkidLkj9tkXvMokSRaspRBAgNiQ1js7URfVizUppj2",
+      "removeKeys": "5xZXT4f7LCEUjPqKpDWcQFtFhLKzEDYmYZcE4rmxFBC1",
+      "propose": "FU5PxVdMYSyjn3waxFCv76PuA3t33zFA51obew2jXSUD",
+      "approve1": "6vQso3FDS7PoTxJty65Te9sYCpieGDQrTfCfDuEes17W",
+      "approve2": "7M5y5cY6chq7T4E5qwYioCoFcjL5wH4FT4HC6AQMshFy"
     },
     "proposalId": "0"
   },
@@ -38,32 +38,32 @@
     "rewardWallet": "0x2d5B36e7A137A61CB9b3219d2AB678e98D55beCE"
   },
   "terms": {
-    "caseId": "0x06b8ffac42d9371f1b73206e400072ac7fb98390006314040f1a2833f0b68562",
-    "token": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
+    "caseId": "0x5e6e91aea240168a942aae0c3a097ef1105cbdb99db3b90702ad66a2d6db24fb",
+    "token": "0x2420399c32c7642b5dc0a4f4468ed6f32d9d5169",
     "totalLoss": "1000000000000000000000000",
     "maxReturn": "1000000000000000000000000",
     "rewardCap": "150000000000000000000000",
     "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
-    "evidenceHash": "0x82c2616adc8c5ebd5f7ac14f9f6afad0e3d47c962226f6ec73c67839f26dee6e",
+    "evidenceHash": "0x75122c2a7b20039c2048aca3b95fd0bdadc1cd3142968ee490e7c9c97fc1b697",
     "tiers": [
       {
-        "until": "1794237012",
+        "until": "1794241848",
         "rewardBps": 1000
       },
       {
-        "until": "1794582612",
+        "until": "1794587448",
         "rewardBps": 500
       }
     ],
     "nonce": "1",
     "chainId": "11155111"
   },
-  "digest": "0xf16ca4463744e95c010deb3f13f1bab50c597105fdfd0fceb59e01000c1079f0",
-  "signature": "0x68d36dc18d2c277286975fc433be86844cf26c4e437c964f67d962430695ef3a7a2a1f86ee9cb43aa2c5eeaf968d5a6cbc62e58fc8aab753a008da56bfe1c05b1c",
+  "digest": "0xf6e46e7898ebeb4a2b9114054cc4895ed69018b9428770f7bf7fed416d14e056",
+  "signature": "0x9d628591e3558e423392ea60673a67dc58c02e8b48f3c8d2fdaceeab83832bbf76e7ac6b1d94b88804e3730a4b3bd80c50503de25fea8dd83b0782d26d99c5711c",
   "evidence": {
-    "protocol": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
-    "token": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
-    "drainTx": "0xccc60bf40b33bba1af2390eb75c0d2003691c7c2f1a3dd62bb7432695c0f71a6",
+    "protocol": "0x6bcfd19ff95cc0ec47d392a3e1e34549812a70e6",
+    "token": "0x2420399c32c7642b5dc0a4f4468ed6f32d9d5169",
+    "drainTx": "0x0a4b805e55fe4a2e7fbf6a70fb694d086eb1c2c25f949b1c95c900c96e7aee03",
     "totalLoss": "1000000000000000000000000",
     "allocations": [
       {
@@ -106,18 +106,18 @@
     }
   ],
   "txs": {
-    "deployMockUSD": "0x14daf866dd9817ab6b9dfc9bca5dd09680a8e71efb08f743e37ca3b48b18d159",
-    "deployVulnerableVault": "0x2389ce31752bc02b72328bff7a3673b2e7ba6dcca5f27899f0d5c238bf928595",
-    "deployReturnDesk": "0x385b679313db4ccbba164bf81a8c65c6fa267b9d4d8c4b4843508764e264d3ff",
-    "deposit0": "0xe0626558d1ba13ac0b2ff035971b2f1f8aedb855a5c666e2a3b74e9ea1463bc5",
-    "deposit1": "0xad4b7ae10cd5713ebefd89efcfb2d5453b27f7c78936f30a2e4d18052dbda6a7",
-    "deposit2": "0x995317c8f331a16465f16375caf8ed63be07c734ed1ce48ae468bfe3ccd59e3e",
-    "drain": "0xccc60bf40b33bba1af2390eb75c0d2003691c7c2f1a3dd62bb7432695c0f71a6",
-    "openCase": "0x1a6fd9f1bdca93ce48fa1ebcc9d49868767601aae5a3a675c8734a8a6fc48c1d",
-    "approveReturn": "0xe921bb2e7141925684bb4e9e36af232605d682edb56630731e92c83d656b8756",
-    "returnFunds": "0xa1806458da60efe9768905be81ad5ba51877dc6eb780588f0dfac003433f3dfa",
-    "claim0": "0x3e5f98e25301683b3b80fffa2e84c46ec21819fcf1581bcea432d320b25f8941",
-    "claim1": "0x29147c381223855dfa8fd3753a0acfc129dfbf4baa06091f2982f0abb5a33644",
-    "claim2": "0xfebb370411bb292cfea29e8dd6f62b23e519413079d9f1b44df44a875ad634ea"
+    "deployMockUSD": "0xd8d40d8fc1e49764a80cf515121fc722892a35ad81cef221501533a0a334c7bc",
+    "deployVulnerableVault": "0x296748c942766fb1acb6d8e0be3559068e84a2d985a93a0f838c4b7f5c94c22e",
+    "deployReturnDesk": "0x68aecddae9bbdbc5aadfd3f05773bdde70063a5a992d67595f819760078e3da2",
+    "deposit0": "0xdd887e3b5873110d381425485d1fff935369fbd8b1a44a0b84fed217462340be",
+    "deposit1": "0x58809e42a1cc20bea531becf79b1de2fe8234e3f0430237a2c601d593e8c1277",
+    "deposit2": "0x20efdff830b1a2f6aa9a61f66e22dcbf255345bd035997ff672101691e40974c",
+    "drain": "0x0a4b805e55fe4a2e7fbf6a70fb694d086eb1c2c25f949b1c95c900c96e7aee03",
+    "openCase": "0x6739540eb83eae92953263f0fa4335ddd43669f9a64b7eb21c431d461eafcdf3",
+    "approveReturn": "0x7fae40682725b82ef6b57eea84b8498a73e37e645aa0366e3586fa730351b71c",
+    "returnFunds": "0x60bb65a4127a1d44bc1f25bc41203df2c5668f11e59673d5e8c1b391925a857c",
+    "claim0": "0x9b18af30fed7ade6724609bfed4525c6c7cf4606385de8de18b993de67b39a94",
+    "claim1": "0x550bc82af8005b2fa47878d0fa6f400e69f9f0a9e1ecb3c0bc2d5668340af03d",
+    "claim2": "0x2be3b4bbb578040447745b33a6ae12929e1f220cc6ed7971a8bea5e05edd9141"
   }
 }

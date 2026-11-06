@@ -1,0 +1,4 @@
+# Pins the Rust version so a rebuilt wasm has the same hash as the deployed one.
+[toolchain]
+channel = "1.97.1"
+targets = ["wasm32-unknown-unknown"]

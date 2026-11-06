@@ -8,7 +8,7 @@ use near_sdk::json_types::U64;
 use near_sdk::store::{LookupMap, LookupSet};
 use near_sdk::{
     env, ext_contract, near, require, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault,
-    PromiseError, PromiseOrValue,
+    PromiseOrValue,
 };
 
 mod eip712;
@@ -30,6 +30,8 @@ const SECP256K1_DOMAIN_ID: u64 = 0;
 const SIGN_GAS: Gas = Gas::from_tgas(50);
 const CALLBACK_GAS: Gas = Gas::from_tgas(10);
 const SIGN_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
+// A valid response is about 200 bytes. Capped so an oversized response cannot use up the callback's gas.
+const MAX_SIGN_RESPONSE_BYTES: usize = 1024;
 
 #[derive(BorshStorageKey)]
 #[near(serializers = [borsh])]
@@ -155,13 +157,14 @@ impl ReturnDeskController {
     }
 
     /// Receives the MPC contract's result and stores the signature so anyone can read it and submit it to an EVM chain.
+    /// Reads the result directly instead of using `#[callback_result]`: a malformed response would make that macro panic,
+    /// the proposal would be stuck in `Signing` forever and could not be signed again. Here every error goes back to `Approved`.
     #[private]
-    pub fn on_signed(
-        &mut self,
-        proposal_id: U64,
-        #[callback_result] response: Result<SignResponse, PromiseError>,
-    ) -> Option<String> {
-        let signature = response.ok().and_then(|response| evm_signature(&response));
+    pub fn on_signed(&mut self, proposal_id: U64) -> Option<String> {
+        let signature = env::promise_result_checked(0, MAX_SIGN_RESPONSE_BYTES)
+            .ok()
+            .and_then(|bytes| near_sdk::serde_json::from_slice::<SignResponse>(&bytes).ok())
+            .and_then(|response| evm_signature(&response));
         let proposal = self.proposal_mut(proposal_id.0);
         match &signature {
             Some(_) => proposal.status = ProposalStatus::Signed,

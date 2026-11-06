@@ -387,6 +387,25 @@ contract ReturnFundsTest is BaseTest {
         assertEq(c.totalRefund, refund);
     }
 
+    // quote must report what the case still accepts, like returnFunds.
+    function test_quoteIsLimitedByRemainingMaxReturn() public {
+        ReturnDesk.CaseTerms memory t = _terms();
+        t.caseId = keccak256("limited quote");
+        t.nonce = 2;
+        t.maxReturn = 400_000e18;
+        t.rewardCap = ONE_MILLION;
+        _open(t);
+
+        (uint256 reward, uint256 refund) = desk.quote(t.caseId, ONE_MILLION);
+        assertEq(reward + refund, 400_000e18);
+        assertEq(reward, 60_000e18);
+
+        vm.prank(hacker);
+        desk.returnFunds(t.caseId, 300_000e18, rewardWallet);
+        (reward, refund) = desk.quote(t.caseId, ONE_MILLION);
+        assertEq(reward + refund, 100_000e18);
+    }
+
     function test_revertsOnZeroRewardAddress() public {
         vm.prank(hacker);
         vm.expectRevert(ReturnDesk.ZeroRewardAddress.selector);
@@ -569,23 +588,55 @@ contract NoAdminPathTest is BaseTest {
         _return(ONE_MILLION);
     }
 
-    function test_noCommonWithdrawFunctionExists() public {
-        string[6] memory signatures = [
-            "withdraw(address,uint256)",
-            "withdraw(uint256)",
-            "emergencyWithdraw(address)",
-            "sweep(address,address)",
-            "rescueTokens(address,address,uint256)",
-            "transferOwnership(address)"
+    // The complete list of allowed functions. Adding any function, a withdraw included, makes this test fail.
+    // Reads from the artifact instead of calling, because a call can revert for other reasons even when the function exists.
+    function test_contractExposesExactlyTheseFunctions() public view {
+        string memory json = vm.readFile("out/ReturnDesk.sol/ReturnDesk.json");
+        string[] memory actual = vm.parseJsonKeys(json, ".methodIdentifiers");
+        string[17] memory expected = [
+            "BPS()",
+            "CASE_TERMS_TYPEHASH()",
+            "MAX_TIERS()",
+            "REWARD_TIER_TYPEHASH()",
+            "claimRefund(bytes32,address,uint256,bytes32[])",
+            "claimable(bytes32,address,uint256)",
+            "claimed(bytes32,address)",
+            "controller()",
+            "currentTier(bytes32)",
+            "eip712Domain()",
+            "getCase(bytes32)",
+            "getTiers(bytes32)",
+            "hashCaseTerms((bytes32,address,uint256,uint256,uint256,bytes32,bytes32,(uint64,uint16)[],uint256,uint256))",
+            "nonceUsed(uint256)",
+            "openCase((bytes32,address,uint256,uint256,uint256,bytes32,bytes32,(uint64,uint16)[],uint256,uint256),bytes)",
+            "quote(bytes32,uint256)",
+            "returnFunds(bytes32,uint256,address)"
         ];
-        uint256 balanceBefore = usd.balanceOf(address(desk));
-        vm.startPrank(controller);
-        for (uint256 i = 0; i < signatures.length; ++i) {
-            (bool ok,) = address(desk).call(abi.encodeWithSignature(signatures[i], address(usd), controller, 1));
-            assertFalse(ok, signatures[i]);
+        assertEq(actual.length, expected.length, "number of external functions");
+        for (uint256 i = 0; i < expected.length; ++i) {
+            bool found = false;
+            for (uint256 j = 0; j < actual.length; ++j) {
+                if (keccak256(bytes(actual[j])) == keccak256(bytes(expected[i]))) found = true;
+            }
+            assertTrue(found, expected[i]);
         }
-        vm.stopPrank();
-        assertEq(usd.balanceOf(address(desk)), balanceBefore);
+    }
+
+    // Only three functions change state, and the contract accepts no ETH.
+    function test_onlyThreeFunctionsChangeState() public view {
+        string memory json = vm.readFile("out/ReturnDesk.sol/ReturnDesk.json");
+        string memory names = "";
+        for (uint256 i = 0; vm.keyExistsJson(json, string.concat(".abi[", vm.toString(i), "]")); ++i) {
+            string memory entry = string.concat(".abi[", vm.toString(i), "]");
+            bytes32 kind = keccak256(bytes(vm.parseJsonString(json, string.concat(entry, ".type"))));
+            assertTrue(kind != keccak256("receive") && kind != keccak256("fallback"), "accepts ETH");
+            if (kind != keccak256("function")) continue;
+            bytes32 mutability = keccak256(bytes(vm.parseJsonString(json, string.concat(entry, ".stateMutability"))));
+            if (mutability == keccak256("view") || mutability == keccak256("pure")) continue;
+            assertTrue(mutability == keccak256("nonpayable"), "payable function");
+            names = string.concat(names, vm.parseJsonString(json, string.concat(entry, ".name")), ",");
+        }
+        assertEq(names, "claimRefund,openCase,returnFunds,");
     }
 
     function test_controllerHasNoSpecialClaim() public {

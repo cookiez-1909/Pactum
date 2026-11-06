@@ -78,6 +78,14 @@ export async function createSubAccount(parent: NearCredentials, prefix: string, 
   return { accountId, secretKey: keyPair.toString() };
 }
 
+export async function richestAccount(accounts: NearCredentials[]): Promise<NearCredentials> {
+  const balances = await Promise.all(
+    accounts.map(async (item) => BigInt((await provider.viewAccount({ accountId: item.accountId })).amount)),
+  );
+  const index = balances.reduce((best, balance, position) => (balance > balances[best]! ? position : best), 0);
+  return accounts[index]!;
+}
+
 export function accountOf(credentials: NearCredentials): Account {
   return new Account(credentials.accountId, provider, credentials.secretKey as KeyPairString);
 }

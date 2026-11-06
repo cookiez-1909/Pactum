@@ -6,13 +6,13 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 
 | | |
 | --- | --- |
-| ReturnDesk (Sepolia) | [`0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba`](https://sepolia.etherscan.io/address/0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba) |
-| MockUSD (Sepolia) | [`0x03b625896462770d7fbad0e81c0c59f229d72f37`](https://sepolia.etherscan.io/address/0x03b625896462770d7fbad0e81c0c59f229d72f37) |
-| VulnerableVault (Sepolia, intentionally buggy) | [`0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20`](https://sepolia.etherscan.io/address/0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20) |
-| ReturnDeskController (NEAR testnet) | [`ctrl-aadc19d6.rd-stranger-93cc38385a.testnet`](https://testnet.nearblocks.io/address/ctrl-aadc19d6.rd-stranger-93cc38385a.testnet) |
-| Controller address on EVM | [`0x083939Bb99D1491d3836E3302E5a638D4543f27e`](https://sepolia.etherscan.io/address/0x083939Bb99D1491d3836E3302E5a638D4543f27e) |
-| The one transaction | [reward and refund split](https://sepolia.etherscan.io/tx/0xa1806458da60efe9768905be81ad5ba51877dc6eb780588f0dfac003433f3dfa) |
-| Chain Signatures approval | [`2VS2B79A…`](https://testnet.nearblocks.io/txns/2VS2B79AzzozJ7LA8upLsSmkoH4KeXftifFXQ8FUxU3x) |
+| ReturnDesk (Sepolia) | [`0xdeb5d8c818a4798f515c9a8df90c0252cf31347e`](https://sepolia.etherscan.io/address/0xdeb5d8c818a4798f515c9a8df90c0252cf31347e) |
+| MockUSD (Sepolia) | [`0x2420399c32c7642b5dc0a4f4468ed6f32d9d5169`](https://sepolia.etherscan.io/address/0x2420399c32c7642b5dc0a4f4468ed6f32d9d5169) |
+| VulnerableVault (Sepolia, intentionally buggy) | [`0x6bcfd19ff95cc0ec47d392a3e1e34549812a70e6`](https://sepolia.etherscan.io/address/0x6bcfd19ff95cc0ec47d392a3e1e34549812a70e6) |
+| ReturnDeskController (NEAR testnet) | [`ctrl-14796df2.rd-stranger-93cc38385a.testnet`](https://testnet.nearblocks.io/address/ctrl-14796df2.rd-stranger-93cc38385a.testnet) |
+| Controller address on EVM | [`0xB2C5C434BC54b78e47D5efcd86de35Dd1BDF2896`](https://sepolia.etherscan.io/address/0xB2C5C434BC54b78e47D5efcd86de35Dd1BDF2896) |
+| The one transaction | [reward and refund split](https://sepolia.etherscan.io/tx/0x60bb65a4127a1d44bc1f25bc41203df2c5668f11e59673d5e8c1b391925a857c) |
+| Chain Signatures approval | [`7M5y5cY6…`](https://testnet.nearblocks.io/txns/7M5y5cY6chq7T4E5qwYioCoFcjL5wH4FT4HC6AQMshFy) |
 | Video and X post | Not published yet |
 | Hosted demo | Not published yet |
 
@@ -25,21 +25,22 @@ You need `git`, `make`, [Foundry](https://getfoundry.sh), Rust, Node.js 22 or ne
 ```text
 make setup        → installs submodules and npm packages
 make demo-local   → log contains: stolen 1,000,000; reward 100,000; refund pool 900,000; claimed 900,000
-make verify       → reads the existing testnet transactions, prints 19 checks marked PASS and a PASS summary
+make verify       → reads the existing testnet transactions, prints 22 checks marked PASS and a PASS summary
 ```
 
-In a clean-room run on a machine with cached Rust crates, these three took about 50 seconds. Warnings from `npm ci` do not stop the setup.
+In a clean-room run on a machine with cached Rust crates, these three took about a minute. Warnings from `npm ci` do not stop the setup.
 
 Then, if you want more:
 
 ```text
-make test         → all tests pass: 64 in Foundry, 20 in Rust. Took about 2 minutes, mostly compiling Rust
+make test         → all tests pass: 66 in Foundry, 21 in Rust. Took about 3 minutes, mostly compiling Rust
+make scenarios    → 17 simulated situations on Anvil with real transactions and time travel, all marked PASS
 make web-local    → serves http://localhost:5173, open it to return the funds and claim refunds with test accounts
 ```
 
 `make web-local` uses ports 5173 and 8546 and runs until you press Ctrl-C.
 
-`make demo-local` and `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet` and `make verify` involve Chain Signatures.
+`make demo-local`, `make scenarios` and `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet` and `make verify` involve Chain Signatures.
 
 `make demo-testnet` repeats the whole flow on Sepolia and NEAR testnet. It needs a funded Sepolia key in `.env` (see [`.env.example`](.env.example)) and `cargo-near`. The NEAR faucet limits how many accounts one machine can create, so the script reuses guardian accounts between runs.
 
@@ -107,7 +108,7 @@ Properties enforced by [`ReturnDesk.sol`](contracts/src/ReturnDesk.sol):
 - **NEAR smart contract: public approval rules.** [`ReturnDeskController`](controller/src/lib.rs) holds the guardians, the 2-of-3 threshold and a global reward limit. It validates the terms and computes the EIP-712 digest itself. There is no function that signs an arbitrary payload, so only the digest of approved terms can ever be signed.
 - **A contract account with no access keys.** After deployment every key of the controller account is deleted, and `make verify` confirms this. Nobody can change its code or act as it. The account was created as a sub-account to avoid the faucet limit, and [a parent has no control over its sub-accounts](https://docs.near.org/protocol/accounts-contracts/account-id).
 
-The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. In the testnet run, the MPC network signed in 8.7 seconds, measured from the final approval to the stored signature.
+The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. Across four testnet runs, the MPC network signed in 8.7 to 10.1 seconds, measured from the final approval to the stored signature.
 
 **Honest limit of this design.** On one chain, an EVM multisig could do most of this. What NEAR adds is keyless control separated from the team's own infrastructure, and one controller that could serve several EVM chains. The prototype runs on Sepolia only: **multi-chain is a design, not something built here**.
 
@@ -139,22 +140,30 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 - **It does not stop hacks.** It only improves the chance of getting money back.
 - **Locked tokens.** Tokens sent to `ReturnDesk` without `returnFunds`, a reward sent to the contract itself and rounding dust stay locked, because no withdrawal exists. Allocations that sum to less than the loss leave funds locked as well.
 - **Token assumptions.** Fee-on-transfer tokens are tested. Tokens whose balances rebase downward are not supported.
-- **Contract binary.** The NEAR contract is built with `cargo near build non-reproducible-wasm`, so the deployed code hash `A7Hh1B6ZRAAXeAqPfVQLzWVVSTiPvE4dxuJ2VNWJJgtt` is not proven to come from this source by a reproducible build.
+- **NEAR binary provenance is partial.** `make verify` proves the deployed code matches [`deployments/return_desk_controller.wasm`](deployments/return_desk_controller.wasm), and `make verify-wasm` rebuilds that file from source. The rebuild matched byte for byte from another directory on the same machine, with Rust 1.97.1 and cargo-near 0.23.0. It has not been tested on another machine, and it is not a Docker reproducible build.
 - **Not audited.**
 
 ## Tests
 
 | Command | Measured result |
 | --- | --- |
-| `cd contracts && forge test` | 64 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
+| `make test-evm` | 66 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
 | `cd contracts && forge coverage` | `ReturnDesk.sol`: 100% lines and 100% branches |
-| `cd controller && cargo test` | 20 passed |
+| `make mutants` | About 7 minutes. 45 of 45 bugs injected into a copy of `ReturnDesk` were caught. 2 more changes do not alter behavior and are listed in the script |
+| `make test-near` | 21 passed |
+| `make scenarios` | 17 of 17 situations on Anvil, including time travel across reward tiers and a team hacking itself |
+| `make test-sandbox` | 7 passed: the real NEAR wasm in a local sandbox against a **mock** MPC signer. The first build took about 8 minutes |
 
-Covered as the spec requires: wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval and invalid terms. `#[private]` on the signature callback only applies in wasm, so it is checked on testnet by `make demo-testnet`. Foundry also verifies two real MPC signatures from testnet.
+Covered as the spec requires: wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval and invalid terms.
+
+The mock signer exists to force failures the real MPC network will not produce on demand: a failed signature, a malformed response and too little gas. After each one the proposal stays recoverable, and anyone can retry signing the same digest. It proves nothing about real signatures. Those are checked by `make verify`, and Foundry also verifies two real MPC signatures from testnet.
+
+"No withdraw function" is checked three ways: a test holds the complete list of allowed functions, `make verify` compares the bytecode on Sepolia with this source (excluding immutable values and the unexecuted metadata), and it calls `withdraw` from the controller address with an amount of 0, which would succeed if the function existed.
 
 ## Simulated, demo-only and intentionally broken parts
 
-- `make demo-local` and `make web-local`: the controller is a local test key, not NEAR. The output says `SIMULATED`.
+- `make demo-local`, `make scenarios` and `make web-local`: the controller is a local test key, not NEAR. The output says `SIMULATED`.
+- `make test-sandbox`: the MPC signer is a mock that returns a fixed response. It lives in [`sandbox/mock-signer`](sandbox/mock-signer).
 - `VulnerableVault`: intentionally vulnerable. `emergencyWithdraw` has no access control.
 - `MockUSD`: anyone can mint it, so it has no value.
 - Users, attacker and reward wallets in the demo are test accounts controlled by the demo script.
@@ -165,9 +174,10 @@ Covered as the spec requires: wrong signature, reused signature, wrong chain, ti
 ```text
 contracts/    Solidity contracts and Foundry tests
 controller/   NEAR contract in Rust
-scripts/      demo, verify and test vector generation in TypeScript
+scripts/      demo, verify, scenarios, mutation tests and test vector generation
+sandbox/      local NEAR sandbox tests and the mock MPC signer
 web/          React app: Incident, Return, Refund, Ledger
-deployments/  public addresses and transaction hashes of the testnet run
+deployments/  public addresses, transaction hashes and the deployed wasm of the testnet run
 spike/        first Chain Signatures experiment, kept as evidence
 ```
 
@@ -179,7 +189,7 @@ All code in this repository was written during the hackathon window, from 2026-1
 
 - **AI tools:** Claude Code.
 - **Solidity:** [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) 5.6.1, [forge-std](https://github.com/foundry-rs/forge-std), [Foundry](https://getfoundry.sh).
-- **NEAR:** [near-sdk](https://crates.io/crates/near-sdk) 5.30.1, [cargo-near](https://crates.io/crates/cargo-near) 0.23.0, NEAR Chain Signatures through `v1.signer-prod.testnet`.
+- **NEAR:** [near-sdk](https://crates.io/crates/near-sdk) 5.30.1, [cargo-near](https://crates.io/crates/cargo-near) 0.23.0, [near-workspaces](https://crates.io/crates/near-workspaces) 0.24.0 for the sandbox tests, NEAR Chain Signatures through `v1.signer-prod.testnet`.
 - **TypeScript:** [viem](https://viem.sh) 2.57.16, [near-api-js](https://www.npmjs.com/package/near-api-js) 7.4.0, [@openzeppelin/merkle-tree](https://www.npmjs.com/package/@openzeppelin/merkle-tree) 1.0.8, [@noble/curves](https://www.npmjs.com/package/@noble/curves) and [@noble/hashes](https://www.npmjs.com/package/@noble/hashes) 2.4.0, tsx, TypeScript.
 - **Web:** React 19, Vite, IBM Plex fonts from Google Fonts.
 - **Reference only:** the [near/mpc](https://github.com/near/mpc) source at the deployed commit, for the signing interface and key derivation.

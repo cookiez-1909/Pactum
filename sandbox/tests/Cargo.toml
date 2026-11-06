@@ -1,0 +1,18 @@
+[package]
+name = "sandbox-tests"
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "Runs the real controller wasm in a local NEAR sandbox against a mock signer"
+
+[workspace]
+
+[dependencies]
+
+[dev-dependencies]
+near-workspaces = "0.24.0"
+# Builds OpenSSL from source so libssl-dev does not have to be installed.
+openssl = { version = "0.10", features = ["vendored"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

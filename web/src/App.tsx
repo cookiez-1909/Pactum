@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, parseUnits, type Address, type Hash } from "viem";
+import { formatUnits, isAddress, parseUnits, zeroAddress, type Address, type Hash } from "viem";
 import {
   addressUrl,
   demoPersonas,
@@ -135,17 +135,21 @@ function Desk({ deployment, tab, setTab }: { deployment: Deployment; tab: Tab; s
   const personas = useMemo(() => demoPersonas(deployment), [deployment]);
   const [state, setState] = useState<CaseState | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [clockSkew, setClockSkew] = useState(0);
+  const [tick, setTick] = useState(Date.now());
+  const now = tick + clockSkew;
   const [sessionTxs, setSessionTxs] = useState<LedgerRow[]>([]);
   const desk = deployment.contracts.ReturnDesk;
   const caseId = deployment.terms.caseId;
 
   const refresh = useCallback(async () => {
     try {
-      const [result, tier] = await Promise.all([
+      const [result, tier, block] = await Promise.all([
         client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [caseId] }),
         client.readContract({ address: desk, abi: deskAbi, functionName: "currentTier", args: [caseId] }),
+        client.getBlock(),
       ]);
+      setClockSkew(Number(block.timestamp) * 1000 - Date.now());
       setState({
         totalReturned: result.totalReturned,
         totalReward: result.totalReward,
@@ -164,7 +168,7 @@ function Desk({ deployment, tab, setTab }: { deployment: Deployment; tab: Tab; s
   useEffect(() => {
     void refresh();
     const poll = window.setInterval(refresh, 6000);
-    const clock = window.setInterval(() => setNow(Date.now()), 1000);
+    const clock = window.setInterval(() => setTick(Date.now()), 1000);
     return () => {
       window.clearInterval(poll);
       window.clearInterval(clock);
@@ -300,7 +304,7 @@ function ReturnFunds({ deployment, state, now, personas, onTx }: { deployment: D
   const amount = useMemo(() => {
     try {
       const parsed = parseUnits(amountText.replace(/,/g, "").trim() || "0", 18);
-      return parsed >= 0n ? parsed : 0n;
+      return parsed >= 0n ? parsed : null;
     } catch {
       return null;
     }
@@ -316,11 +320,12 @@ function ReturnFunds({ deployment, state, now, personas, onTx }: { deployment: D
     return { accepted, reward, refund: accepted - reward };
   }, [state, amount, terms.maxReturn, terms.rewardCap]);
 
+  const rewardToValid = isAddress(rewardTo) && rewardTo !== zeroAddress;
   const remaining = state ? BigInt(terms.maxReturn) - state.totalReturned : 0n;
   const rewardShare = preview && preview.accepted > 0n ? Number((preview.reward * 10_000n) / preview.accepted) / 100 : 0;
 
   const submit = async () => {
-    if (!preview || preview.accepted === 0n) return;
+    if (!preview || preview.accepted === 0n || !rewardToValid) return;
     setMessage(null);
     try {
       const { client: wallet, account } = await walletFor(deployment, persona);
@@ -392,10 +397,11 @@ function ReturnFunds({ deployment, state, now, personas, onTx }: { deployment: D
 
       <label className="field">
         <span>Send my reward to</span>
-        <input value={rewardTo} spellCheck={false} onChange={(event) => setRewardTo(event.target.value)} />
+        <input value={rewardTo} spellCheck={false} aria-invalid={!rewardToValid} onChange={(event) => setRewardTo(event.target.value)} />
       </label>
+      {!rewardToValid && <p className="error">Enter a valid address other than the zero address. Tokens sent to a wrong address cannot be recovered.</p>}
       <PersonaPicker personas={personas} selected={persona} onChange={setPersona} allowed={["Attacker"]} />
-      <button type="button" className="primary" disabled={!state?.open || !preview || preview.accepted === 0n || busy !== null} onClick={submit}>
+      <button type="button" className="primary" disabled={!state?.open || !preview || preview.accepted === 0n || !rewardToValid || busy !== null} onClick={submit}>
         {busy ?? "Return funds"}
       </button>
       {message && <p className={message.kind === "ok" ? "success" : "error"}>{message.text}</p>}

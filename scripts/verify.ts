@@ -1,6 +1,8 @@
 // Verifies the testnet demo from public data only. No wallet and no keys.
 // Reads deployments/sepolia.json and checks every claim against Sepolia and NEAR testnet.
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { baseEncode } from "near-api-js";
 import {
   createPublicClient,
   http,
@@ -53,6 +55,12 @@ async function main() {
   check("ReturnDesk.controller is derived from the NEAR contract", isAddressEqual(onChainController, derived), derived);
   check("NEAR controller account has no access keys", (await accessKeyCount(controllerAccount)) === 0);
 
+  // The code on NEAR must be exactly the wasm file in the repo. `make verify-wasm` rebuilds that file from source.
+  const wasm = readFileSync(new URL("deployments/return_desk_controller.wasm", ROOT));
+  const account = await provider.viewAccount({ accountId: controllerAccount });
+  const wasmHash = baseEncode(createHash("sha256").update(wasm).digest());
+  check("Deployed NEAR code matches deployments/return_desk_controller.wasm", account.code_hash === wasmHash, wasmHash);
+
   const config = await view<{ return_desk: string; threshold: number; guardians: string[]; signer_contract: string }>(controllerAccount, "get_config");
   check("NEAR contract targets this ReturnDesk", config.return_desk.toLowerCase() === desk.toLowerCase());
   check("NEAR contract uses the MPC signer", config.signer_contract === MPC_CONTRACT, MPC_CONTRACT);
@@ -100,6 +108,31 @@ async function main() {
   check("Refund pool is 900,000 mUSD", state.totalRefund === 900_000n * ONE_TOKEN);
   check("Users claimed 900,000 mUSD", state.totalClaimed === 900_000n * ONE_TOKEN);
 
+  // The bytecode on Sepolia must equal the build from the source in this repo, except the immutable slots
+  // that hold this deployment's own values (controller, chain id, domain separator). This proves the running
+  // contract has no function beyond the source, a withdraw function included.
+  // The CBOR metadata at the end is excluded too: it is never executed and changes with the build settings.
+  const compiled = JSON.parse(readFileSync(new URL("contracts/out/ReturnDesk.sol/ReturnDesk.json", ROOT), "utf8"));
+  const onChain = ((await client.getCode({ address: desk })) ?? "0x").slice(2).toLowerCase();
+  const local = (compiled.deployedBytecode.object as string).slice(2).toLowerCase();
+  const references = Object.values(compiled.deployedBytecode.immutableReferences).flat() as { start: number; length: number }[];
+  const mask = (hex: string) => {
+    let masked = hex;
+    for (const { start, length } of references) {
+      masked = masked.slice(0, start * 2) + "0".repeat(length * 2) + masked.slice((start + length) * 2);
+    }
+    // The last two bytes give the metadata length.
+    const metadataBytes = Number.parseInt(masked.slice(-4), 16) + 2;
+    return masked.slice(0, -metadataBytes * 2);
+  };
+  check("Deployed ReturnDesk bytecode matches this source", onChain.length === local.length && mask(onChain) === mask(local), `${onChain.length / 2} bytes`);
+  const external = Object.keys(compiled.methodIdentifiers as Record<string, string>).length;
+  const changing = (compiled.abi as { type: string; name: string; stateMutability: string }[])
+    .filter((item) => item.type === "function" && item.stateMutability !== "view" && item.stateMutability !== "pure")
+    .map((item) => item.name)
+    .sort();
+  check("Only openCase, returnFunds and claimRefund change state", changing.join() === "claimRefund,openCase,returnFunds", `${external} external functions`);
+
   // No withdrawal path: try it with eth_call from the controller address itself.
   const { abi: mockAbi } = artifact("MockUSD", "MockUSD.sol");
   const deskBalance = (await client.readContract({ address: usd, abi: mockAbi, functionName: "balanceOf", args: [desk] })) as bigint;
@@ -110,7 +143,8 @@ async function main() {
       address: desk,
       abi: parseAbi(["function withdraw(address token, uint256 amount)"]),
       functionName: "withdraw",
-      args: [usd, 1n],
+      // Zero amount: if the function existed the call would succeed even with no tokens left in the contract.
+      args: [usd, 0n],
     })
     .then(() => false)
     .catch(() => true);

@@ -40,6 +40,7 @@ import {
   approveCase,
   createFaucetAccount,
   createSubAccount,
+  richestAccount,
   deployController,
   deriveEvmAddress,
   expectNearFailure,
@@ -173,9 +174,16 @@ function simulatedController(): ControllerSide {
 async function nearController(): Promise<ControllerSide> {
   // Guardians are reused between runs. The controller is always new because that account has every key removed.
   const { guardians, stranger } = await loadOrCreateNearAccounts();
-  const controller = await createSubAccount(stranger, "ctrl", CONTROLLER_DEPOSIT);
+  // Takes funds from the account with the most NEAR. A parent account has no rights over its sub-accounts.
+  const funder = await richestAccount([...guardians, stranger]);
+  const controller = await createSubAccount(funder, "ctrl", CONTROLLER_DEPOSIT);
   const address = await deriveEvmAddress(controller.accountId, DERIVATION_PATH);
   const wasm = readFileSync(new URL("controller/target/near/return_desk_controller.wasm", ROOT));
+  // Saves the exact deployed file in the repo so make verify can compare it with the code hash on NEAR.
+  if (!process.argv.includes("--stage")) {
+    mkdirSync(new URL("deployments/", ROOT), { recursive: true });
+    writeFileSync(new URL("deployments/return_desk_controller.wasm", ROOT), wasm);
+  }
   const record: Record<string, unknown> = {
     simulated: false,
     controllerAccount: controller.accountId,
@@ -492,7 +500,8 @@ async function run(mode: Mode, stage: boolean) {
       data: encodeFunctionData({
         abi: [{ type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [] }] as const,
         functionName: "withdraw",
-        args: [usd, 1n],
+        // Zero amount: if the function existed the call would succeed even with no tokens left in the contract.
+        args: [usd, 0n],
       }),
     })
     .then(() => "succeeded")
