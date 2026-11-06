@@ -7,13 +7,14 @@ import { identify, roleHint } from "../labels";
 import { useWallet, WalletMenu } from "../wallet";
 import { AssetIcon } from "./case-bits";
 import { Party } from "./Party";
-import { Book, Cases, Close, Help, Logo, Menu, Panel, Pulse, Radar, Search, Wallet } from "./icons";
+import { Book, Cases, Close, Help, Logo, Menu, Panel, Pulse, Radar, Search, Shield, Wallet } from "./icons";
 
 const NAV = [
   { href: "#/cases", label: "Cases", icon: Cases, match: ["cases", "case"] },
   { href: "#/tracker", label: "Hack tracker", icon: Radar, match: ["tracker"] },
   { href: "#/activity", label: "Activity", icon: Pulse, match: ["activity"] },
   { href: "#/wallet", label: "My wallet", icon: Wallet, match: ["wallet"] },
+  { href: "#/guardians", label: "Guardians", icon: Shield, match: ["guardians"] },
 ];
 
 export function Shell({ page, caseId, children }: { page: string; caseId: string | null; children: ReactNode }) {
@@ -36,7 +37,7 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const network = deployment.network === "local" ? "Local Anvil, simulated controller" : "Sepolia and NEAR testnet";
+  const network = deployment.network === "local" ? "Local Anvil, simulated controller" : "Three EVM testnets and NEAR testnet";
 
   return (
     <div className={collapsed ? "shell is-collapsed" : "shell"}>
@@ -141,6 +142,7 @@ function Palette({ onClose }: { onClose(): void }) {
       { label: "Hack tracker", hint: "Page", href: "#/tracker" },
       { label: "Activity", hint: "Page", href: "#/activity" },
       { label: "My wallet", hint: "Page", href: "#/wallet" },
+      { label: "Guardians", hint: "Page", href: "#/guardians" },
       { label: "How it works", hint: "Page", href: "#/how" },
       { label: "FAQ", hint: "Page", href: "#/faq" },
       { label: "Pactum home", hint: "Page", href: "#/" },

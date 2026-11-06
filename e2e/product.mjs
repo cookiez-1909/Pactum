@@ -60,7 +60,7 @@ await page.waitForFunction(() => /\d of 5/.test(document.querySelector(".stat dd
 const logo = await page.locator(".sidebar .brand").boundingBox();
 check("logo sits top left in the app", logo.x < 40 && logo.y < 40);
 const navLabels = await page.locator(".side-nav .side-label").allInnerTexts();
-check("sections are stacked in the sidebar", navLabels.join() === "Search,Cases,Hack tracker,Activity,My wallet", navLabels.join());
+check("sections are stacked in the sidebar", navLabels.join() === "Search,Cases,Hack tracker,Activity,My wallet,Guardians", navLabels.join());
 const order = await page.locator(".case-name").allInnerTexts();
 check("the case closing soonest comes first", order[0] === "Tidewater Perps", order.join(" > "));
 check("the closed case is last", order[order.length - 1] === "Quillon DEX");
@@ -433,13 +433,34 @@ check("menu opens the sidebar", (await phone.locator(".sidebar").boundingBox()).
 await phone.locator(".side-link", { hasText: "Activity" }).click();
 await phone.waitForTimeout(450);
 check("choosing a section closes the menu", (await phone.locator(".sidebar").boundingBox()).x < 0);
-for (const hash of ["#/faq", "#/activity", "#/tracker", "#/wallet", "#/how", "#/case/tidewater/incident", "#/case/kestrel/offer", "#/case/tidewater/return/mUSDC", "#/case/tidewater/refund/mUSDC", "#/case/kestrel/discussion", "#/case/tidewater/ledger/mETH"]) {
+for (const hash of ["#/guardians", "#/faq", "#/activity", "#/tracker", "#/wallet", "#/how", "#/case/tidewater/incident", "#/case/kestrel/offer", "#/case/tidewater/return/mUSDC", "#/case/tidewater/refund/mUSDC", "#/case/kestrel/discussion", "#/case/tidewater/ledger/mETH"]) {
   await go(phone, hash);
   await phone.waitForTimeout(250);
   const wide = await overflow(phone);
   check(`${hash} has no sideways scroll on a phone`, !wide);
   if (wide) console.log("      wider than the screen:", await phone.evaluate(() => [...document.querySelectorAll("main *")].filter((el) => el.getBoundingClientRect().right > innerWidth + 1 && !el.closest(".table-wrap")).slice(0, 6).map((el) => `${el.tagName}.${el.className} right=${Math.round(el.getBoundingClientRect().right)}`).join(" | ")));
 }
+
+// The Guardians page reads the real controller on NEAR testnet even in the local build.
+const guardians = await fresh();
+await guardians.goto(`${base}#/guardians`);
+await guardians.waitForSelector(".proposal", { timeout: 30000 });
+const guardiansText = await guardians.innerText("main");
+check("guardians page says the local cases are simulated", guardiansText.includes("use a test key in place of NEAR"));
+const servedChains = await guardians.locator(".chain-list .party-name").allInnerTexts();
+check("guardians page shows all three chains", servedChains.join() === "Sepolia,Base Sepolia,Robinhood testnet", servedChains.join());
+check("guardians page shows the rule and the limit", guardiansText.includes("2 of 3 guardians") && guardiansText.includes("20% on every chain"));
+check("guardians page reports no access keys", guardiansText.includes("0. Nobody can change this contract"));
+const proposalCount = await guardians.locator(".proposal").count();
+const proposalChains = await guardians.locator(".proposal-chain").allInnerTexts();
+check("a proposal is listed for each chain", servedChains.every((name) => proposalChains.includes(name)), proposalChains.join());
+check("the guardians can read the offer", guardiansText.includes("Keep 10% if the funds come back within 72 hours"));
+check("every offer text matches its hash", (await guardians.locator(".proposal-hash.is-good").count()) === proposalCount);
+await guardians.waitForFunction(() => [...document.querySelectorAll(".proposal")].every((el) => /Open on /.test(el.textContent ?? "")), null, { timeout: 30000 });
+check("each case is read back from its own chain", true);
+await guardians.locator(".proposal-record summary").first().click();
+check("the full record opens", (await guardians.locator(".proposal-record pre").first().innerText()).includes("drainTx"));
+await guardians.screenshot({ path: `${out}/p14-guardians.png`, fullPage: true });
 
 // Reduced motion
 const calm = await (await browser.newContext({ viewport: { width: 1200, height: 800 }, reducedMotion: "reduce" })).newPage();

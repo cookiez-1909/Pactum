@@ -6,18 +6,20 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 
 | | |
 | --- | --- |
-| Pactum (Sepolia) | [`0x35f76b8dc1715fd23e660f6c75585253b942faff`](https://sepolia.etherscan.io/address/0x35f76b8dc1715fd23e660f6c75585253b942faff) |
-| PublicNotes (Sepolia) | [`0x1529ae55241d5cb73f99088dfb0d6c640406c373`](https://sepolia.etherscan.io/address/0x1529ae55241d5cb73f99088dfb0d6c640406c373) |
-| MockUSD (Sepolia) | [`0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db`](https://sepolia.etherscan.io/address/0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db) |
-| VulnerableVault (Sepolia, intentionally buggy) | [`0x5de4349d940905633932a1c80fcb761f4f062693`](https://sepolia.etherscan.io/address/0x5de4349d940905633932a1c80fcb761f4f062693) |
-| PactumController (NEAR testnet) | [`ctrl-0f16a663.rd-guardian-c-6b8f4bb36c.testnet`](https://testnet.nearblocks.io/address/ctrl-0f16a663.rd-guardian-c-6b8f4bb36c.testnet) |
-| Controller address on EVM | [`0x9A515Ea7671c2F95693aeCF0F5F45DD41d8f3ec7`](https://sepolia.etherscan.io/address/0x9A515Ea7671c2F95693aeCF0F5F45DD41d8f3ec7) |
-| The one transaction | [reward and refund split](https://sepolia.etherscan.io/tx/0x287923c2f635240a888f4531b2833ce46479ca905f4fa9ecd4b1508317a25250) |
-| Chain Signatures approval | [`DYBZ6UfG…`](https://testnet.nearblocks.io/txns/DYBZ6UfGowyq1Wo8pgMm9txoB3BG5b8mmDHuTECL8mtV) |
+| PactumController (NEAR testnet) | [`ctrl-fe0caadd.rd-guardian-a-3ff0494a5d.testnet`](https://testnet.nearblocks.io/address/ctrl-fe0caadd.rd-guardian-a-3ff0494a5d.testnet) |
+| Controller address, the same on all three chains | `0x7Ca4a74F0d13aececb82ECB616D5D03dae700aEf` |
+| Pactum (Sepolia) | [`0xfdc970a0e0db1b8f1775c855ab4496982d0e2ae9`](https://sepolia.etherscan.io/address/0xfdc970a0e0db1b8f1775c855ab4496982d0e2ae9) |
+| Pactum (Base Sepolia) | [`0xbecfb6471bce4353c4bf067149fc3acdbfa30ae5`](https://sepolia.basescan.org/address/0xbecfb6471bce4353c4bf067149fc3acdbfa30ae5) |
+| Pactum (Robinhood testnet) | [`0xd9a17c2adc2e1c929175ae322b85596d62738cdd`](https://explorer.testnet.chain.robinhood.com/address/0xd9a17c2adc2e1c929175ae322b85596d62738cdd) |
+| PublicNotes (Sepolia) | [`0xf15dca02c823ff4d5bab70cfff59e912f2810c64`](https://sepolia.etherscan.io/address/0xf15dca02c823ff4d5bab70cfff59e912f2810c64) |
+| MockUSD (Sepolia) | [`0x895c04ac03405225252df2160c880773123b7855`](https://sepolia.etherscan.io/address/0x895c04ac03405225252df2160c880773123b7855) |
+| VulnerableVault (Sepolia, intentionally buggy) | [`0xf1b7018966d63b92bca2a430b16f5fca859dbb77`](https://sepolia.etherscan.io/address/0xf1b7018966d63b92bca2a430b16f5fca859dbb77) |
+| The one transaction | reward and refund split on [Sepolia](https://sepolia.etherscan.io/tx/0xa0e7dc17d4b3b1e2dcb4b940b56ae06b4efc4552004a19b5f275631bbaa3b965), [Base Sepolia](https://sepolia.basescan.org/tx/0xf272484b77270d92bbdc0f1886b4de486964ff9e5c53086e98445bdf3953278a) and [Robinhood testnet](https://explorer.testnet.chain.robinhood.com/tx/0x0155e27d109e8bd44ab642200e42fb5043af326b4709e99c05c2e2b2ca23c241) |
+| Chain Signatures approvals | Sepolia [`26pjVkwQ…`](https://testnet.nearblocks.io/txns/26pjVkwQmUuZ1Uq4rDXH5P2AthTinKaCr9h8JQsFpUeA), Base Sepolia [`Gf3VPnK2…`](https://testnet.nearblocks.io/txns/Gf3VPnK26mgxkboWnHewkkYjQ6SWmzjwT6oQZ9DuAfdz), Robinhood testnet [`7XkVnu1u…`](https://testnet.nearblocks.io/txns/7XkVnu1uoLXHxVmkeSmYeuRBYTiW5EgUHChyB8HU6LF4) |
 | Video and X post | Not published yet |
 | Hosted demo | Not published yet |
 
-Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json).
+Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json), [`deployments/base-sepolia.json`](deployments/base-sepolia.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json).
 
 ## Try it in 2 minutes
 
@@ -26,7 +28,7 @@ You need `git`, `make`, [Foundry](https://getfoundry.sh), Rust, Node.js 22 or ne
 ```text
 make setup        → installs submodules and npm packages
 make demo-local   → log contains: stolen 1,000,000; reward 100,000; refund pool 900,000; claimed 900,000
-make verify       → reads the existing testnet transactions, prints 22 checks marked PASS and a PASS summary
+make verify       → reads the existing testnet transactions, prints 67 checks marked PASS across the three chains and NEAR, then a PASS summary
 ```
 
 In a clean-room run on a machine with cached Rust crates, these three took about a minute. Warnings from `npm ci` do not stop the setup.
@@ -34,17 +36,17 @@ In a clean-room run on a machine with cached Rust crates, these three took about
 Then, if you want more:
 
 ```text
-make test         → all tests pass: 76 in Foundry, 21 in Rust. Took 3 to 5 minutes, mostly compiling Rust
+make test         → all tests pass: 76 in Foundry, 38 in Rust. Took 3 to 5 minutes, mostly compiling Rust
 make scenarios    → 19 simulated situations on Anvil with real transactions and time travel, all marked PASS
 make intents-quote → prints a live NEAR Intents quote, no wallet and nothing is swapped
-make web-local    → serves http://localhost:5173 with 5 fictional hacks across 8 mock assets. Pick a test account, then write an offer, return funds or claim
+make web-local    → serves http://localhost:5173 with 5 fictional hacks across 8 mock assets. Pick a test account, then write an offer, return funds or claim. Open Guardians to read the real offers live from NEAR testnet
 ```
 
 `make web-local` uses ports 5173 and 8546 and runs until you press Ctrl-C.
 
-`make demo-local`, `make scenarios` and `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet` and `make verify` involve Chain Signatures.
+`make demo-local`, `make scenarios` and the cases in `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet`, `make verify` and the Guardians page involve the real NEAR contract. The Guardians page reads it live, even in `make web-local`.
 
-`make demo-testnet` repeats the whole flow on Sepolia and NEAR testnet. It needs a funded Sepolia key in `.env` (see [`.env.example`](.env.example)) and `cargo-near`. The NEAR faucet limits how many accounts one machine can create, so the script reuses guardian accounts between runs.
+`make demo-testnet` repeats the whole flow on Sepolia, Base Sepolia and Robinhood testnet, with one controller on NEAR testnet signing for all three. It needs a key funded with ETH on all three chains in `.env` (see [`.env.example`](.env.example)) and `cargo-near`. The NEAR faucet limits how many accounts one machine can create, so the script reuses guardian accounts between runs.
 
 ```bash
 cargo install cargo-near --locked --version 0.23.0 --no-default-features
@@ -70,17 +72,18 @@ Attacker returns 1,000,000 mUSD at a 10% reward, in one transaction
 
 ```text
 Guardians (several NEAR accounts)
-      │ propose_case, approve_case
+      │ propose_case with the full offer text, approve_case
       ▼
 PactumController on NEAR testnet
-      │ hashes the approved terms, requests a signature
+      │ checks the text against its hash, hashes the approved terms for the
+      │ target chain, requests a signature
       ▼
 Chain Signatures (v1.signer-prod.testnet)
       │ EIP-712 signature, stored on NEAR for anyone to read
       ▼
-Anyone relays it to Sepolia (the relayer needs no trust)
+Anyone relays it to the target chain (the relayer needs no trust)
       ▼
-Pactum on Sepolia
+Pactum on Sepolia, Base Sepolia or Robinhood testnet (one contract on each, same controller address)
       ├─ openCase(terms, signature)
       ├─ returnFunds(): atomic split
       └─ claimRefund(): users claim with a Merkle proof
@@ -112,7 +115,7 @@ Two questions come up first when trying the app.
 
 This does not open a way to take money. `returnFunds` pulls only the caller's own tokens, and the most that comes back is the published reward, so someone sending in 100 at a 10% reward loses 90. The interface blocks a wallet that holds none of the token.
 
-**The real limit is the chain.** A case accepts one token on one chain, so funds that were swapped or bridged away must be swapped or bridged back first.
+**The real limit is the chain.** A case accepts one token on one chain. The same guardians can open a case on any chain where `Pactum` runs, which in this demo means Sepolia, Base Sepolia and Robinhood testnet. Funds that went anywhere else must be swapped or bridged back first.
 
 **Is any identity needed?** No sign-up and no identity check. The reward wallet is optional and defaults to the sending wallet. Entering a wallet in the interface is optional too. It is a read-only view, is not saved, and is only used to read public data.
 
@@ -122,7 +125,7 @@ The percentage and the deadlines can be any custom value within the limits. The 
 
 "The hacker keeps 20% and returns 80%" is a 20% reward. The holder sends everything to the contract and gets 20% back in the same transaction, which gives the same result but nobody has to go first.
 
-Special conditions are free text. They are hashed into the signed terms through `evidenceHash`, so anyone can check they were not changed. **The contract does not enforce them**, only the reward, deadlines and refunds.
+Special conditions are free text. They are hashed into the signed terms through `evidenceHash`, so anyone can check they were not changed. On NEAR the full text is stored in the proposal, and `propose_case` rejects text that does not match the hash, so guardians read what they approve. **The contract does not enforce the conditions**, only the reward, deadlines and refunds.
 
 **Why can the contract accept a claim from anyone?** A claim must carry a Merkle proof that the wallet and amount are on the list fixed when the case opened, and the tokens go only to that listed wallet. Letting someone else submit the transaction helps a user with no gas. The interface shows the claim button only to the listed wallet, and a test confirms that a claim sent by a stranger pays only the listed user.
 
@@ -143,17 +146,18 @@ Special conditions are free text. They are hashed into the signed terms through 
 
 ## How NEAR is used
 
-- **Chain Signatures: control without a private key.** `Pactum.controller` is an address derived from the NEAR contract account. Its signature comes from the MPC network, only when the contract asks. `make verify` checks the derivation and that the signature recovers to that address.
-- **NEAR smart contract: public approval rules.** [`PactumController`](controller/src/lib.rs) holds the guardians, the 2-of-3 threshold and a global reward limit. It validates the terms and computes the EIP-712 digest itself. There is no function that signs an arbitrary payload, so only the digest of approved terms can ever be signed.
+- **One controller for several chains.** One [`PactumController`](controller/src/lib.rs) serves `Pactum` on Sepolia, Base Sepolia and Robinhood testnet. All three share its guardians, its 2-of-3 threshold and its 20% reward limit, and the same derived address opens cases on all of them. The digest binds the chain id and the contract address, so `make verify` confirms that a Sepolia signature is rejected on the other two. To add a chain, a new controller would be needed, because the list is fixed at deployment.
+- **Chain Signatures: control without a private key.** `Pactum.controller` is an address derived from the NEAR contract account. Its signature comes from the MPC network, only when the contract asks. `make verify` checks the derivation and that the signature recovers to that address on each chain.
+- **NEAR smart contract: where an offer is read and approved.** The contract holds the rules, validates the terms and computes the EIP-712 digest itself. Each proposal stores the full offer text, and the contract checks it against `evidenceHash`. There is no function that signs an arbitrary payload, so only the digest of approved terms can ever be signed.
+- **A public record with no server.** The Guardians page in the app calls `get_config` and `list_proposals` on the NEAR contract from the browser, recomputes each offer's hash there, and reads back from each EVM chain whether the case is open.
 - **A contract account with no access keys.** After deployment every key of the controller account is deleted, and `make verify` confirms this. Nobody can change its code or act as it. The account was created as a sub-account to avoid the faucet limit, and [a parent has no control over its sub-accounts](https://docs.near.org/protocol/accounts-contracts/account-id).
-
 - **NEAR Intents: refunds in the asset a user wants.** The refund page requests a live quote to swap a refund for an asset on another chain, such as BTC on Bitcoin. `make intents-quote` does the same from the terminal. These are real `dry` quotes at mainnet prices. **No swap runs**, because NEAR Intents has no testnet and the demo tokens are mocks. Real use would have to follow the 1Click terms, which require compliance screening from integrators.
 
 Pactum deliberately does not route the holder's stolen funds through NEAR Intents. Public swaps can be matched between deposit and withdrawal, its SHIELD layer can delay flows linked to reported hacks, and its terms prohibit laundering. Hiding that trail is not a goal of this project.
 
-The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. Across nine testnet runs, the MPC network signed in 8.7 to 11.7 seconds, measured from the final approval to the stored signature.
+The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. Across 14 signatures on testnet, the MPC network took 8.7 to 11.7 seconds, measured from the final approval to the stored signature.
 
-**Honest limit of this design.** On one chain, an EVM multisig could do most of this. What NEAR adds is keyless control separated from the team's own infrastructure, and one controller that could serve several EVM chains. The prototype runs on Sepolia only: **multi-chain is a design, not something built here**.
+**Honest limit of this design.** The money and the split stay on the EVM chains. NEAR decides which offers may open, and nothing else: a holder returning funds and a user claiming a refund never touch NEAR. A separate multisig on each chain could do something similar, and it is the fair comparison. The difference is where the rules live: `PactumController` rejects terms above the reward limit, or with an invalid schedule or mismatched text, on every chain and even if enough guardians approve, while a multisig signs whatever enough signers approve unless a guard contract is added on each chain. Deploying per chain is not the difference, because `Pactum` itself is deployed per chain. This design has its own costs: guardians still hold their own NEAR keys, each chain needs its own proposal and approvals, and adding a chain needs a new controller with a new signing address. **This covers EVM chains only.** Chain Signatures can also sign for Bitcoin, but an atomic split needs a smart contract on the same chain as the funds.
 
 ## Why not just SEAL Safe Harbor?
 
@@ -179,6 +183,7 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 - **No immunity from prosecution.** The contract only commits to a payment.
 - **Sanctions.** Paying a sanctioned party may be illegal. Real use needs legal advice and screening, and this prototype has neither.
 - **Professional groups may not return funds.** The best fit is an independent hacker at a small or mid-sized protocol.
+- **Demo guardians.** The three guardian accounts on testnet are test accounts controlled by the demo script, so this run shows the mechanism and not independent people.
 - **Remaining trust.** `refundRoot` must be correct, and the Chain Signatures MPC network must behave correctly. A wrong root can misallocate that case's refunds, but tests show it cannot pay more than the case's pool or reach another case's tokens.
 - **It does not stop hacks.** It only improves the chance of getting money back.
 - **Locked tokens.** Tokens sent to `Pactum` without `returnFunds`, a reward sent to the contract itself and rounding dust stay locked, because no withdrawal exists. Allocations that sum to less than the loss leave funds locked as well.
@@ -193,26 +198,27 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 | `make test-evm` | 76 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
 | `cd contracts && forge coverage` | `Pactum.sol`: 100% lines and 100% branches |
 | `make mutants` | About 7 minutes. 45 of 45 bugs injected into a copy of `Pactum` were caught. 2 more changes do not alter behavior and are listed in the script |
-| `make test-near` | 21 passed |
+| `make test-near` | 38 passed |
 | `make scenarios` | 19 of 19 situations on Anvil, including time travel across reward tiers, assets with different decimals, funds moved through several wallets and a team hacking itself |
 | `make test-ui` | Drives the app in Chromium through every role, offers, returns, refunds and phones. Needs `npx playwright install chromium` in `e2e/`, or `CHROMIUM_PATH` set |
-| `make test-sandbox` | 7 passed: the real NEAR wasm in a local sandbox against a **mock** MPC signer. The first build took about 8 minutes |
+| `make test-sandbox` | 9 passed: the real NEAR wasm in a local sandbox against a **mock** MPC signer. The first build took about 8 minutes |
 
-Covered as the spec requires: wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval and invalid terms.
+Covered as the spec requires: wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval, invalid terms, a chain the controller does not serve, separate digests per chain, and offer text that does not match its hash.
 
 The mock signer exists to force failures the real MPC network will not produce on demand: a failed signature, a malformed response and too little gas. After each one the proposal stays recoverable, and anyone can retry signing the same digest. It proves nothing about real signatures. Those are checked by `make verify`, and Foundry also verifies two real MPC signatures from testnet.
 
-"No withdraw function" is checked three ways: a test holds the complete list of allowed functions, `make verify` compares the bytecode on Sepolia with this source (excluding immutable values and the unexecuted metadata), and it calls `withdraw` from the controller address with an amount of 0, which would succeed if the function existed.
+"No withdraw function" is checked three ways: a test holds the complete list of allowed functions, `make verify` compares the bytecode on all three chains with this source (excluding immutable values and the unexecuted metadata), and it calls `withdraw` from the controller address with an amount of 0, which would succeed if the function existed.
 
 ## Simulated, demo-only and intentionally broken parts
 
-- `make demo-local`, `make scenarios` and `make web-local`: the controller is a local test key, not NEAR. The output says `SIMULATED`.
+- `make demo-local`, `make scenarios` and the cases in `make web-local`: the controller is a local test key, not NEAR. The output says `SIMULATED`. The Guardians page is the exception, because it reads the real NEAR testnet contract.
 - `make test-sandbox`: the MPC signer is a mock that returns a fixed response. It lives in [`sandbox/mock-signer`](sandbox/mock-signer).
 - `VulnerableVault`: intentionally vulnerable. `emergencyWithdraw` has no access control.
 - `MockUSD` and `MockToken`: anyone can mint them, so they have no value.
 - The test accounts in `make web-local` (Hacker, Hacker 2, Hacker 3, New wallet, Users, Protocol owner, Stranger) are demo wallets. On a real deployment nothing would label a wallet that moved funds as a hacker.
 - The hacks in `make web-local` use fictional protocols (Quillon DEX, Kestrel Bridge, Tidewater Perps, Northgate Lending, Marlin Vaults), and their dollar values use made-up prices.
-- The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms.
+- The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms. The app has no way to sign as a guardian.
+- The app acts on one chain at a time. The hosted build can return and claim on Sepolia, and shows the other two runs on the Guardians page and in `deployments/`.
 - The comments shown in `make web-local` are written for the demo and posted by test accounts.
 - "Hack tracker" in the interface lists real events with figures and links from public sources, as of 2026-11-06. None of those organizations uses Pactum. The "Would it fit?" column is this project's opinion.
 - Users, attacker and reward wallets in the demo are test accounts controlled by the demo script.
@@ -225,7 +231,7 @@ contracts/    Solidity contracts and Foundry tests: Pactum, PublicNotes and demo
 controller/   NEAR contract in Rust
 scripts/      demo, verify, scenarios, mutation tests and test vector generation
 sandbox/      local NEAR sandbox tests and the mock MPC signer
-web/          React app: landing page, cases, offers, returns, refunds, discussion, activity, hack tracker and FAQ
+web/          React app: landing page, cases, offers, returns, refunds, discussion, activity, guardians, hack tracker and FAQ
 e2e/          interface tests in Chromium
 deployments/  public addresses, transaction hashes and the deployed wasm of the testnet run
 spike/        first Chain Signatures experiment, kept as evidence

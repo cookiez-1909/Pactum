@@ -249,13 +249,14 @@ function Overview({ incident }: { incident: Incident }) {
         <section className="card">
           <h2>Who decided</h2>
           {near.simulated ? (
-            <p className="notice">Local mode. The controller is <strong>simulated</strong> with a test key. No NEAR contract or Chain Signatures are involved in this run.</p>
+            <p className="notice">Local mode. The controller is <strong>simulated</strong> with a test key. No NEAR contract or Chain Signatures are involved in this run. <a href="#/guardians">See the real controller on NEAR testnet</a>.</p>
           ) : (
             <dl className="facts">
               <div><dt>NEAR contract</dt><dd className="break"><a href={`https://testnet.nearblocks.io/address/${near.controllerAccount}`} target="_blank" rel="noreferrer">{near.controllerAccount}</a></dd></div>
               <div><dt>Proposal</dt><dd>{proposal ? <strong>{proposal.status}</strong> : nearFailed ? "NEAR read failed" : "Reading NEAR…"}</dd></div>
               <div><dt>Approvals</dt><dd>{proposal ? `${proposal.approvals.length} of ${near.guardians?.length}, ${near.threshold} needed` : "…"}</dd></div>
               <div><dt>Approved by</dt><dd>{proposal ? proposal.approvals.map(nearName).join(", ") : "…"}</dd></div>
+              <div><dt>Offer text</dt><dd><a href="#/guardians">Read it as the guardians did</a></dd></div>
             </dl>
           )}
           <dl className="facts">

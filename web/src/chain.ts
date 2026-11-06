@@ -14,7 +14,7 @@ import {
   type PublicClient,
 } from "viem";
 import { mnemonicToAccount, privateKeyToAccount, type LocalAccount } from "viem/accounts";
-import { foundry, sepolia } from "viem/chains";
+import { baseSepolia, foundry, robinhoodTestnet, sepolia } from "viem/chains";
 
 export const deskAbi = parseAbi([
   "struct Case { address token; uint256 totalLoss; uint256 maxReturn; uint256 rewardCap; bytes32 refundRoot; bytes32 evidenceHash; uint256 totalReturned; uint256 totalReward; uint256 totalRefund; uint256 totalClaimed; }",
@@ -182,10 +182,29 @@ export function normalizeDeployment(raw: Record<string, unknown>): Deployment {
 }
 
 export interface NearProposal {
+  id: string;
   status: string;
   approvals: string[];
   digest: string;
+  evidence: string;
+  terms: { case_id: Hex; chain_id: string; evidence_hash: Hex; tiers: { until: string; reward_bps: number }[] };
 }
+
+export interface NearConfig {
+  guardians: string[];
+  threshold: number;
+  deployments: { chain_id: string; pactum: Address }[];
+  derivation_path: string;
+  signer_contract: string;
+  max_reward_bps: number;
+}
+
+// The chains the testnet build serves. The Guardians page reads from here, even in the local build.
+export const TESTNET_CHAINS: Record<string, { label: string; chain: Chain; rpc: string; explorer: string }> = {
+  [sepolia.id]: { label: "Sepolia", chain: sepolia, rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io" },
+  [baseSepolia.id]: { label: "Base Sepolia", chain: baseSepolia, rpc: "https://base-sepolia-rpc.publicnode.com", explorer: "https://sepolia.basescan.org" },
+  [robinhoodTestnet.id]: { label: "Robinhood testnet", chain: robinhoodTestnet, rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com" },
+};
 
 const rpcOf = (deployment: Deployment) => deployment.rpc ?? "https://ethereum-sepolia-rpc.publicnode.com";
 
@@ -209,30 +228,51 @@ export function nearTxUrl(hash: string): string {
   return `https://testnet.nearblocks.io/txns/${hash}`;
 }
 
-// Reads proposals straight from the NEAR contract over public RPC.
-export async function fetchNearProposal(deployment: Deployment): Promise<NearProposal | null> {
-  const { controllerAccount, proposalId } = deployment.near;
-  if (!controllerAccount || proposalId === undefined) return null;
+export function nearAccountUrl(account: string): string {
+  return `https://testnet.nearblocks.io/address/${account}`;
+}
+
+async function nearQuery(params: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   const response = await fetch("https://test.rpc.fastnear.com", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "pactum",
-      method: "query",
-      params: {
-        request_type: "call_function",
-        finality: "final",
-        account_id: controllerAccount,
-        method_name: "get_proposal",
-        args_base64: btoa(JSON.stringify({ proposal_id: proposalId })),
-      },
-    }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: "pactum", method: "query", params: { finality: "final", ...params } }),
   });
   const json = await response.json();
-  const bytes = json?.result?.result as number[] | undefined;
+  return (json?.result as Record<string, unknown> | undefined) ?? null;
+}
+
+// Calls a NEAR contract's view function over public RPC, with no wallet and no server.
+export async function nearView<T>(account: string, method: string, args: Record<string, unknown>): Promise<T | null> {
+  const result = await nearQuery({ request_type: "call_function", account_id: account, method_name: method, args_base64: btoa(JSON.stringify(args)) });
+  const bytes = result?.result as number[] | undefined;
   if (!bytes) return null;
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as NearProposal;
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as T;
+}
+
+export async function nearAccessKeyCount(account: string): Promise<number | null> {
+  const result = await nearQuery({ request_type: "view_access_key_list", account_id: account });
+  const keys = result?.keys as unknown[] | undefined;
+  return keys ? keys.length : null;
+}
+
+export async function fetchNearProposal(deployment: Deployment): Promise<NearProposal | null> {
+  const { controllerAccount, proposalId } = deployment.near;
+  if (!controllerAccount || proposalId === undefined) return null;
+  return await nearView<NearProposal>(controllerAccount, "get_proposal", { proposal_id: proposalId });
+}
+
+// Whether the case is open on its target chain. Returns null when that chain cannot be read.
+export async function caseIsOpen(chainId: string, pactum: Address, caseId: Hex): Promise<boolean | null> {
+  const target = TESTNET_CHAINS[chainId];
+  if (!target) return null;
+  try {
+    const client = createPublicClient({ chain: target.chain, transport: http(target.rpc) }) as PublicClient;
+    const info = await client.readContract({ address: pactum, abi: deskAbi, functionName: "getCase", args: [caseId] });
+    return info.token !== "0x0000000000000000000000000000000000000000";
+  } catch {
+    return null;
+  }
 }
 
 // The case id is derived from the incident and the token, so a reload still finds an offer that was just created.

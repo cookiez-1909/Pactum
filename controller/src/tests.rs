@@ -3,16 +3,19 @@
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::test_utils::{get_created_receipts, VMContextBuilder};
-use near_sdk::{test_vm_config, testing_env, AccountId, PromiseResult, RuntimeFeesConfig};
+use near_sdk::{env, test_vm_config, testing_env, AccountId, PromiseResult, RuntimeFeesConfig};
 
 use crate::types::{
-    evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseTerms, ProposalStatus,
-    RewardTier, Scalar, SignResponse,
+    evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseTerms, Deployment,
+    ProposalStatus, RewardTier, Scalar, SignResponse,
 };
 use crate::PactumController;
 
 const SEPOLIA: u64 = 11_155_111;
+const BASE_SEPOLIA: u64 = 84_532;
 const DESK: &str = "0x1111111111111111111111111111111111111111";
+const BASE_DESK: &str = "0x5555555555555555555555555555555555555555";
+const EVIDENCE: &str = "Keep 10% within 72 hours, 5% within 7 days.";
 const NOW_SECONDS: u64 = 1_800_000_000;
 const VECTORS: &str = include_str!("../../contracts/test/vectors/case_terms.json");
 
@@ -52,13 +55,20 @@ fn response_bytes() -> Vec<u8> {
     serde_json::to_vec(&signature_response()).unwrap()
 }
 
+fn deployment(chain_id: u64, pactum: &str) -> Deployment {
+    Deployment { chain_id: U64(chain_id), pactum: pactum.to_string() }
+}
+
+fn evidence_hash(text: &str) -> String {
+    to_hex(&env::keccak256_array(text.as_bytes()))
+}
+
 fn contract(threshold: u32) -> PactumController {
     set_caller("deployer.testnet");
     PactumController::new(
         vec![account("alice.testnet"), account("bob.testnet"), account("carol.testnet")],
         threshold,
-        DESK.to_string(),
-        U64(SEPOLIA),
+        vec![deployment(SEPOLIA, DESK), deployment(BASE_SEPOLIA, BASE_DESK)],
         "pactum-1".to_string(),
         account("v1.signer-prod.testnet"),
         2000,
@@ -73,7 +83,7 @@ fn terms() -> CaseTerms {
         max_return: "1000000000000000000000000".to_string(),
         reward_cap: "150000000000000000000000".to_string(),
         refund_root: format!("0x{}", "33".repeat(32)),
-        evidence_hash: format!("0x{}", "44".repeat(32)),
+        evidence_hash: evidence_hash(EVIDENCE),
         tiers: vec![
             RewardTier { until: U64(NOW_SECONDS + 259_200), reward_bps: 1000 },
             RewardTier { until: U64(NOW_SECONDS + 604_800), reward_bps: 500 },
@@ -85,7 +95,7 @@ fn terms() -> CaseTerms {
 
 fn propose(c: &mut PactumController) -> U64 {
     set_caller("alice.testnet");
-    c.propose_case(terms())
+    c.propose_case(terms(), EVIDENCE.to_string())
 }
 
 fn status(c: &PactumController, id: U64) -> ProposalStatus {
@@ -121,8 +131,7 @@ fn init_rejects_threshold_above_guardian_count() {
     PactumController::new(
         vec![account("alice.testnet")],
         2,
-        DESK.to_string(),
-        U64(SEPOLIA),
+        vec![deployment(SEPOLIA, DESK)],
         "p".to_string(),
         account("v1.signer-prod.testnet"),
         2000,
@@ -142,8 +151,7 @@ fn init_rejects_duplicate_guardians() {
     PactumController::new(
         vec![account("alice.testnet"), account("alice.testnet")],
         1,
-        DESK.to_string(),
-        U64(SEPOLIA),
+        vec![deployment(SEPOLIA, DESK)],
         "p".to_string(),
         account("v1.signer-prod.testnet"),
         2000,
@@ -155,7 +163,7 @@ fn init_rejects_duplicate_guardians() {
 fn stranger_cannot_propose() {
     let mut c = contract(2);
     set_caller("mallory.testnet");
-    c.propose_case(terms());
+    c.propose_case(terms(), EVIDENCE.to_string());
 }
 
 #[test]
@@ -269,7 +277,7 @@ fn malformed_responses_return_to_approved() {
         distinct.case_id = format!("0x{:064x}", index + 100);
         distinct.nonce = U64(index as u64 + 100);
         set_caller("alice.testnet");
-        let id = c.propose_case(distinct);
+        let id = c.propose_case(distinct, EVIDENCE.to_string());
         let _ = c.approve_case(id);
         set_caller("bob.testnet");
         let _ = c.approve_case(id);
@@ -316,7 +324,7 @@ fn rejects_duplicate_case_id() {
     propose(&mut c);
     let mut again = terms();
     again.nonce = U64(2);
-    c.propose_case(again);
+    c.propose_case(again, EVIDENCE.to_string());
 }
 
 #[test]
@@ -326,7 +334,7 @@ fn rejects_duplicate_nonce() {
     propose(&mut c);
     let mut again = terms();
     again.case_id = format!("0x{}", "02".repeat(32));
-    c.propose_case(again);
+    c.propose_case(again, EVIDENCE.to_string());
 }
 
 // Checks that bad terms are rejected with exactly the expected message.
@@ -336,7 +344,7 @@ fn assert_rejected(change: impl Fn(&mut CaseTerms), expected: &str) {
         let mut bad = terms();
         change(&mut bad);
         set_caller("alice.testnet");
-        c.propose_case(bad);
+        c.propose_case(bad, EVIDENCE.to_string());
     }));
     let message = result.expect_err("terms should be rejected");
     let text = message
@@ -364,7 +372,7 @@ fn rejects_invalid_terms() {
         },
         "last tier already passed",
     );
-    assert_rejected(|t| t.chain_id = U64(1), "wrong chain_id");
+    assert_rejected(|t| t.chain_id = U64(1), "chain_id is not served by this controller");
     assert_rejected(|t| t.total_loss = "0".to_string(), "total_loss must not be zero");
     assert_rejected(|t| t.max_return = "0".to_string(), "max_return must not be zero");
     assert_rejected(
@@ -440,12 +448,222 @@ fn digest_matches_shared_vectors() {
         let c = PactumController::new(
             vec![account("alice.testnet")],
             1,
-            vector["verifyingContract"].as_str().unwrap().to_string(),
-            terms.chain_id,
+            vec![deployment(terms.chain_id.0, vector["verifyingContract"].as_str().unwrap())],
             "p".to_string(),
             account("v1.signer-prod.testnet"),
             10_000,
         );
         assert_eq!(c.case_digest(terms), vector["digest"].as_str().unwrap());
     }
+}
+
+// This must match the EVM's keccak256, or no proposal would ever be valid for the Solidity contract.
+#[test]
+fn evidence_hash_matches_evm_keccak() {
+    set_caller("alice.testnet");
+    assert_eq!(
+        evidence_hash("Test offer: keep 10 percent"),
+        "0x4a73c11c58a2d50f2ace0ba9406cfde1c2331fc5f50e7fbe1c41fa6e354a7420"
+    );
+}
+
+#[test]
+#[should_panic(expected = "deployments must not be empty")]
+fn init_rejects_no_deployments() {
+    set_caller("deployer.testnet");
+    PactumController::new(vec![account("alice.testnet")], 1, vec![], "p".to_string(), account("v1.signer-prod.testnet"), 2000);
+}
+
+#[test]
+#[should_panic(expected = "duplicate chain_id")]
+fn init_rejects_the_same_chain_twice() {
+    set_caller("deployer.testnet");
+    PactumController::new(
+        vec![account("alice.testnet")],
+        1,
+        vec![deployment(SEPOLIA, DESK), deployment(SEPOLIA, BASE_DESK)],
+        "p".to_string(),
+        account("v1.signer-prod.testnet"),
+        2000,
+    );
+}
+
+#[test]
+#[should_panic(expected = "pactum must be 20-byte hex")]
+fn init_rejects_a_bad_pactum_address() {
+    set_caller("deployer.testnet");
+    PactumController::new(
+        vec![account("alice.testnet")],
+        1,
+        vec![deployment(SEPOLIA, "0x1234")],
+        "p".to_string(),
+        account("v1.signer-prod.testnet"),
+        2000,
+    );
+}
+
+#[test]
+fn config_lists_every_chain() {
+    let c = contract(2);
+    let chains = c.get_config().deployments;
+    assert_eq!(chains, vec![deployment(SEPOLIA, DESK), deployment(BASE_SEPOLIA, BASE_DESK)]);
+}
+
+fn on_base() -> CaseTerms {
+    let mut base = terms();
+    base.chain_id = U64(BASE_SEPOLIA);
+    base
+}
+
+// The same terms on two chains must hash differently, or a signature for one chain would work on the other.
+#[test]
+fn each_chain_has_its_own_digest() {
+    let c = contract(2);
+    let sepolia = c.case_digest(terms());
+    let base = c.case_digest(on_base());
+    assert_ne!(sepolia, base);
+
+    // The same chain id with a different contract address must also hash differently.
+    let mut other_address = contract(2);
+    other_address.deployments = vec![(BASE_SEPOLIA, [0x77; 20])];
+    assert_ne!(other_address.case_digest(on_base()), base);
+}
+
+#[test]
+fn same_guardians_sign_for_both_chains() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let first = c.propose_case(terms(), EVIDENCE.to_string());
+    // The same case id and nonce are still valid, because this is a different chain.
+    let second = c.propose_case(on_base(), EVIDENCE.to_string());
+    assert_ne!(first, second);
+
+    for id in [first, second] {
+        set_caller("alice.testnet");
+        let _ = c.approve_case(id);
+        set_caller("bob.testnet");
+        let _ = c.approve_case(id);
+        let proposal = c.get_proposal(id).unwrap();
+        assert_eq!(proposal.status, ProposalStatus::Signing);
+        let receipts = get_created_receipts();
+        let sign_receipt = receipts
+            .iter()
+            .find(|receipt| receipt.receiver_id == account("v1.signer-prod.testnet"))
+            .expect("no receipt to the signer");
+        let args = sign_args(sign_receipt);
+        assert_eq!(args["request"]["payload_v2"]["Ecdsa"], Value::String(proposal.digest.trim_start_matches("0x").to_string()));
+        // The same derivation path means the same signing address on every chain.
+        assert_eq!(args["request"]["path"], "pactum-1");
+    }
+}
+
+#[test]
+#[should_panic(expected = "reward exceeds the global maximum")]
+fn the_reward_limit_applies_on_every_chain() {
+    let mut c = contract(2);
+    let mut high = on_base();
+    high.tiers[0].reward_bps = 2001;
+    set_caller("alice.testnet");
+    c.propose_case(high, EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "case_id already proposed")]
+fn duplicate_case_id_is_still_rejected_on_the_second_chain() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_case(on_base(), EVIDENCE.to_string());
+    let mut again = on_base();
+    again.nonce = U64(2);
+    c.propose_case(again, EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "nonce already used")]
+fn duplicate_nonce_is_still_rejected_on_the_second_chain() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_case(on_base(), EVIDENCE.to_string());
+    let mut again = on_base();
+    again.case_id = format!("0x{}", "02".repeat(32));
+    c.propose_case(again, EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "chain_id is not served by this controller")]
+fn digest_view_rejects_an_unknown_chain() {
+    let c = contract(2);
+    let mut unknown = terms();
+    unknown.chain_id = U64(1);
+    c.case_digest(unknown);
+}
+
+#[test]
+fn proposal_stores_the_exact_offer_text() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    assert_eq!(c.get_proposal(id).unwrap().evidence, EVIDENCE);
+}
+
+#[test]
+#[should_panic(expected = "evidence does not match evidence_hash")]
+fn guardians_cannot_propose_text_that_differs_from_the_hash() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_case(terms(), format!("{EVIDENCE} Actually keep nothing."));
+}
+
+#[test]
+#[should_panic(expected = "evidence is too long")]
+fn rejects_evidence_over_the_limit() {
+    let mut c = contract(2);
+    let long = "x".repeat(4097);
+    let mut bad = terms();
+    bad.evidence_hash = evidence_hash(&long);
+    set_caller("alice.testnet");
+    c.propose_case(bad, long);
+}
+
+#[test]
+fn accepts_evidence_at_the_limit() {
+    let mut c = contract(2);
+    let long = "x".repeat(4096);
+    let mut ok = terms();
+    ok.evidence_hash = evidence_hash(&long);
+    set_caller("alice.testnet");
+    let id = c.propose_case(ok, long.clone());
+    assert_eq!(c.get_proposal(id).unwrap().evidence, long);
+}
+
+#[test]
+fn lists_proposals_in_order_with_paging() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    for index in 0..3u8 {
+        let mut item = terms();
+        item.case_id = format!("0x{:064x}", index + 1);
+        item.nonce = U64(u64::from(index));
+        c.propose_case(item, EVIDENCE.to_string());
+    }
+    let ids = |list: Vec<crate::types::Proposal>| list.iter().map(|p| p.id.0).collect::<Vec<_>>();
+    assert_eq!(ids(c.list_proposals(U64(0), 10)), vec![0, 1, 2]);
+    assert_eq!(ids(c.list_proposals(U64(1), 1)), vec![1]);
+    assert_eq!(ids(c.list_proposals(U64(2), 10)), vec![2]);
+    assert!(c.list_proposals(U64(3), 10).is_empty());
+    assert!(c.list_proposals(U64(u64::MAX), 10).is_empty());
+    assert!(c.list_proposals(U64(0), 0).is_empty());
+}
+
+#[test]
+fn list_limit_is_capped() {
+    let mut c = contract(1);
+    set_caller("alice.testnet");
+    for index in 0..60u64 {
+        let mut item = terms();
+        item.case_id = format!("0x{:064x}", index + 1);
+        item.nonce = U64(index);
+        c.propose_case(item, EVIDENCE.to_string());
+    }
+    assert_eq!(c.list_proposals(U64(0), 1000).len(), 50);
+    assert_eq!(c.list_proposals(U64(50), 1000).len(), 10);
 }

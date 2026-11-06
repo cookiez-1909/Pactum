@@ -1,0 +1,143 @@
+{
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "stage": "complete",
+  "openBlock": "149741824",
+  "contracts": {
+    "MockUSD": "0x53e21d6951b2607b52d0003a4d7242851d4ecbb9",
+    "VulnerableVault": "0xa68e07782a09ef5c6886b584a01b7e141f505c85",
+    "Pactum": "0xd9a17c2adc2e1c929175ae322b85596d62738cdd",
+    "PublicNotes": "0x9fd95a8ceb3c0b58ee5b47ae949e81fa5fc78316"
+  },
+  "notesBlock": "149741540",
+  "controllerAddress": "0x7Ca4a74F0d13aececb82ECB616D5D03dae700aEf",
+  "near": {
+    "simulated": false,
+    "controllerAccount": "ctrl-fe0caadd.rd-guardian-a-3ff0494a5d.testnet",
+    "derivationPath": "pactum-1",
+    "guardians": [
+      "rd-guardian-a-3ff0494a5d.testnet",
+      "rd-guardian-b-90c085b48d.testnet",
+      "rd-guardian-c-6b8f4bb36c.testnet"
+    ],
+    "threshold": 2,
+    "proposalId": "0",
+    "txs": {
+      "deployController": "FQ1LnHXRNBUoqP2sjRJRdU4i5YVJESe7nAgvydBfmK5A",
+      "removeKeys": "DMpyBg3DMDo68ZG7aHvitZ6EHdMAnfSvRcduoJ9a8cgF",
+      "propose": "9YkSsPuqSNBA7YPTLghSdTdoDmy3dnGaXXv2z254jXjs",
+      "approve1": "6ydypyKpS8ooQqwm9gtDE1ydrdznvgE6oDQg5NhmWz4",
+      "approve2": "7XkVnu1uoLXHxVmkeSmYeuRBYTiW5EgUHChyB8HU6LF4"
+    }
+  },
+  "otherChains": [
+    {
+      "network": "sepolia",
+      "chainId": 11155111,
+      "Pactum": "0xfdc970a0e0db1b8f1775c855ab4496982d0e2ae9"
+    },
+    {
+      "network": "base-sepolia",
+      "chainId": 84532,
+      "Pactum": "0xbecfb6471bce4353c4bf067149fc3acdbfa30ae5"
+    }
+  ],
+  "actors": {
+    "users": [
+      "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+      "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+      "0xb587237D2572e82Cba12B25545D30A6105475Bd1"
+    ],
+    "attacker": "0xD4726b65261661D9F3c982cb70004fe32931a93E",
+    "rewardWallet": "0x2d5B36e7A137A61CB9b3219d2AB678e98D55beCE",
+    "relayer": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC"
+  },
+  "terms": {
+    "caseId": "0x54631fb0221313376f663a5787f7ee13bb101c6f29b126c4e14d7cb3eb2d364b",
+    "token": "0x53e21d6951b2607b52d0003a4d7242851d4ecbb9",
+    "totalLoss": "1000000000000000000000000",
+    "maxReturn": "1000000000000000000000000",
+    "rewardCap": "150000000000000000000000",
+    "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+    "evidenceHash": "0x82c3e2e9572240345520e7e0a2c88b7cef961ca59b3c71540a3fd0215c59cd92",
+    "tiers": [
+      {
+        "until": "1794267288",
+        "rewardBps": 1000
+      },
+      {
+        "until": "1794612888",
+        "rewardBps": 500
+      }
+    ],
+    "nonce": "1",
+    "chainId": "46630"
+  },
+  "digest": "0xaeea11b915108600ffbf24da1a336c797f3a0b058a0642ccf58ab28a020a4197",
+  "signature": "0x365f7b8513a5c465982cd0b80fd28f6020c0f34b46a1f8af2e6d3de3679f7b3a636a8256528fb93e78d8d048f9f50e4b37e01621b0cf9258346eb56fc2f309df1c",
+  "evidence": {
+    "incident": "Demo protocol",
+    "protocol": "0xa68e07782a09ef5c6886b584a01b7e141f505c85",
+    "token": "0x53e21d6951b2607b52d0003a4d7242851d4ecbb9",
+    "drainTx": "0x144140727d934f4dc3626fcd41aba3e7c6d34ae0b9c6a093babe4a275d81f16e",
+    "totalLoss": "1000000000000000000000000",
+    "offer": {
+      "conditions": "Keep 10% if the funds come back within 72 hours, or 5% within 7 days. Send everything to the contract and the reward comes back in the same transaction."
+    },
+    "allocations": [
+      {
+        "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+        "allocation": "600000000000000000000000"
+      },
+      {
+        "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+        "allocation": "300000000000000000000000"
+      },
+      {
+        "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
+        "allocation": "100000000000000000000000"
+      }
+    ]
+  },
+  "allocations": [
+    {
+      "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+      "allocation": "600000000000000000000000",
+      "proof": [
+        "0xd71a9ca3270237f7f668758e649500c3acf5092f6aadfd3d214ff383d6ae0f05"
+      ]
+    },
+    {
+      "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+      "allocation": "300000000000000000000000",
+      "proof": [
+        "0x82236474e84ddfbb404ece67e01cbc49b805f0a4c3b572e8e2c0f4cd50ef4568",
+        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
+      ]
+    },
+    {
+      "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
+      "allocation": "100000000000000000000000",
+      "proof": [
+        "0x914a9d2bba087b69fc650b483c6a67e047dc4dacc7463bbe858ed7c68df7dc0a",
+        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
+      ]
+    }
+  ],
+  "txs": {
+    "deployMockUSD": "0x1650546678dda395849f76865b42450d2a04bfe7f4d8806ba0dccd723dfda442",
+    "deployVulnerableVault": "0xb7fb859a9db80bd00f4b8b2960e43378d18270680c5a6501597801776b379aa2",
+    "deployPactum": "0xe606ebcd8f5965f920eafd00a3f759636478b0613278abda790c0fc5d4b71acc",
+    "deployPublicNotes": "0xd6f3c0cf907b6e69c7e4fba76dcd207410ead56fa0e3062ea8f0a3bbf1d21c56",
+    "deposit0": "0xd668fcdf749d9dcb5760cf511c8c694cae0f8513b66b8c2ddafe3b178babbb7e",
+    "deposit1": "0x08b4be92e5b0ea6d9ca265bbbe74fe77d9a74b8ec20bdc307b28175b9f9f1340",
+    "deposit2": "0xc19474b33e172b75eae24dd8bb54676061c1a127fb38c46591f8462e05eef82f",
+    "drain": "0x144140727d934f4dc3626fcd41aba3e7c6d34ae0b9c6a093babe4a275d81f16e",
+    "openCase": "0x4017a4f678a2a1311708822c874c2a017515bb0c485dfd5ed1d8db66933ce0f0",
+    "approveReturn": "0x1c116a383d7853fcae2e014cf28eff8fb7cde617b23b9a6532025051baa0e8e3",
+    "returnFunds": "0x0155e27d109e8bd44ab642200e42fb5043af326b4709e99c05c2e2b2ca23c241",
+    "claim0": "0x2d3d73791141ac5b60beb07e8c9e3aca6c96d0c6376b2a91721e3633a8cceb9e",
+    "claim1": "0x1b2bc1c14f1b5d6f85535486a87ddd4c5cf462b9f0dcba2d64209072824a1802",
+    "claim2": "0x64b989aff864c13bdf204e5535d319ffc0bf6d6a15b98d10f2591e6d848a576c"
+  }
+}

@@ -780,3 +780,19 @@ textarea:focus { outline: none; border-color: var(--brand); }
   .hero-actions .button { width: 100%; }
   .wallet-popover { position: fixed; left: 16px; right: 16px; top: 62px; width: auto; }
 }
+
+/* Trang Guardians */
+.proposals { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.proposal { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.proposal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.proposal-chain { font-weight: 600; color: var(--ink); }
+.proposal-offer { margin: 0 0 8px; padding: 10px 14px; border-left: 2px solid var(--brand); background: var(--surface-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; overflow-wrap: anywhere; }
+.proposal-hash { margin: 0 0 12px; font-size: 13px; }
+.proposal-hash.is-good { color: var(--good); }
+.proposal-hash.is-bad { color: var(--warn); }
+.proposal-record { margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+.proposal-record summary { cursor: pointer; }
+.proposal-record pre { margin: 8px 0 0; padding: 10px; max-height: 280px; overflow: auto; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chain-list { display: grid; gap: 8px; margin: 0 0 10px; padding: 0; list-style: none; }
+.chain-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.page > .notice { margin-bottom: 16px; }

@@ -12,6 +12,11 @@ const CONTROLLER_WASM: &str = "../../controller/target/near/pactum_controller.wa
 const MOCK_WASM: &str = "../mock-signer/target/near/mock_signer.wasm";
 const DESK: &str = "0x1111111111111111111111111111111111111111";
 const SEPOLIA: &str = "11155111";
+const BASE_SEPOLIA: &str = "84532";
+const BASE_DESK: &str = "0x5555555555555555555555555555555555555555";
+// Hashes computed with `cast keccak`, which is the EVM's keccak256.
+const EVIDENCE: &str = "Test offer: keep 10 percent";
+const EVIDENCE_HASH: &str = "0x4a73c11c58a2d50f2ace0ba9406cfde1c2331fc5f50e7fbe1c41fa6e354a7420";
 
 struct Setup {
     worker: Worker<Sandbox>,
@@ -39,8 +44,10 @@ async fn setup() -> Setup {
         .args_json(json!({
             "guardians": [alice.id(), bob.id()],
             "threshold": 2,
-            "pactum": DESK,
-            "chain_id": SEPOLIA,
+            "deployments": [
+                { "chain_id": SEPOLIA, "pactum": DESK },
+                { "chain_id": BASE_SEPOLIA, "pactum": BASE_DESK },
+            ],
             "derivation_path": "pactum-1",
             "signer_contract": signer.id(),
             "max_reward_bps": 2000,
@@ -61,7 +68,7 @@ fn terms(seed: u8) -> Value {
         "max_return": "1000000000000000000000000",
         "reward_cap": "150000000000000000000000",
         "refund_root": format!("0x{}", "33".repeat(32)),
-        "evidence_hash": format!("0x{}", "44".repeat(32)),
+        "evidence_hash": EVIDENCE_HASH,
         "tiers": [
             { "until": "4000000000", "reward_bps": 1000 },
             { "until": "4100000000", "reward_bps": 500 },
@@ -76,7 +83,7 @@ impl Setup {
         let outcome = self
             .alice
             .call(self.controller.id(), "propose_case")
-            .args_json(json!({ "terms": terms(seed) }))
+            .args_json(json!({ "terms": terms(seed), "evidence": EVIDENCE }))
             .max_gas()
             .transact()
             .await
@@ -237,7 +244,7 @@ async fn wasm_rejects_unauthorized_calls_for_the_right_reason() {
     let propose = s
         .stranger
         .call(s.controller.id(), "propose_case")
-        .args_json(json!({ "terms": terms(2) }))
+        .args_json(json!({ "terms": terms(2), "evidence": EVIDENCE }))
         .max_gas()
         .transact()
         .await
@@ -253,8 +260,7 @@ async fn wasm_rejects_unauthorized_calls_for_the_right_reason() {
         .args_json(json!({
             "guardians": [s.stranger.id()],
             "threshold": 1,
-            "pactum": DESK,
-            "chain_id": SEPOLIA,
+            "deployments": [{ "chain_id": SEPOLIA, "pactum": DESK }],
             "derivation_path": "evil",
             "signer_contract": s.signer.id(),
             "max_reward_bps": 10000,
@@ -304,4 +310,65 @@ async fn keeps_working_with_no_access_keys() {
     let _ = s.approve(&s.alice, &id).await;
     assert!(s.approve(&s.bob, &id).await.is_success());
     assert_eq!(s.proposal(&id).await["status"], "Signed");
+}
+
+// Real wasm: one council signs for two chains, the offer text reads back, and the two chains' hashes differ.
+#[tokio::test]
+async fn one_council_signs_for_two_chains_and_keeps_the_offer_text() {
+    let s = setup().await;
+    let first = s.propose(1).await;
+    let mut other = terms(1);
+    other["chain_id"] = json!(BASE_SEPOLIA);
+    let second: String = s
+        .alice
+        .call(s.controller.id(), "propose_case")
+        .args_json(json!({ "terms": other, "evidence": EVIDENCE }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap()
+        .into_result()
+        .unwrap()
+        .json()
+        .unwrap();
+
+    for id in [&first, &second] {
+        assert!(s.approve(&s.alice, id).await.is_success());
+        assert!(s.approve(&s.bob, id).await.is_success());
+    }
+    let listed: Vec<Value> = s
+        .controller
+        .view("list_proposals")
+        .args_json(json!({ "from": "0", "limit": 10 }))
+        .await
+        .unwrap()
+        .json()
+        .unwrap();
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[0]["status"], "Signed");
+    assert_eq!(listed[1]["status"], "Signed");
+    assert_eq!(listed[0]["evidence"], EVIDENCE);
+    assert_eq!(listed[1]["evidence"], EVIDENCE);
+    assert_eq!(listed[1]["terms"]["chain_id"], BASE_SEPOLIA);
+    assert_ne!(listed[0]["digest"], listed[1]["digest"]);
+    assert_eq!(s.signer_calls().await, 2);
+
+    let config: Value = s.controller.view("get_config").await.unwrap().json().unwrap();
+    assert_eq!(config["deployments"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn wasm_rejects_text_that_does_not_match_the_hash() {
+    let s = setup().await;
+    let result = s
+        .alice
+        .call(s.controller.id(), "propose_case")
+        .args_json(json!({ "terms": terms(1), "evidence": "A different offer" }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    assert!(failure_text(&result).contains("evidence does not match evidence_hash"), "{}", failure_text(&result));
+    let count: String = s.controller.view("proposal_count").await.unwrap().json().unwrap();
+    assert_eq!(count, "0");
 }

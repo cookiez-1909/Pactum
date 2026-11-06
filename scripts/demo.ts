@@ -1,7 +1,7 @@
 // Runs the full demo scenario from section 9 with one command.
 //   tsx demo.ts --mode local    : Anvil with a SIMULATED controller using a test key. No NEAR needed.
-//   tsx demo.ts --mode testnet  : Sepolia and NEAR testnet, real signatures from Chain Signatures.
-//   Add --stage: stop right after openCase so the viewer returns funds and claims refunds in the interface.
+//   tsx demo.ts --mode testnet  : Sepolia, Base Sepolia, Robinhood testnet and NEAR testnet. One controller on NEAR signs for all three chains.
+//   Add --stage: on the main chain, stop right after openCase so the viewer returns funds and claims refunds in the interface.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import {
@@ -22,7 +22,7 @@ import {
   type WalletClient,
 } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount, type LocalAccount } from "viem/accounts";
-import { foundry, sepolia } from "viem/chains";
+import { baseSepolia, foundry, robinhoodTestnet, sepolia } from "viem/chains";
 import {
   ONE_TOKEN,
   ROOT,
@@ -68,6 +68,7 @@ const anvilAccount = (index: number) => mnemonicToAccount(ANVIL_MNEMONIC, { addr
 
 const ALLOCATIONS = [600_000n * ONE_TOKEN, 300_000n * ONE_TOKEN, 100_000n * ONE_TOKEN];
 const TOTAL_LOSS = 1_000_000n * ONE_TOKEN;
+const OFFER_TEXT = "Keep 10% if the funds come back within 72 hours, or 5% within 7 days. Send everything to the contract and the reward comes back in the same transaction.";
 
 interface Actors {
   deployer: LocalAccount;
@@ -82,9 +83,18 @@ interface Actors {
 interface ControllerSide {
   label: string;
   address: Address;
-  deploy(pactum: Address, chainId: bigint): Promise<void>;
-  sign(terms: CaseTerms, digest: Hex): Promise<Hex>;
-  record: Record<string, unknown>;
+  deploy(deployments: { chainId: bigint; pactum: Address }[]): Promise<void>;
+  // Also returns this chain's own record: the proposal id and its NEAR transactions.
+  sign(terms: CaseTerms, digest: Hex, evidence: string): Promise<{ signature: Hex; record: Record<string, unknown> }>;
+}
+
+// An EVM chain the demo runs on, with its deployed contracts and the name of its results file.
+interface ChainRun {
+  network: "local" | "sepolia" | "base-sepolia" | "robinhood-testnet";
+  label: string;
+  evm: Evm;
+  contracts: { MockUSD: Address; VulnerableVault: Address; Pactum: Address; PublicNotes: Address };
+  notesBlock: bigint;
 }
 
 function parseMode(): Mode {
@@ -103,7 +113,8 @@ class Evm {
   constructor(chain: Chain, rpc: string) {
     this.chain = chain;
     this.rpc = rpc;
-    this.publicClient = createPublicClient({ chain, transport: http(rpc) });
+    // Base Sepolia's block format changes viem's types, but the functions used here are the same.
+    this.publicClient = createPublicClient({ chain, transport: http(rpc) }) as PublicClient;
   }
 
   wallet(account: LocalAccount): WalletClient {
@@ -162,11 +173,10 @@ function simulatedController(): ControllerSide {
   return {
     label: "SIMULATED (local test key, no Chain Signatures)",
     address: account.address,
-    record: { simulated: true },
     async deploy() {},
     async sign(_terms, digest) {
       detail("controller", "SIMULATED: signing with a local test key, not NEAR");
-      return await account.sign!({ hash: digest });
+      return { signature: await account.sign!({ hash: digest }), record: { simulated: true } };
     },
   };
 }
@@ -184,46 +194,37 @@ async function nearController(): Promise<ControllerSide> {
     mkdirSync(new URL("deployments/", ROOT), { recursive: true });
     writeFileSync(new URL("deployments/pactum_controller.wasm", ROOT), wasm);
   }
-  const record: Record<string, unknown> = {
-    simulated: false,
-    controllerAccount: controller.accountId,
-    derivationPath: DERIVATION_PATH,
-    guardians: guardians.map((guardian) => guardian.accountId),
-    threshold: THRESHOLD,
-    txs: {} as Record<string, string>,
-  };
-  const nearTxs = record.txs as Record<string, string>;
+  const sharedTxs: Record<string, string> = {};
 
   return {
     label: `Chain Signatures through ${controller.accountId}`,
     address,
-    record,
-    async deploy(pactum, chainId) {
-      nearTxs.deployController = await deployController(controller, wasm, {
+    async deploy(deployments) {
+      sharedTxs.deployController = await deployController(controller, wasm, {
         guardians: guardians.map((guardian) => guardian.accountId),
         threshold: THRESHOLD,
-        pactum,
-        chainId,
+        deployments,
         derivationPath: DERIVATION_PATH,
         maxRewardBps: MAX_REWARD_BPS,
       });
-      nearTxs.removeKeys = await removeAllAccessKeys(controller);
+      sharedTxs.removeKeys = await removeAllAccessKeys(controller);
       const keys = await accessKeyCount(controller.accountId);
       if (keys !== 0) throw new Error(`Controller still has ${keys} access keys`);
       detail("near contract", `${controller.accountId} (0 access keys left)`);
     },
-    async sign(terms, digest) {
+    async sign(terms, digest, evidence) {
+      const nearTxs: Record<string, string> = { ...sharedTxs };
       const [first, second] = guardians as [NearCredentials, NearCredentials, NearCredentials];
       const onChainDigest = await view<Hex>(controller.accountId, "case_digest", { terms: toNearTerms(terms) });
       if (onChainDigest !== digest) throw new Error(`Digest mismatch: NEAR ${onChainDigest}, EVM ${digest}`);
       detail("digest", `${digest} (same on NEAR and EVM)`);
 
-      if (!(await expectNearFailure(stranger, controller.accountId, "propose_case", { terms: toNearTerms(terms) }, "caller is not a guardian"))) {
+      if (!(await expectNearFailure(stranger, controller.accountId, "propose_case", { terms: toNearTerms(terms), evidence }, "caller is not a guardian"))) {
         throw new Error("A stranger was able to propose a case");
       }
       detail("stranger proposal", "rejected on NEAR");
 
-      const { id, txHash } = await proposeCase(first, controller.accountId, terms);
+      const { id, txHash } = await proposeCase(first, controller.accountId, terms, evidence);
       nearTxs.propose = txHash;
       nearTxs.approve1 = await approveCase(first, controller.accountId, id);
       const pending = await getProposal(controller.accountId, id);
@@ -245,8 +246,18 @@ async function nearController(): Promise<ControllerSide> {
       }
       detail("guardian 2 of 2", `${second.accountId} approved`);
       detail("chain signatures", `signed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
-      record.proposalId = id;
-      return proposal.signature;
+      return {
+        signature: proposal.signature,
+        record: {
+          simulated: false,
+          controllerAccount: controller.accountId,
+          derivationPath: DERIVATION_PATH,
+          guardians: guardians.map((guardian) => guardian.accountId),
+          threshold: THRESHOLD,
+          proposalId: id,
+          txs: nearTxs,
+        },
+      };
     },
   };
 }
@@ -313,15 +324,16 @@ function anvilActors(): Actors {
 }
 
 // Each role on Sepolia needs a little ETH for gas, taken from the deployer wallet.
-async function fundActors(evm: Evm, actors: Actors): Promise<void> {
+async function fundActors(evm: Evm, actors: Actors, amount = "0.01"): Promise<void> {
+  const enough = parseEther(amount) / 5n;
   for (const actor of [actors.alice, actors.bob, actors.carol, actors.attacker]) {
     const balance = await evm.publicClient.getBalance({ address: actor.address });
-    if (balance >= parseEther("0.002")) continue;
+    if (balance >= enough) continue;
     const hash = await evm.wallet(actors.deployer).sendTransaction({
       account: actors.deployer,
       chain: evm.chain,
       to: actor.address,
-      value: parseEther("0.01"),
+      value: parseEther(amount),
     });
     await evm.publicClient.waitForTransactionReceipt({ hash });
   }
@@ -351,36 +363,65 @@ async function main() {
   }
 }
 
+// Deploys one chain's contracts. The NEAR controller needs every chain's Pactum address when it is created,
+// so this step finishes on all chains before the controller is deployed.
+async function deployChain(network: ChainRun["network"], label: string, evm: Evm, actors: Actors, controllerAddress: Address): Promise<ChainRun> {
+  const usd = await evm.deploy(actors.deployer, "MockUSD", "MockUSD.sol", []);
+  const vault = await evm.deploy(actors.deployer, "VulnerableVault", "VulnerableVault.sol", [usd]);
+  const desk = await evm.deploy(actors.deployer, "Pactum", "Pactum.sol", [controllerAddress]);
+  const publicNotes = await evm.deploy(actors.deployer, "PublicNotes", "PublicNotes.sol", []);
+  const notesBlock = (await evm.publicClient.getTransactionReceipt({ hash: evm.txs.deployPublicNotes! })).blockNumber;
+  detail(`Pactum on ${label}`, desk);
+  return { network, label, evm, contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes }, notesBlock };
+}
+
 async function run(mode: Mode, stage: boolean) {
   console.log(`Pactum demo${mode === "local" ? " on a local Anvil node" : " on testnet"}. Do not send real or stolen funds.`);
   console.log(`mode: ${mode}${mode === "local" ? " (controller is SIMULATED, no Chain Signatures)" : ""}`);
 
   loadRootEnv();
-  const evm =
-    mode === "local"
-      ? new Evm(foundry, "http://127.0.0.1:8546")
-      : new Evm(sepolia, process.env.SEPOLIA_RPC ?? "https://ethereum-sepolia-rpc.publicnode.com");
   const actors = mode === "local" ? anvilActors() : loadOrCreateSepoliaActors();
-  const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
-  const vaultAbi = artifact("VulnerableVault", "VulnerableVault.sol").abi;
-  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
 
   step(1, TOTAL_STEPS, "Deploy contracts");
   const controller = mode === "local" ? simulatedController() : await nearController();
-  if (mode === "testnet") await fundActors(evm, actors);
-  const usd = await evm.deploy(actors.deployer, "MockUSD", "MockUSD.sol", []);
-  const vault = await evm.deploy(actors.deployer, "VulnerableVault", "VulnerableVault.sol", [usd]);
-  const desk = await evm.deploy(actors.deployer, "Pactum", "Pactum.sol", [controller.address]);
-  const publicNotes = await evm.deploy(actors.deployer, "PublicNotes", "PublicNotes.sol", []);
-  const notesBlock = (await evm.publicClient.getTransactionReceipt({ hash: evm.txs.deployPublicNotes! })).blockNumber;
+  const chains: ChainRun[] = [];
+  if (mode === "local") {
+    chains.push(await deployChain("local", "Anvil", new Evm(foundry, "http://127.0.0.1:8546"), actors, controller.address));
+  } else {
+    const sepoliaEvm = new Evm(sepolia, process.env.SEPOLIA_RPC ?? "https://ethereum-sepolia-rpc.publicnode.com");
+    const baseEvm = new Evm(baseSepolia, process.env.BASE_SEPOLIA_RPC ?? "https://base-sepolia-rpc.publicnode.com");
+    const robinhoodEvm = new Evm(robinhoodTestnet, process.env.ROBINHOOD_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com");
+    await fundActors(sepoliaEvm, actors);
+    await fundActors(baseEvm, actors);
+    // Gas here is very cheap: about 0.00003 ETH measured for the whole deploy step.
+    await fundActors(robinhoodEvm, actors, "0.0005");
+    chains.push(await deployChain("sepolia", "Sepolia", sepoliaEvm, actors, controller.address));
+    chains.push(await deployChain("base-sepolia", "Base Sepolia", baseEvm, actors, controller.address));
+    chains.push(await deployChain("robinhood-testnet", "Robinhood testnet", robinhoodEvm, actors, controller.address));
+  }
+  await controller.deploy(chains.map((chain) => ({ chainId: BigInt(chain.evm.chain.id), pactum: chain.contracts.Pactum })));
+  detail("controller address", `${controller.address} (the same on every chain)`);
+  detail("controlled by", controller.label);
+
+  // The main chain runs last: with --stage it stops so the viewer continues in the interface.
+  for (const chain of [...chains].reverse()) {
+    console.log(`\n=== ${chain.label} ===`);
+    await runStory(mode, stage && chain === chains[0], chain, controller, actors, chains);
+  }
+}
+
+// The whole story on one chain: deposit, hack, guardians approve, funds returned, refunds claimed.
+async function runStory(mode: Mode, stage: boolean, chain: ChainRun, controller: ControllerSide, actors: Actors, chains: ChainRun[]) {
+  const { evm } = chain;
+  const { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes } = chain.contracts;
+  const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
+  const vaultAbi = artifact("VulnerableVault", "VulnerableVault.sol").abi;
+  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
   const chainId = BigInt(evm.chain.id);
-  await controller.deploy(desk, chainId);
   detail("MockUSD", usd);
   detail("VulnerableVault", vault);
   detail("Pactum", desk);
   detail("PublicNotes", publicNotes);
-  detail("controller address", controller.address);
-  detail("controlled by", controller.label);
 
   step(2, TOTAL_STEPS, "Users deposit into the demo protocol");
   const users = [actors.alice, actors.bob, actors.carol];
@@ -398,15 +439,19 @@ async function run(mode: Mode, stage: boolean) {
   detail("stolen", `${formatTokens(stolen)} mUSD`);
   detail("vault balance", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [vault]))} mUSD`);
 
-  step(4, TOTAL_STEPS, "Guardians approve the case, the controller signs");
+  step(4, TOTAL_STEPS, "Guardians read the offer on NEAR and approve, the controller signs");
   const tree = buildRefundTree(users.map((user, index) => ({ account: user.address, allocation: ALLOCATIONS[index]! })));
   const evidence = {
+    incident: "Demo protocol",
     protocol: vault,
     token: usd,
     drainTx: evm.txs.drain,
     totalLoss: TOTAL_LOSS.toString(),
+    offer: { conditions: OFFER_TEXT },
     allocations: tree.allocations.map(({ account, allocation }) => ({ account, allocation: allocation.toString() })),
   };
+  // This exact string is hashed and stored on NEAR, so guardians can read what they approve.
+  const evidenceText = JSON.stringify(evidence);
   const block = await evm.publicClient.getBlock();
   const terms: CaseTerms = {
     caseId: keccak256(stringToHex(`pactum-demo:${desk}`)),
@@ -415,7 +460,7 @@ async function run(mode: Mode, stage: boolean) {
     maxReturn: TOTAL_LOSS,
     rewardCap: 150_000n * ONE_TOKEN,
     refundRoot: tree.root,
-    evidenceHash: keccak256(stringToHex(JSON.stringify(evidence))),
+    evidenceHash: keccak256(stringToHex(evidenceText)),
     tiers: [
       { until: block.timestamp + 72n * HOUR, rewardBps: 1000 },
       { until: block.timestamp + 168n * HOUR, rewardBps: 500 },
@@ -424,7 +469,7 @@ async function run(mode: Mode, stage: boolean) {
     chainId,
   };
   const digest = await evm.read<Hex>(desk, deskAbi, "hashCaseTerms", [terms]);
-  const signature = await controller.sign(terms, digest);
+  const { signature, record } = await controller.sign(terms, digest, evidenceText);
 
   step(5, TOTAL_STEPS, "Anyone relays the signature to open the case");
   // The deployer submits it here, but the contract does not care who sends it.
@@ -436,15 +481,17 @@ async function run(mode: Mode, stage: boolean) {
 
   const openReceipt = await evm.publicClient.getTransactionReceipt({ hash: evm.txs.openCase! });
   const deployment = {
-    network: mode === "local" ? "local" : "sepolia",
+    network: chain.network,
     chainId: evm.chain.id,
     rpc: mode === "local" ? evm.rpc : undefined,
     stage: stage ? "open" : "complete",
     openBlock: openReceipt.blockNumber,
-    contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes },
-    notesBlock,
+    contracts: chain.contracts,
+    notesBlock: chain.notesBlock,
     controllerAddress: controller.address,
-    near: controller.record,
+    near: record,
+    // The other chains this controller serves.
+    otherChains: chains.filter((other) => other !== chain).map((other) => ({ network: other.network, chainId: other.evm.chain.id, Pactum: other.contracts.Pactum })),
     actors: {
       users: users.map((user) => user.address),
       attacker: actors.attacker.address,
@@ -529,10 +576,14 @@ async function run(mode: Mode, stage: boolean) {
   if (mode === "testnet") {
     const dir = new URL("deployments/", ROOT);
     if (!existsSync(dir)) mkdirSync(dir);
-    writeFileSync(new URL("sepolia.json", dir), toJson(deployment));
-    console.log("  saved deployments/sepolia.json");
+    // --stage stops on the main chain, so it does not overwrite the verified results of the full run.
+    if (!process.argv.includes("--stage")) {
+      writeFileSync(new URL(`${chain.network}.json`, dir), toJson(deployment));
+      console.log(`  saved deployments/${chain.network}.json`);
+    }
   }
 }
+
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);

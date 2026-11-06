@@ -27,6 +27,14 @@ pub struct CaseTerms {
     pub chain_id: U64,
 }
 
+/// A Pactum contract that this controller serves.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deployment {
+    pub chain_id: U64,
+    pub pactum: String,
+}
+
 /// Proposal state. It only moves forward, except a failed signing request goes back to `Approved`.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +51,8 @@ pub enum ProposalStatus {
 pub struct Proposal {
     pub id: U64,
     pub terms: CaseTerms,
+    /// The offer text and public record. The contract checked its hash against `terms.evidence_hash`.
+    pub evidence: String,
     pub digest: String,
     pub proposer: AccountId,
     pub approvals: Vec<AccountId>,
@@ -57,8 +67,7 @@ pub struct Proposal {
 pub struct Config {
     pub guardians: Vec<AccountId>,
     pub threshold: u32,
-    pub pactum: String,
-    pub chain_id: U64,
+    pub deployments: Vec<Deployment>,
     pub derivation_path: String,
     pub signer_contract: AccountId,
     pub max_reward_bps: u16,

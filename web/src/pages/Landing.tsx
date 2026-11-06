@@ -1,5 +1,7 @@
 // The landing page. Figures here are real measurements from tests and testnet, or clearly marked as examples.
 import proof from "../../../deployments/sepolia.json";
+import baseProof from "../../../deployments/base-sepolia.json";
+import robinhoodProof from "../../../deployments/robinhood-testnet.json";
 import { Arrow, Clock, ExternalLink, Lock, Logo, Shield, Split } from "../components/icons";
 import { CountUp, Reveal } from "../components/motion";
 
@@ -28,7 +30,7 @@ const GUARANTEES = [
 const QUESTIONS = [
   { q: "How does a hacker prove they are the hacker after mixers and many wallets?", a: "They do not have to. The contract never asks who took the funds. Tokens are interchangeable, so it only counts what arrives. A brand new wallet works, and the reward can go to any other wallet." },
   { q: "So can anyone collect the reward?", a: "Only by returning tokens of their own. Someone who sends in 100 gets back 10 at a 10% reward, so they lose 90. There is nothing to gain unless the tokens were never theirs." },
-  { q: "What if the funds were bridged or swapped?", a: "This is the real limit. A case accepts one token on one chain, so funds that moved away must be swapped or bridged back first. Serving other chains from the same controller is a design, and is not built." },
+  { q: "What if the funds were bridged or swapped?", a: "This is the real limit. A case accepts one token on one chain. The same guardians can open a case on any chain where Pactum runs, which here means Sepolia, Base Sepolia and Robinhood testnet. Funds that went anywhere else must be swapped or bridged back first." },
   { q: "Do I need an account or to verify myself?", a: "No. There is no sign-up and no identity check. Entering a wallet is optional, and only used to show what that wallet can do." },
 ];
 
@@ -204,15 +206,18 @@ export function Landing() {
       <section className="band">
         <Reveal>
           <p className="eyebrow">Why NEAR</p>
-          <h2>Control of the contract, with no private key to steal.</h2>
+          <h2>One set of rules for every chain, checked before anything is signed.</h2>
           <p className="section-lead">
-            The address that opens cases is derived from a NEAR contract through Chain Signatures. Nobody on the team holds its key, and the contract account has none left at all. It can only sign the exact terms its guardians approved.
+            The address that opens cases is derived from a NEAR contract through Chain Signatures. Nobody on the team holds its key, and the contract account has none left at all. It can only sign the exact terms its guardians approved, and they read the full offer on NEAR before approving.
+          </p>
+          <p className="section-lead">
+            Stolen funds move between chains, so the same contract signs for all of them. It runs on Sepolia, Base Sepolia and Robinhood testnet today, with one approval rule, one reward limit and the same signing address on all three. A signature made for one chain is rejected on the others.
           </p>
           <p className="section-lead">
             NEAR Intents adds the last step for users: a refund can be swapped for another asset on another chain, without a bridge. The app shows live quotes for this. No swap runs here, because NEAR Intents has no testnet.
           </p>
           <p className="section-lead muted">
-            On a single chain, a multisig could do most of this. What NEAR adds is keyless control outside the team&rsquo;s own infrastructure, and one controller that could serve several chains. The prototype runs on Sepolia only, so multi-chain is a design, not something built here.
+            A multisig on each chain could do something similar, but each would be a separate copy of the rules, and it would sign whatever enough signers approve. Here the contract rejects terms that break the rules, even if enough guardians approve them. Guardians still hold their own NEAR keys, and each chain still needs its own approval. Adding a chain needs a new controller. This covers EVM chains only. It cannot open a case on Bitcoin, because the split needs a smart contract on the same chain as the funds.
           </p>
         </Reveal>
       </section>
@@ -246,18 +251,21 @@ export function Landing() {
         <Reveal>
           <p className="eyebrow">Check it yourself</p>
           <h2>Measured, not claimed.</h2>
-          <p className="section-lead">The full flow has run on Sepolia and NEAR testnet. <code>make verify</code> re-checks it from public data, with no wallet.</p>
+          <p className="section-lead">The full flow has run on Sepolia, Base Sepolia and Robinhood testnet, signed by one contract on NEAR testnet. <code>make verify</code> re-checks it from public data, with no wallet.</p>
         </Reveal>
         <div className="metrics">
-          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={22} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
+          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={67} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
           <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={45} format={(v) => `${Math.round(v)}/45`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
           <Reveal delay={160}><div className="metric"><span className="metric-value"><CountUp value={100} format={(v) => `${Math.round(v)}%`} /></span><span>of lines and branches in the contract covered</span></div></Reveal>
-          <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across nine testnet runs</span></div></Reveal>
+          <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across 14 signatures on testnet</span></div></Reveal>
         </div>
         <Reveal>
           <ul className="proof-links">
             <li><a href={`https://sepolia.etherscan.io/tx/${proof.txs.returnFunds}`} target="_blank" rel="noreferrer">The one transaction that split the funds <ExternalLink /></a></li>
             <li><a href={`https://sepolia.etherscan.io/address/${proof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Sepolia <ExternalLink /></a></li>
+            <li><a href={`https://sepolia.basescan.org/address/${baseProof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Base Sepolia <ExternalLink /></a></li>
+            <li><a href={`https://explorer.testnet.chain.robinhood.com/address/${robinhoodProof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Robinhood testnet <ExternalLink /></a></li>
+            <li><a href="#/guardians">Every offer the guardians approved, read live from NEAR</a></li>
             <li><a href={`https://testnet.nearblocks.io/address/${proof.near.controllerAccount}`} target="_blank" rel="noreferrer">The controller on NEAR testnet <ExternalLink /></a></li>
           </ul>
         </Reveal>

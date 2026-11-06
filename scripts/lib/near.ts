@@ -32,6 +32,7 @@ export interface NearProposal {
   status: "Pending" | "Approved" | "Signing" | "Signed";
   approvals: string[];
   signature: Hex | null;
+  evidence: string;
 }
 
 export async function view<T>(contractId: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -142,8 +143,7 @@ export function toNearTerms(terms: CaseTerms): Record<string, unknown> {
 export interface ControllerInit {
   guardians: string[];
   threshold: number;
-  pactum: Address;
-  chainId: bigint;
+  deployments: { chainId: bigint; pactum: Address }[];
   derivationPath: string;
   maxRewardBps: number;
 }
@@ -157,8 +157,7 @@ export async function deployController(
   const args = {
     guardians: init.guardians,
     threshold: init.threshold,
-    pactum: init.pactum,
-    chain_id: init.chainId.toString(),
+    deployments: init.deployments.map(({ chainId, pactum }) => ({ chain_id: chainId.toString(), pactum })),
     derivation_path: init.derivationPath,
     signer_contract: MPC_CONTRACT,
     max_reward_bps: init.maxRewardBps,
@@ -190,11 +189,11 @@ export async function accessKeyCount(accountId: string): Promise<number> {
   return keys.length;
 }
 
-export async function proposeCase(guardian: NearCredentials, controller: string, terms: CaseTerms): Promise<{ id: string; txHash: string }> {
+export async function proposeCase(guardian: NearCredentials, controller: string, terms: CaseTerms, evidence: string): Promise<{ id: string; txHash: string }> {
   const outcome = await accountOf(guardian).callFunctionRaw({
     contractId: controller,
     methodName: "propose_case",
-    args: { terms: toNearTerms(terms) },
+    args: { terms: toNearTerms(terms), evidence },
     gas: 100n * TGAS,
     waitUntil: "FINAL",
   });

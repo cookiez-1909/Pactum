@@ -241,7 +241,7 @@ const PERMISSIONS: { who: string; role: Role; can: string; cannot: string }[] = 
   { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, and return in parts.", cannot: "Get more than the published reward, or return after the last deadline." },
   { who: "A user who lost funds", role: "user", can: "Claim their share with a proof, again whenever more funds come back.", cannot: "Add themselves to the list or raise their amount." },
   { who: "Anyone else", role: "unknown", can: "Relay a signature, or send a claim on someone's behalf. The tokens go only to the listed wallet.", cannot: "Spend anyone's tokens, or receive someone else's refund." },
-  { who: "Guardians", role: "guardian", can: "Propose and approve the terms of a new case on NEAR.", cannot: "Change a case once it is open, or sign anything but approved terms." },
+  { who: "Guardians", role: "guardian", can: "Read each offer on NEAR, then approve it for any chain the controller serves.", cannot: "Change a case once it is open, sign anything but approved terms, or go above the reward limit on any chain." },
   { who: "The protocol owner", role: "protocol", can: "Write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change an offer once published, or withdraw anything. No such function exists." },
 ];
 
@@ -272,7 +272,7 @@ export function HowItWorks() {
         <h2>Does a hacker have to prove who they are?</h2>
         <p>No. Stolen funds usually move through many wallets and mixers, so any proof would fail anyway. The contract only asks one thing: did this token arrive? A wallet with no link to the hack can return the funds, and the reward can go to any other wallet.</p>
         <p>Nobody can abuse this, because the caller gives up their own tokens and at most the published reward comes back.</p>
-        <p><strong>The real limit is the chain.</strong> A case accepts one token on one chain. Funds that were swapped or bridged away must come back first.</p>
+        <p><strong>The real limit is the chain.</strong> A case accepts one token on one chain. The same guardians can open a case on any chain where Pactum runs, which here means Sepolia, Base Sepolia and Robinhood testnet. Funds that went anywhere else must come back first.</p>
       </section>
 
       <section className="card">
@@ -297,7 +297,7 @@ export function HowItWorks() {
         <ul className="plain-list">
           <li>Testnet only, with mock tokens. Not audited.</li>
           <li>No immunity from prosecution, and no sanctions screening.</li>
-          <li>Only ERC-20 tokens on the chain where the contract runs. Native BTC or ADA would need a wrapped version there, and native ETH would need wrapping first.</li>
+          <li>Only ERC-20 tokens on the three chains where the contract runs. Native BTC or ADA would need a wrapped version there, and native ETH would need wrapping first.</li>
           <li>The contract keeps one case per token, so a hack across several tokens takes one transaction per token, for opening, returning and claiming.</li>
           <li>Special conditions in an offer are fixed by a hash, but the contract does not enforce them. It only enforces the reward, deadlines and refunds.</li>
           <li>Tokens sent to the contract without using Return funds stay locked, because no withdrawal exists.</li>
