@@ -1,0 +1,20 @@
+# Private keys and settings, never committed
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+out/
+cache/
+target/
+dist/
+
+# Local tool settings
+.claude/
+
+# Data generated while running the interface
+web/public/deployment.json
+
+# Internal handover notes, kept out of the repo
+RETURN_DESK_HACKATHON.md

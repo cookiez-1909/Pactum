@@ -1,0 +1,22 @@
+{
+  "mpcContract": "v1.signer-prod.testnet",
+  "accountId": "rd-spike-68a493594c.testnet",
+  "path": "return-desk-spike-1",
+  "derivedAddress": "0xc6ef73c058ACBc8b73aeB57FB26EC8223796c563",
+  "digest": "0x932b7a70825d1a5282302abe3c1dcd0563b7365b9cc06380925159e200066c06",
+  "txHash": "3ueDWQLDkePNbJdD3CbcLHoPAnVboTEwWTEdBMZTK1Px",
+  "response": {
+    "scheme": "Secp256k1",
+    "big_r": {
+      "affine_point": "02878663f63c208af6fb37e191a700248036f75950543619b13201f24aecc3ffff"
+    },
+    "s": {
+      "scalar": "08bfad75049685a8d5f00f2c90f23e0104704c81962184215064dd5553e57888"
+    },
+    "recovery_id": 1
+  },
+  "r": "0x878663f63c208af6fb37e191a700248036f75950543619b13201f24aecc3ffff",
+  "s": "0x08bfad75049685a8d5f00f2c90f23e0104704c81962184215064dd5553e57888",
+  "v": 28,
+  "seconds": 8.8
+}

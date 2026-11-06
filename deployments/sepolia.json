@@ -1,0 +1,123 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "stage": "complete",
+  "openBlock": "12077358",
+  "contracts": {
+    "MockUSD": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
+    "VulnerableVault": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
+    "ReturnDesk": "0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba"
+  },
+  "controllerAddress": "0x083939Bb99D1491d3836E3302E5a638D4543f27e",
+  "near": {
+    "simulated": false,
+    "controllerAccount": "ctrl-aadc19d6.rd-stranger-93cc38385a.testnet",
+    "derivationPath": "return-desk-1",
+    "guardians": [
+      "rd-guardian-a-3ff0494a5d.testnet",
+      "rd-guardian-b-90c085b48d.testnet",
+      "rd-guardian-c-6b8f4bb36c.testnet"
+    ],
+    "threshold": 2,
+    "txs": {
+      "deployController": "9KCE7g2F6ZUARvknJknQ4CBFfGZC4CPKVunxyATTNbM7",
+      "removeKeys": "8xSnZQfT1qjUVvesGrPBZ1v1nYokyuScXZyhBLBcQtxN",
+      "propose": "GvTyeLj9ZfpNrdkPwKtd69WtWH8bdycXi7xdyLPFASA4",
+      "approve1": "3oJ17oPgVbr7dLehhJCEoTFHRmUP8QsC4Dt6M6J3SGDL",
+      "approve2": "2VS2B79AzzozJ7LA8upLsSmkoH4KeXftifFXQ8FUxU3x"
+    },
+    "proposalId": "0"
+  },
+  "actors": {
+    "users": [
+      "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+      "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+      "0xb587237D2572e82Cba12B25545D30A6105475Bd1"
+    ],
+    "attacker": "0xD4726b65261661D9F3c982cb70004fe32931a93E",
+    "rewardWallet": "0x2d5B36e7A137A61CB9b3219d2AB678e98D55beCE"
+  },
+  "terms": {
+    "caseId": "0x06b8ffac42d9371f1b73206e400072ac7fb98390006314040f1a2833f0b68562",
+    "token": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
+    "totalLoss": "1000000000000000000000000",
+    "maxReturn": "1000000000000000000000000",
+    "rewardCap": "150000000000000000000000",
+    "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+    "evidenceHash": "0x82c2616adc8c5ebd5f7ac14f9f6afad0e3d47c962226f6ec73c67839f26dee6e",
+    "tiers": [
+      {
+        "until": "1794237012",
+        "rewardBps": 1000
+      },
+      {
+        "until": "1794582612",
+        "rewardBps": 500
+      }
+    ],
+    "nonce": "1",
+    "chainId": "11155111"
+  },
+  "digest": "0xf16ca4463744e95c010deb3f13f1bab50c597105fdfd0fceb59e01000c1079f0",
+  "signature": "0x68d36dc18d2c277286975fc433be86844cf26c4e437c964f67d962430695ef3a7a2a1f86ee9cb43aa2c5eeaf968d5a6cbc62e58fc8aab753a008da56bfe1c05b1c",
+  "evidence": {
+    "protocol": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
+    "token": "0x03b625896462770d7fbad0e81c0c59f229d72f37",
+    "drainTx": "0xccc60bf40b33bba1af2390eb75c0d2003691c7c2f1a3dd62bb7432695c0f71a6",
+    "totalLoss": "1000000000000000000000000",
+    "allocations": [
+      {
+        "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+        "allocation": "600000000000000000000000"
+      },
+      {
+        "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+        "allocation": "300000000000000000000000"
+      },
+      {
+        "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
+        "allocation": "100000000000000000000000"
+      }
+    ]
+  },
+  "allocations": [
+    {
+      "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
+      "allocation": "600000000000000000000000",
+      "proof": [
+        "0xd71a9ca3270237f7f668758e649500c3acf5092f6aadfd3d214ff383d6ae0f05"
+      ]
+    },
+    {
+      "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
+      "allocation": "300000000000000000000000",
+      "proof": [
+        "0x82236474e84ddfbb404ece67e01cbc49b805f0a4c3b572e8e2c0f4cd50ef4568",
+        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
+      ]
+    },
+    {
+      "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
+      "allocation": "100000000000000000000000",
+      "proof": [
+        "0x914a9d2bba087b69fc650b483c6a67e047dc4dacc7463bbe858ed7c68df7dc0a",
+        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
+      ]
+    }
+  ],
+  "txs": {
+    "deployMockUSD": "0x14daf866dd9817ab6b9dfc9bca5dd09680a8e71efb08f743e37ca3b48b18d159",
+    "deployVulnerableVault": "0x2389ce31752bc02b72328bff7a3673b2e7ba6dcca5f27899f0d5c238bf928595",
+    "deployReturnDesk": "0x385b679313db4ccbba164bf81a8c65c6fa267b9d4d8c4b4843508764e264d3ff",
+    "deposit0": "0xe0626558d1ba13ac0b2ff035971b2f1f8aedb855a5c666e2a3b74e9ea1463bc5",
+    "deposit1": "0xad4b7ae10cd5713ebefd89efcfb2d5453b27f7c78936f30a2e4d18052dbda6a7",
+    "deposit2": "0x995317c8f331a16465f16375caf8ed63be07c734ed1ce48ae468bfe3ccd59e3e",
+    "drain": "0xccc60bf40b33bba1af2390eb75c0d2003691c7c2f1a3dd62bb7432695c0f71a6",
+    "openCase": "0x1a6fd9f1bdca93ce48fa1ebcc9d49868767601aae5a3a675c8734a8a6fc48c1d",
+    "approveReturn": "0xe921bb2e7141925684bb4e9e36af232605d682edb56630731e92c83d656b8756",
+    "returnFunds": "0xa1806458da60efe9768905be81ad5ba51877dc6eb780588f0dfac003433f3dfa",
+    "claim0": "0x3e5f98e25301683b3b80fffa2e84c46ec21819fcf1581bcea432d320b25f8941",
+    "claim1": "0x29147c381223855dfa8fd3753a0acfc129dfbf4baa06091f2982f0abb5a33644",
+    "claim2": "0xfebb370411bb292cfea29e8dd6f62b23e519413079d9f1b44df44a875ad634ea"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "count": 4,
+  "vectors": [
+    {
+      "name": "demo terms on Sepolia",
+      "verifyingContract": "0x1111111111111111111111111111111111111111",
+      "digest": "0x877bfd00c0e86d915b29bed7daafbd4fce173b65382aa3c77f2977a3641f906a",
+      "terms": {
+        "caseId": "0x327c568ef581a8f59e4613137fd44b8b508d5c0c05a9c20e6a1a2e413807b71b",
+        "token": "0x2222222222222222222222222222222222222222",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd6c66cad06fe14fdb6ce9297d80d32f24d7428996d0045cbf90cc345c677ba16",
+        "evidenceHash": "0x97794b46b3afe9245d61058666381907ac8a35b0e3bce564cde9dd0eea648cb6",
+        "tierCount": 2,
+        "tiers": [
+          {
+            "until": "1800259200",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1800604800",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1",
+        "chainId": "11155111"
+      }
+    },
+    {
+      "name": "single tier",
+      "verifyingContract": "0xc6ef73c058ACBc8b73aeB57FB26EC8223796c563",
+      "digest": "0x28672eeb48afec527f1490d4840c15685bbfbf859513d905ccf22809cee1d263",
+      "terms": {
+        "caseId": "0x8da7a2edb4a7959acc438d56947dbbf88c400bfdb088ba1d9fa434af00fae649",
+        "token": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC",
+        "totalLoss": "1",
+        "maxReturn": "1",
+        "rewardCap": "0",
+        "refundRoot": "0x4b8c1356232b43b1f6bbd36a34c7d91454d2c1fec3de07920699ec735aa3ebf1",
+        "evidenceHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "tierCount": 1,
+        "tiers": [
+          {
+            "until": "1",
+            "rewardBps": 0
+          }
+        ],
+        "nonce": "0",
+        "chainId": "1"
+      }
+    },
+    {
+      "name": "eight tiers on another chain",
+      "verifyingContract": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",
+      "digest": "0x038919d1282afeec80ce323e57638136a6b9dfa14487145c22942bc7507f5601",
+      "terms": {
+        "caseId": "0x2195dd8c925d55dd17a3efba2feb123d00adc1770bc76c5c7a8ccaee0b3eac00",
+        "token": "0x0000000000000000000000000000000000000001",
+        "totalLoss": "123456789012345678901234567890",
+        "maxReturn": "98765432109876543210",
+        "rewardCap": "7",
+        "refundRoot": "0x014d8ed5482416560b76a74406362da335561dfb1fde05f63292a4ec0f584fc5",
+        "evidenceHash": "0x83f94f5a211f1f7d0a2f9b2435ef1f82533865af6dedde74b0f34e9a369102d4",
+        "tierCount": 8,
+        "tiers": [
+          {
+            "until": "2000000000",
+            "rewardBps": 1500
+          },
+          {
+            "until": "2000086400",
+            "rewardBps": 1250
+          },
+          {
+            "until": "2000172800",
+            "rewardBps": 1000
+          },
+          {
+            "until": "2000259200",
+            "rewardBps": 750
+          },
+          {
+            "until": "2000345600",
+            "rewardBps": 500
+          },
+          {
+            "until": "2000432000",
+            "rewardBps": 250
+          },
+          {
+            "until": "2000518400",
+            "rewardBps": 100
+          },
+          {
+            "until": "2000604800",
+            "rewardBps": 1
+          }
+        ],
+        "nonce": "42",
+        "chainId": "42161"
+      }
+    },
+    {
+      "name": "largest values",
+      "verifyingContract": "0x00000000000000000000000000000000000000aa",
+      "digest": "0xe3b35e066852776afdc4028ca6c3fd5aeae5837ddec01ae87b0cdb2124550821",
+      "terms": {
+        "caseId": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "token": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",
+        "totalLoss": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        "maxReturn": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        "rewardCap": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        "refundRoot": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "evidenceHash": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "tierCount": 2,
+        "tiers": [
+          {
+            "until": "18446744073709551614",
+            "rewardBps": 10000
+          },
+          {
+            "until": "18446744073709551615",
+            "rewardBps": 9999
+          }
+        ],
+        "nonce": "18446744073709551615",
+        "chainId": "18446744073709551615"
+      }
+    }
+  ]
+}
