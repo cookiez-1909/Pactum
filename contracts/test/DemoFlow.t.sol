@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ReturnDesk} from "../src/ReturnDesk.sol";
+import {Pactum} from "../src/Pactum.sol";
 import {VulnerableVault} from "../src/demo/VulnerableVault.sol";
 import {BaseTest} from "./Base.t.sol";
 
@@ -31,10 +31,10 @@ contract DemoFlowTest is BaseTest {
         assertEq(usd.balanceOf(hacker), ONE_MILLION);
 
         // Step 3: open a case with a 10% reward until 72 hours and 5% until 7 days.
-        ReturnDesk.CaseTerms memory t = _terms();
-        t.tiers = new ReturnDesk.RewardTier[](2);
-        t.tiers[0] = ReturnDesk.RewardTier(tier2Until, 1000);
-        t.tiers[1] = ReturnDesk.RewardTier(tier3Until, 500);
+        Pactum.CaseTerms memory t = _terms();
+        t.tiers = new Pactum.RewardTier[](2);
+        t.tiers[0] = Pactum.RewardTier(tier2Until, 1000);
+        t.tiers[1] = Pactum.RewardTier(tier3Until, 500);
         _open(t);
 
         // Step 5: one transaction splits 100,000 to the reward wallet and 900,000 to refunds.

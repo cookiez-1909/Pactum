@@ -1,9 +1,9 @@
 [package]
-name = "return-desk-controller"
+name = "pactum-controller"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "NEAR contract that approves Return Desk cases and requests Chain Signatures for them"
+description = "NEAR contract that approves Pactum cases and requests Chain Signatures for them"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -4,18 +4,18 @@ pragma solidity 0.8.30;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {ReturnDesk} from "../src/ReturnDesk.sol";
+import {Pactum} from "../src/Pactum.sol";
 import {BaseTest} from "./Base.t.sol";
 import {FeeOnTransferToken, ReentrantToken} from "./mocks/TestTokens.sol";
 
 contract OpenCaseTest is BaseTest {
     function test_opensAndStoresExactTerms() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         vm.expectEmit(address(desk));
-        emit ReturnDesk.CaseOpened(CASE_ID, address(usd), ONE_MILLION, t.refundRoot, EVIDENCE);
+        emit Pactum.CaseOpened(CASE_ID, address(usd), ONE_MILLION, t.refundRoot, EVIDENCE);
         _open(t);
 
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         assertEq(c.token, address(usd));
         assertEq(c.totalLoss, ONE_MILLION);
         assertEq(c.maxReturn, ONE_MILLION);
@@ -23,7 +23,7 @@ contract OpenCaseTest is BaseTest {
         assertEq(c.refundRoot, t.refundRoot);
         assertEq(c.evidenceHash, EVIDENCE);
 
-        ReturnDesk.RewardTier[] memory tiers = desk.getTiers(CASE_ID);
+        Pactum.RewardTier[] memory tiers = desk.getTiers(CASE_ID);
         assertEq(tiers.length, 3);
         assertEq(tiers[1].until, tier2Until);
         assertEq(tiers[1].rewardBps, 1000);
@@ -31,7 +31,7 @@ contract OpenCaseTest is BaseTest {
     }
 
     function test_anyoneCanRelayTheSignature() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(desk, t, controllerKey);
         vm.prank(makeAddr("untrustedRelayer"));
         desk.openCase(t, sig);
@@ -40,7 +40,7 @@ contract OpenCaseTest is BaseTest {
 
     // Recomputes the hash independently from the type string, without the contract's function.
     function test_hashMatchesIndependentEip712Encoding() public view {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes32 tierType = keccak256("RewardTier(uint64 until,uint16 rewardBps)");
         bytes32 termsType = keccak256(
             "CaseTerms(bytes32 caseId,address token,uint256 totalLoss,uint256 maxReturn,uint256 rewardCap,bytes32 refundRoot,bytes32 evidenceHash,RewardTier[] tiers,uint256 nonce,uint256 chainId)RewardTier(uint64 until,uint16 rewardBps)"
@@ -70,7 +70,7 @@ contract OpenCaseTest is BaseTest {
         bytes32 domain = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("ReturnDesk"),
+                keccak256("Pactum"),
                 keccak256("1"),
                 block.chainid,
                 address(desk)
@@ -80,108 +80,108 @@ contract OpenCaseTest is BaseTest {
     }
 
     function test_revertsOnSignatureFromWrongKey() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         (, uint256 wrongKey) = makeAddrAndKey("notController");
         bytes memory sig = _sign(desk, t, wrongKey);
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnMalformedSignature() public {
-        ReturnDesk.CaseTerms memory t = _terms();
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        Pactum.CaseTerms memory t = _terms();
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(t, hex"1234");
     }
 
     function test_revertsOnHighSMalleatedSignature() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(controllerKey, desk.hashCaseTerms(t));
         uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
         bytes memory malleated = abi.encodePacked(r, bytes32(n - uint256(s)), v == 27 ? uint8(28) : uint8(27));
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(t, malleated);
     }
 
     function test_revertsWhenAnySignedFieldChanges() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(desk, t, controllerKey);
 
-        ReturnDesk.CaseTerms memory changed = _terms();
+        Pactum.CaseTerms memory changed = _terms();
         changed.rewardCap += 1;
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(changed, sig);
 
         changed = _terms();
         changed.tiers[0].rewardBps = 2000;
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(changed, sig);
 
         changed = _terms();
         changed.refundRoot = keccak256("other root");
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(changed, sig);
     }
 
     function test_revertsOnReusedSignature() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(desk, t, controllerKey);
         desk.openCase(t, sig);
-        vm.expectRevert(ReturnDesk.NonceUsed.selector);
+        vm.expectRevert(Pactum.NonceUsed.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnReusedNonceForAnotherCase() public {
         _openDefault();
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("case-2");
         bytes memory sig = _sign(desk, t, controllerKey);
-        vm.expectRevert(ReturnDesk.NonceUsed.selector);
+        vm.expectRevert(Pactum.NonceUsed.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnExistingCaseId() public {
         _openDefault();
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.nonce = 2;
         bytes memory sig = _sign(desk, t, controllerKey);
-        vm.expectRevert(ReturnDesk.CaseExists.selector);
+        vm.expectRevert(Pactum.CaseExists.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnWrongChainId() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(desk, t, controllerKey);
         vm.chainId(block.chainid + 1);
-        vm.expectRevert(ReturnDesk.WrongChain.selector);
+        vm.expectRevert(Pactum.WrongChain.selector);
         desk.openCase(t, sig);
     }
 
     // An attacker also edits chainId in the terms to match the new chain: the old signature is still invalid.
     function test_revertsWhenSignatureFromOtherChainHasPatchedChainId() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(desk, t, controllerKey);
         vm.chainId(block.chainid + 1);
         t.chainId = block.chainid;
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnSignatureForAnotherDeskContract() public {
-        ReturnDesk other = new ReturnDesk(controller);
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum other = new Pactum(controller);
+        Pactum.CaseTerms memory t = _terms();
         bytes memory sig = _sign(other, t, controllerKey);
-        vm.expectRevert(ReturnDesk.InvalidSignature.selector);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
         desk.openCase(t, sig);
     }
 
-    function _expectInvalid(ReturnDesk.CaseTerms memory t) private {
+    function _expectInvalid(Pactum.CaseTerms memory t) private {
         bytes memory sig = _sign(desk, t, controllerKey);
-        vm.expectRevert(ReturnDesk.InvalidTerms.selector);
+        vm.expectRevert(Pactum.InvalidTerms.selector);
         desk.openCase(t, sig);
     }
 
     function test_revertsOnInvalidTerms() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = bytes32(0);
         _expectInvalid(t);
 
@@ -206,19 +206,19 @@ contract OpenCaseTest is BaseTest {
         _expectInvalid(t);
 
         t = _terms();
-        t.tiers = new ReturnDesk.RewardTier[](0);
+        t.tiers = new Pactum.RewardTier[](0);
         _expectInvalid(t);
 
         t = _terms();
-        t.tiers = new ReturnDesk.RewardTier[](9);
+        t.tiers = new Pactum.RewardTier[](9);
         for (uint256 i = 0; i < 9; ++i) {
-            t.tiers[i] = ReturnDesk.RewardTier(uint64(block.timestamp + i + 1), uint16(1000 - i));
+            t.tiers[i] = Pactum.RewardTier(uint64(block.timestamp + i + 1), uint16(1000 - i));
         }
         _expectInvalid(t);
     }
 
     function test_revertsOnBadTierOrdering() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.tiers[1].until = t.tiers[0].until;
         _expectInvalid(t);
 
@@ -238,8 +238,8 @@ contract OpenCaseTest is BaseTest {
     }
 
     function test_constructorRejectsZeroController() public {
-        vm.expectRevert(ReturnDesk.ZeroController.selector);
-        new ReturnDesk(address(0));
+        vm.expectRevert(Pactum.ZeroController.selector);
+        new Pactum(address(0));
     }
 }
 
@@ -252,13 +252,13 @@ contract ReturnFundsTest is BaseTest {
     function test_splitsAtomicallyInOneCall() public {
         vm.warp(tier1Until + 1); // 10% tier.
         vm.expectEmit(address(desk));
-        emit ReturnDesk.FundsReturned(CASE_ID, hacker, rewardWallet, ONE_MILLION, 100_000e18, 900_000e18, 1000);
+        emit Pactum.FundsReturned(CASE_ID, hacker, rewardWallet, ONE_MILLION, 100_000e18, 900_000e18, 1000);
         _return(ONE_MILLION);
 
         assertEq(usd.balanceOf(rewardWallet), 100_000e18);
         assertEq(usd.balanceOf(address(desk)), 900_000e18);
         assertEq(usd.balanceOf(hacker), 0);
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         assertEq(c.totalReturned, ONE_MILLION);
         assertEq(c.totalReward, 100_000e18);
         assertEq(c.totalRefund, 900_000e18);
@@ -291,10 +291,10 @@ contract ReturnFundsTest is BaseTest {
     function test_revertsAfterLastTier() public {
         vm.warp(tier3Until + 1);
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.CaseClosed.selector);
+        vm.expectRevert(Pactum.CaseClosed.selector);
         desk.returnFunds(CASE_ID, 1e18, rewardWallet);
 
-        vm.expectRevert(ReturnDesk.CaseClosed.selector);
+        vm.expectRevert(Pactum.CaseClosed.selector);
         desk.quote(CASE_ID, 1e18);
 
         (bool open,,) = desk.currentTier(CASE_ID);
@@ -306,7 +306,7 @@ contract ReturnFundsTest is BaseTest {
         _return(100_000e18); // 15%.
         vm.warp(tier1Until + 1);
         _return(100_000e18); // 10%.
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         assertEq(c.totalReturned, 200_000e18);
         assertEq(c.totalReward, 25_000e18);
         assertEq(c.totalRefund, 175_000e18);
@@ -315,7 +315,7 @@ contract ReturnFundsTest is BaseTest {
     }
 
     function test_rewardCapMovesExcessToRefund() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("capped");
         t.nonce = 2;
         t.rewardCap = 50_000e18;
@@ -324,14 +324,14 @@ contract ReturnFundsTest is BaseTest {
         vm.prank(hacker);
         desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet); // 15% would be 150k, capped at 50k.
 
-        ReturnDesk.Case memory c = desk.getCase(t.caseId);
+        Pactum.Case memory c = desk.getCase(t.caseId);
         assertEq(c.totalReward, 50_000e18);
         assertEq(c.totalRefund, 950_000e18);
         assertEq(usd.balanceOf(rewardWallet), 50_000e18);
     }
 
     function test_rewardCapAppliesAcrossPartialReturns() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("capped");
         t.nonce = 2;
         t.rewardCap = 20_000e18;
@@ -343,14 +343,14 @@ contract ReturnFundsTest is BaseTest {
         desk.returnFunds(t.caseId, 100_000e18, rewardWallet); // Cap used up, reward 0.
         vm.stopPrank();
 
-        ReturnDesk.Case memory c = desk.getCase(t.caseId);
+        Pactum.Case memory c = desk.getCase(t.caseId);
         assertEq(c.totalReward, 20_000e18);
         assertEq(c.totalRefund, 280_000e18);
         assertEq(usd.balanceOf(rewardWallet), 20_000e18);
     }
 
     function test_zeroRewardCapStillAcceptsReturn() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("no reward");
         t.nonce = 2;
         t.rewardCap = 0;
@@ -362,7 +362,7 @@ contract ReturnFundsTest is BaseTest {
     }
 
     function test_maxReturnPullsOnlyWhatCaseAccepts() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("limited");
         t.nonce = 2;
         t.maxReturn = 400_000e18;
@@ -375,21 +375,21 @@ contract ReturnFundsTest is BaseTest {
         assertEq(usd.balanceOf(hacker), 600_000e18);
 
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.NothingToReturn.selector);
+        vm.expectRevert(Pactum.NothingToReturn.selector);
         desk.returnFunds(t.caseId, 1, rewardWallet);
     }
 
     function test_quoteMatchesActualSplit() public {
         (uint256 reward, uint256 refund) = desk.quote(CASE_ID, 123_456e18);
         _return(123_456e18);
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         assertEq(c.totalReward, reward);
         assertEq(c.totalRefund, refund);
     }
 
     // quote must report what the case still accepts, like returnFunds.
     function test_quoteIsLimitedByRemainingMaxReturn() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("limited quote");
         t.nonce = 2;
         t.maxReturn = 400_000e18;
@@ -406,25 +406,47 @@ contract ReturnFundsTest is BaseTest {
         assertEq(reward + refund, 100_000e18);
     }
 
+    // The contract never asks who took the funds: a new wallet after many transfers can still return, with the reward going to another wallet.
+    function test_fundsMovedThroughManyWalletsCanStillBeReturned() public {
+        address hopA = makeAddr("hopA");
+        address hopB = makeAddr("hopB");
+        address freshWallet = makeAddr("freshWallet");
+        address otherRewardWallet = makeAddr("otherRewardWallet");
+        vm.prank(hacker);
+        usd.transfer(hopA, 100_000e18);
+        vm.prank(hopA);
+        usd.transfer(hopB, 100_000e18);
+        vm.prank(hopB);
+        usd.transfer(freshWallet, 100_000e18);
+
+        vm.startPrank(freshWallet);
+        usd.approve(address(desk), 100_000e18);
+        desk.returnFunds(CASE_ID, 100_000e18, otherRewardWallet);
+        vm.stopPrank();
+
+        assertEq(usd.balanceOf(otherRewardWallet), 15_000e18);
+        assertEq(desk.getCase(CASE_ID).totalRefund, 85_000e18);
+    }
+
     function test_revertsOnZeroRewardAddress() public {
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.ZeroRewardAddress.selector);
+        vm.expectRevert(Pactum.ZeroRewardAddress.selector);
         desk.returnFunds(CASE_ID, 1e18, address(0));
     }
 
     function test_revertsOnZeroAmount() public {
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.NothingToReturn.selector);
+        vm.expectRevert(Pactum.NothingToReturn.selector);
         desk.returnFunds(CASE_ID, 0, rewardWallet);
     }
 
     function test_revertsOnUnknownCase() public {
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.CaseNotFound.selector);
+        vm.expectRevert(Pactum.CaseNotFound.selector);
         desk.returnFunds(keccak256("nope"), 1e18, rewardWallet);
-        vm.expectRevert(ReturnDesk.CaseNotFound.selector);
+        vm.expectRevert(Pactum.CaseNotFound.selector);
         desk.quote(keccak256("nope"), 1e18);
-        vm.expectRevert(ReturnDesk.CaseNotFound.selector);
+        vm.expectRevert(Pactum.CaseNotFound.selector);
         desk.claimRefund(keccak256("nope"), alice, 1, new bytes32[](0));
     }
 
@@ -457,7 +479,7 @@ contract ClaimRefundTest is BaseTest {
         _return(ONE_MILLION);
 
         vm.expectEmit(address(desk));
-        emit ReturnDesk.RefundClaimed(CASE_ID, alice, 540_000e18);
+        emit Pactum.RefundClaimed(CASE_ID, alice, 540_000e18);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, _aliceProof());
         desk.claimRefund(CASE_ID, bob, BOB_ALLOCATION, _bobProof());
         desk.claimRefund(CASE_ID, carol, CAROL_ALLOCATION, _carolProof());
@@ -500,36 +522,36 @@ contract ClaimRefundTest is BaseTest {
     function test_revertsOnSecondClaim() public {
         _return(ONE_MILLION);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, _aliceProof());
-        vm.expectRevert(ReturnDesk.NothingToClaim.selector);
+        vm.expectRevert(Pactum.NothingToClaim.selector);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, _aliceProof());
     }
 
     function test_revertsBeforeAnyFundsReturn() public {
-        vm.expectRevert(ReturnDesk.NothingToClaim.selector);
+        vm.expectRevert(Pactum.NothingToClaim.selector);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, _aliceProof());
     }
 
     function test_revertsOnWrongProof() public {
         _return(ONE_MILLION);
-        vm.expectRevert(ReturnDesk.InvalidProof.selector);
+        vm.expectRevert(Pactum.InvalidProof.selector);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, _bobProof());
     }
 
     function test_revertsOnInflatedAllocation() public {
         _return(ONE_MILLION);
-        vm.expectRevert(ReturnDesk.InvalidProof.selector);
+        vm.expectRevert(Pactum.InvalidProof.selector);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION + 1, _aliceProof());
     }
 
     function test_revertsOnWrongAccount() public {
         _return(ONE_MILLION);
-        vm.expectRevert(ReturnDesk.InvalidProof.selector);
+        vm.expectRevert(Pactum.InvalidProof.selector);
         desk.claimRefund(CASE_ID, hacker, ALICE_ALLOCATION, _aliceProof());
     }
 
     function test_revertsOnEmptyProof() public {
         _return(ONE_MILLION);
-        vm.expectRevert(ReturnDesk.InvalidProof.selector);
+        vm.expectRevert(Pactum.InvalidProof.selector);
         desk.claimRefund(CASE_ID, alice, ALICE_ALLOCATION, new bytes32[](0));
     }
 
@@ -537,7 +559,7 @@ contract ClaimRefundTest is BaseTest {
     function test_badRootCannotPayMoreThanRefundPool() public {
         address mallory = makeAddr("mallory");
         address trent = makeAddr("trent");
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("bad root");
         t.nonce = 2;
         t.refundRoot = _pair(_leaf(mallory, ONE_MILLION), _leaf(trent, ONE_MILLION));
@@ -553,14 +575,14 @@ contract ClaimRefundTest is BaseTest {
         assertEq(usd.balanceOf(mallory), 900_000e18);
 
         proof[0] = _leaf(mallory, ONE_MILLION);
-        vm.expectRevert(ReturnDesk.NothingToClaim.selector);
+        vm.expectRevert(Pactum.NothingToClaim.selector);
         desk.claimRefund(t.caseId, trent, ONE_MILLION, proof);
     }
 
     // A case with a wrong root cannot take money from another case using the same token.
     function test_casesSharingTokenStayIsolated() public {
         address mallory = makeAddr("mallory");
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("other");
         t.nonce = 2;
         t.refundRoot = _pair(_leaf(mallory, ONE_MILLION), _leaf(mallory, ONE_MILLION));
@@ -591,7 +613,7 @@ contract NoAdminPathTest is BaseTest {
     // The complete list of allowed functions. Adding any function, a withdraw included, makes this test fail.
     // Reads from the artifact instead of calling, because a call can revert for other reasons even when the function exists.
     function test_contractExposesExactlyTheseFunctions() public view {
-        string memory json = vm.readFile("out/ReturnDesk.sol/ReturnDesk.json");
+        string memory json = vm.readFile("out/Pactum.sol/Pactum.json");
         string[] memory actual = vm.parseJsonKeys(json, ".methodIdentifiers");
         string[17] memory expected = [
             "BPS()",
@@ -624,7 +646,7 @@ contract NoAdminPathTest is BaseTest {
 
     // Only three functions change state, and the contract accepts no ETH.
     function test_onlyThreeFunctionsChangeState() public view {
-        string memory json = vm.readFile("out/ReturnDesk.sol/ReturnDesk.json");
+        string memory json = vm.readFile("out/Pactum.sol/Pactum.json");
         string memory names = "";
         for (uint256 i = 0; vm.keyExistsJson(json, string.concat(".abi[", vm.toString(i), "]")); ++i) {
             string memory entry = string.concat(".abi[", vm.toString(i), "]");
@@ -641,28 +663,28 @@ contract NoAdminPathTest is BaseTest {
 
     function test_controllerHasNoSpecialClaim() public {
         vm.prank(controller);
-        vm.expectRevert(ReturnDesk.InvalidProof.selector);
+        vm.expectRevert(Pactum.InvalidProof.selector);
         desk.claimRefund(CASE_ID, controller, 1, new bytes32[](0));
     }
 
     function test_controllerCannotOverwriteOpenCase() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.nonce = 2;
         t.tiers[0].rewardBps = 1;
         t.tiers[1].rewardBps = 0;
         t.tiers = _firstTwo(t.tiers);
         bytes memory sig = _sign(desk, t, controllerKey);
-        vm.expectRevert(ReturnDesk.CaseExists.selector);
+        vm.expectRevert(Pactum.CaseExists.selector);
         desk.openCase(t, sig);
         assertEq(desk.getTiers(CASE_ID)[0].rewardBps, 1500);
     }
 
-    function _firstTwo(ReturnDesk.RewardTier[] memory tiers)
+    function _firstTwo(Pactum.RewardTier[] memory tiers)
         private
         pure
-        returns (ReturnDesk.RewardTier[] memory out)
+        returns (Pactum.RewardTier[] memory out)
     {
-        out = new ReturnDesk.RewardTier[](2);
+        out = new Pactum.RewardTier[](2);
         out[0] = tiers[0];
         out[1] = tiers[1];
     }
@@ -679,7 +701,7 @@ contract FeeOnTransferTest is BaseTest {
         vm.prank(hacker);
         fee.approve(address(desk), type(uint256).max);
 
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = feeCase;
         t.token = address(fee);
         t.nonce = 2;
@@ -691,7 +713,7 @@ contract FeeOnTransferTest is BaseTest {
         vm.prank(hacker);
         desk.returnFunds(feeCase, 100_000e18, rewardWallet);
 
-        ReturnDesk.Case memory c = desk.getCase(feeCase);
+        Pactum.Case memory c = desk.getCase(feeCase);
         assertEq(c.totalReturned, 99_000e18);
         assertEq(c.totalReward, 9900e18);
         assertEq(c.totalRefund, 89_100e18);
@@ -706,7 +728,7 @@ contract FeeOnTransferTest is BaseTest {
         desk.claimRefund(feeCase, alice, ALICE_ALLOCATION, _aliceProof());
         desk.claimRefund(feeCase, bob, BOB_ALLOCATION, _bobProof());
         desk.claimRefund(feeCase, carol, CAROL_ALLOCATION, _carolProof());
-        ReturnDesk.Case memory c = desk.getCase(feeCase);
+        Pactum.Case memory c = desk.getCase(feeCase);
         assertEq(c.totalClaimed, c.totalRefund);
         assertEq(fee.balanceOf(address(desk)), 0);
     }
@@ -716,13 +738,13 @@ contract FeeOnTransferTest is BaseTest {
         full.mint(hacker, 100e18);
         vm.prank(hacker);
         full.approve(address(desk), type(uint256).max);
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("full fee");
         t.token = address(full);
         t.nonce = 3;
         _open(t);
         vm.prank(hacker);
-        vm.expectRevert(ReturnDesk.NothingToReturn.selector);
+        vm.expectRevert(Pactum.NothingToReturn.selector);
         desk.returnFunds(t.caseId, 100e18, rewardWallet);
     }
 }
@@ -738,7 +760,7 @@ contract ReentrancyTest is BaseTest {
         vm.prank(hacker);
         evil.approve(address(desk), type(uint256).max);
 
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = evilCase;
         t.token = address(evil);
         t.nonce = 2;
@@ -757,7 +779,7 @@ contract ReentrancyTest is BaseTest {
     }
 
     function test_blocksReentryIntoReturnFundsWhilePulling() public {
-        evil.arm(address(desk), abi.encodeCall(ReturnDesk.returnFunds, (evilCase, 1e18, hacker)), 0);
+        evil.arm(address(desk), abi.encodeCall(Pactum.returnFunds, (evilCase, 1e18, hacker)), 0);
         vm.prank(hacker);
         desk.returnFunds(evilCase, 100e18, rewardWallet);
         _assertBlocked();
@@ -765,7 +787,7 @@ contract ReentrancyTest is BaseTest {
 
     function test_blocksReentryIntoClaimWhilePayingReward() public {
         bytes memory attack =
-            abi.encodeCall(ReturnDesk.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
+            abi.encodeCall(Pactum.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
         evil.arm(address(desk), attack, 1); // Skip the pull and attack while the reward is paid.
         vm.prank(hacker);
         desk.returnFunds(evilCase, 100e18, rewardWallet);
@@ -778,7 +800,7 @@ contract ReentrancyTest is BaseTest {
         desk.returnFunds(evilCase, 100e18, rewardWallet);
 
         bytes memory attack =
-            abi.encodeCall(ReturnDesk.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
+            abi.encodeCall(Pactum.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
         evil.arm(address(desk), attack, 0);
         desk.claimRefund(evilCase, alice, ALICE_ALLOCATION, _aliceProof());
         _assertBlocked();
@@ -786,10 +808,10 @@ contract ReentrancyTest is BaseTest {
     }
 
     function test_blocksReentryIntoOpenCase() public {
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.caseId = keccak256("nested");
         t.nonce = 3;
-        bytes memory attack = abi.encodeCall(ReturnDesk.openCase, (t, _sign(desk, t, controllerKey)));
+        bytes memory attack = abi.encodeCall(Pactum.openCase, (t, _sign(desk, t, controllerKey)));
         evil.arm(address(desk), attack, 0);
         vm.prank(hacker);
         desk.returnFunds(evilCase, 100e18, rewardWallet);

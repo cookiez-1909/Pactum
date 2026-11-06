@@ -9,13 +9,13 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-/// @title ReturnDesk
+/// @title Pactum
 /// @notice Whoever holds exploited funds returns them here. One transaction pays the published reward
 ///         and books the rest for users to claim against a Merkle allocation.
 /// @dev Testnet prototype, not audited. No owner, not upgradeable, no withdraw function.
 ///      Tokens leave the contract only through `returnFunds` (reward) and `claimRefund` (refund).
 ///      Tokens sent straight to the contract without `returnFunds` are not recorded and stay locked forever.
-contract ReturnDesk is EIP712, ReentrancyGuard {
+contract Pactum is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     struct RewardTier {
@@ -95,7 +95,7 @@ contract ReturnDesk is EIP712, ReentrancyGuard {
     error InvalidProof();
     error NothingToClaim();
 
-    constructor(address controller_) EIP712("ReturnDesk", "1") {
+    constructor(address controller_) EIP712("Pactum", "1") {
         if (controller_ == address(0)) revert ZeroController();
         controller = controller_;
     }

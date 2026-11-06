@@ -5,5 +5,6 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "./",
   plugins: [react()],
-  server: { port: 5173 },
+  // The landing page reads the testnet run's addresses from the deployments folder at the repo root.
+  server: { port: 5173, fs: { allow: [".."] } },
 });

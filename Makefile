@@ -1,5 +1,5 @@
 # Main project commands. See README.md for details.
-.PHONY: setup test test-evm test-near test-sandbox scenarios mutants demo-local demo-testnet verify verify-wasm build-near vectors web-local clean
+.PHONY: setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet verify verify-wasm intents-quote build-near vectors web-local clean
 
 setup:
 	git submodule update --init
@@ -24,7 +24,11 @@ scenarios:
 	cd contracts && forge build
 	cd scripts && npx tsx scenarios.ts
 
-# Plants bugs in a copy of ReturnDesk to test the Foundry test suite itself.
+# Drives the interface in Chromium on sample data. Needs network access for NEAR Intents quotes.
+test-ui:
+	bash e2e/run.sh
+
+# Injects bugs into a copy of Pactum to test the Foundry suite itself.
 mutants:
 	python3 scripts/mutants.py
 
@@ -47,18 +51,22 @@ demo-testnet: build-near
 
 # Rebuilds the NEAR contracts from source and compares them with the deployed wasm. Needs cargo-near and the pinned toolchain.
 verify-wasm: build-near
-	cmp controller/target/near/return_desk_controller.wasm deployments/return_desk_controller.wasm
-	@echo "PASS: rebuilt wasm is byte-identical to deployments/return_desk_controller.wasm"
+	cmp controller/target/near/pactum_controller.wasm deployments/pactum_controller.wasm
+	@echo "PASS: rebuilt wasm is byte-identical to deployments/pactum_controller.wasm"
 
 # Re-reads the existing testnet transactions. No wallet needed.
 verify:
 	cd contracts && forge build
 	cd scripts && npx tsx verify.ts
 
-# The interface with Anvil and test accounts, clicking return and refund by itself, with no wallet.
+# Fetches a real NEAR Intents quote. No wallet, and nothing is transferred.
+intents-quote:
+	cd scripts && npx tsx intents-quote.ts
+
+# The interface with several fictional hacks on Anvil and test accounts. No wallet needed.
 web-local:
 	cd contracts && forge build
-	trap 'kill 0' EXIT; (cd scripts && npx tsx demo.ts --mode local --stage) & (cd web && npm run dev)
+	trap 'kill 0' EXIT; (cd scripts && npx tsx seed.ts) & (cd web && npm run dev)
 
 clean:
 	cd contracts && forge clean

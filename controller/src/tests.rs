@@ -9,7 +9,7 @@ use crate::types::{
     evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseTerms, ProposalStatus,
     RewardTier, Scalar, SignResponse,
 };
-use crate::ReturnDeskController;
+use crate::PactumController;
 
 const SEPOLIA: u64 = 11_155_111;
 const DESK: &str = "0x1111111111111111111111111111111111111111";
@@ -31,7 +31,7 @@ fn set_caller(name: &str) {
 }
 
 // Calls on_signed the way the contract calls itself back, with a given result from the MPC contract.
-fn deliver(c: &mut ReturnDeskController, id: U64, result: PromiseResult) -> Option<String> {
+fn deliver(c: &mut PactumController, id: U64, result: PromiseResult) -> Option<String> {
     let mut context = VMContextBuilder::new();
     context
         .current_account_id(account("controller.testnet"))
@@ -52,14 +52,14 @@ fn response_bytes() -> Vec<u8> {
     serde_json::to_vec(&signature_response()).unwrap()
 }
 
-fn contract(threshold: u32) -> ReturnDeskController {
+fn contract(threshold: u32) -> PactumController {
     set_caller("deployer.testnet");
-    ReturnDeskController::new(
+    PactumController::new(
         vec![account("alice.testnet"), account("bob.testnet"), account("carol.testnet")],
         threshold,
         DESK.to_string(),
         U64(SEPOLIA),
-        "return-desk-1".to_string(),
+        "pactum-1".to_string(),
         account("v1.signer-prod.testnet"),
         2000,
     )
@@ -83,12 +83,12 @@ fn terms() -> CaseTerms {
     }
 }
 
-fn propose(c: &mut ReturnDeskController) -> U64 {
+fn propose(c: &mut PactumController) -> U64 {
     set_caller("alice.testnet");
     c.propose_case(terms())
 }
 
-fn status(c: &ReturnDeskController, id: U64) -> ProposalStatus {
+fn status(c: &PactumController, id: U64) -> ProposalStatus {
     c.get_proposal(id).unwrap().status
 }
 
@@ -105,7 +105,7 @@ fn signature_response() -> SignResponse {
 }
 
 // Moves the proposal into signing with a threshold of 2.
-fn approved_and_signing(c: &mut ReturnDeskController) -> U64 {
+fn approved_and_signing(c: &mut PactumController) -> U64 {
     let id = propose(c);
     set_caller("alice.testnet");
     let _ = c.approve_case(id);
@@ -118,7 +118,7 @@ fn approved_and_signing(c: &mut ReturnDeskController) -> U64 {
 #[should_panic(expected = "threshold must be between")]
 fn init_rejects_threshold_above_guardian_count() {
     set_caller("deployer.testnet");
-    ReturnDeskController::new(
+    PactumController::new(
         vec![account("alice.testnet")],
         2,
         DESK.to_string(),
@@ -139,7 +139,7 @@ fn init_rejects_zero_threshold() {
 #[should_panic(expected = "duplicate guardian")]
 fn init_rejects_duplicate_guardians() {
     set_caller("deployer.testnet");
-    ReturnDeskController::new(
+    PactumController::new(
         vec![account("alice.testnet"), account("alice.testnet")],
         1,
         DESK.to_string(),
@@ -204,7 +204,7 @@ fn threshold_requests_a_signature_for_the_exact_digest() {
     let payload = proposal.digest.trim_start_matches("0x");
     let args = sign_args(sign_receipt);
     assert_eq!(args["request"]["payload_v2"]["Ecdsa"], Value::String(payload.to_string()));
-    assert_eq!(args["request"]["path"], "return-desk-1");
+    assert_eq!(args["request"]["path"], "pactum-1");
     assert_eq!(args["request"]["domain_id"], 0);
 }
 
@@ -437,7 +437,7 @@ fn digest_matches_shared_vectors() {
             nonce: U64(terms_json["nonce"].as_str().unwrap().parse().unwrap()),
             chain_id: U64(terms_json["chainId"].as_str().unwrap().parse().unwrap()),
         };
-        let c = ReturnDeskController::new(
+        let c = PactumController::new(
             vec![account("alice.testnet")],
             1,
             vector["verifyingContract"].as_str().unwrap().to_string(),

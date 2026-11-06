@@ -44,11 +44,12 @@ const client = createPublicClient({ chain: foundry, transport });
 const test = createTestClient({ mode: "anvil", chain: foundry, transport });
 const wallet = (from: LocalAccount) => createWalletClient({ account: from, chain: foundry, transport });
 
-const { abi: deskAbi, bytecode: deskCode } = artifact("ReturnDesk");
+const { abi: deskAbi, bytecode: deskCode } = artifact("Pactum");
 const { abi: usdAbi, bytecode: usdCode } = artifact("MockUSD");
 const { abi: vaultAbi, bytecode: vaultCode } = artifact("VulnerableVault");
 const { abi: feeAbi, bytecode: feeCode } = artifact("FeeOnTransferToken", "TestTokens.sol");
 const { abi: evilAbi, bytecode: evilCode } = artifact("ReentrantToken", "TestTokens.sol");
+const { abi: mockAbi, bytecode: mockCode } = artifact("MockToken");
 
 let desk: Address;
 let usd: Address;
@@ -182,7 +183,7 @@ async function clearBalance(who: LocalAccount): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log("Return Desk scenarios on a local Anvil node. The controller is SIMULATED with a test key.\n");
+  console.log("Pactum scenarios on a local Anvil node. The controller is SIMULATED with a test key.\n");
   desk = await deploy(deskAbi, deskCode, [controller.address]);
   usd = await deploy(usdAbi, usdCode);
 
@@ -383,6 +384,54 @@ async function main(): Promise<void> {
     return "sent 1,000,000, 990,000 arrived; reward + refund = 990,000; all claims funded";
   });
 
+  await scenario("Different assets on one desk: mBTC with 8 decimals and mADA with 6 stay separate", async () => {
+    const btc = await deploy(mockAbi, mockCode, ["Mock Wrapped Bitcoin", "mBTC", 8]);
+    const ada = await deploy(mockAbi, mockCode, ["Mock Wrapped ADA", "mADA", 6]);
+    const btcLoss = 125n * 10n ** 8n;
+    const adaLoss = 14_000_000n * 10n ** 6n;
+    const btcCase = await openCase({
+      token: btc,
+      totalLoss: btcLoss,
+      rewardCap: 10n * 10n ** 8n,
+      entries: [{ account: alice.address, allocation: btcLoss }],
+    });
+    const adaCase = await openCase({
+      token: ada,
+      totalLoss: adaLoss,
+      rewardCap: adaLoss,
+      entries: [{ account: bob.address, allocation: adaLoss }],
+    });
+    await fundAttacker(btcLoss, btc);
+    await fundAttacker(adaLoss, ada);
+    await send(attacker, desk, deskAbi, "returnFunds", [btcCase.terms.caseId, btcLoss, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [adaCase.terms.caseId, adaLoss / 2n, rewardWallet]);
+    eq(await balance(btc, rewardWallet), 10n * 10n ** 8n, "BTC reward capped at 10");
+    eq(await balance(ada, rewardWallet), 1_050_000n * 10n ** 6n, "ADA reward at 15% of half");
+    await claim(btcCase.terms, btcCase.allocations[0]!);
+    await claim(adaCase.terms, adaCase.allocations[0]!);
+    eq(await balance(btc, alice.address), 115n * 10n ** 8n, "BTC refund");
+    eq(await balance(ada, bob.address), 5_950_000n * 10n ** 6n, "ADA refund");
+    eq(await balance(btc, bob.address), 0n, "no cross-asset payout");
+    return "125 mBTC: reward 10 (capped), refund 115. Half of 14M mADA: reward 1,050,000, refund 5,950,000";
+  });
+
+  await scenario("No proof needed: funds moved through several wallets are returned from an unrelated one", async () => {
+    const { terms, allocations } = await openCase();
+    const [hopA, hopB, fresh] = [account(14), account(15), account(16)] as [LocalAccount, LocalAccount, LocalAccount];
+    const payout = account(17).address;
+    await mint(usd, attacker.address, 500_000n * ONE_TOKEN);
+    await send(attacker, usd, usdAbi, "transfer", [hopA.address, 500_000n * ONE_TOKEN]);
+    await send(hopA, usd, usdAbi, "transfer", [hopB.address, 500_000n * ONE_TOKEN]);
+    await send(hopB, usd, usdAbi, "transfer", [fresh.address, 500_000n * ONE_TOKEN]);
+    await approve(fresh, usd);
+    await send(fresh, desk, deskAbi, "returnFunds", [terms.caseId, 500_000n * ONE_TOKEN, payout]);
+    eq(await balance(usd, payout), 75_000n * ONE_TOKEN, "reward at 15%");
+    await claim(terms, allocations[0]!);
+    eq(await balance(usd, alice.address), 255_000n * ONE_TOKEN, "user refund");
+    await clearBalance(alice);
+    return "3 hops to a new wallet: it returned 500,000, a different wallet got the 75,000 reward, and users were paid";
+  });
+
   await scenario("Malicious token tries to re-enter during the return", async () => {
     const evil = await deploy(evilAbi, evilCode);
     const { terms } = await openCase({ token: evil });
@@ -466,7 +515,7 @@ async function main(): Promise<void> {
   }
 }
 
-const anvil = spawn("anvil", ["--silent", "--port", String(PORT), "--accounts", "14"], { stdio: "ignore" });
+const anvil = spawn("anvil", ["--silent", "--port", String(PORT), "--accounts", "20"], { stdio: "ignore" });
 const ready = async (): Promise<void> => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {

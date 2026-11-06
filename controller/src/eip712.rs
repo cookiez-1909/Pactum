@@ -1,4 +1,4 @@
-//! EIP-712 hash of case terms. The result must match `ReturnDesk.hashCaseTerms` byte for byte.
+//! EIP-712 hash of a case's terms. It must match `Pactum.hashCaseTerms` byte for byte.
 //! Checked against the test vectors in `contracts/test/vectors/case_terms.json`.
 
 use near_sdk::env;
@@ -7,7 +7,7 @@ use crate::types::ParsedTerms;
 
 const DOMAIN_TYPE: &[u8] =
     b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
-const DOMAIN_NAME: &[u8] = b"ReturnDesk";
+const DOMAIN_NAME: &[u8] = b"Pactum";
 const DOMAIN_VERSION: &[u8] = b"1";
 const REWARD_TIER_TYPE: &[u8] = b"RewardTier(uint64 until,uint16 rewardBps)";
 const CASE_TERMS_TYPE: &[u8] = b"CaseTerms(bytes32 caseId,address token,uint256 totalLoss,uint256 maxReturn,uint256 rewardCap,bytes32 refundRoot,bytes32 evidenceHash,RewardTier[] tiers,uint256 nonce,uint256 chainId)RewardTier(uint64 until,uint16 rewardBps)";

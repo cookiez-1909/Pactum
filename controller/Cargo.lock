@@ -1652,6 +1652,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "pactum-controller"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1864,13 +1871,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "return-desk-controller"
-version = "0.1.0"
-dependencies = [
- "near-sdk",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
-//! ReturnDeskController: a council of guardians approves case terms on NEAR, then Chain Signatures
-//! signs exactly the hash of those terms to open the case on the ReturnDesk contract on an EVM chain.
+//! PactumController: a council of guardians approves case terms on NEAR, then Chain Signatures
+//! signs exactly the hash of those terms to open the case on the Pactum contract on an EVM chain.
 //!
 //! The contract has no owner, no upgrade function and no function that signs arbitrary payloads.
 //! Testnet prototype, not audited.
@@ -49,10 +49,10 @@ trait MpcSigner {
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
-pub struct ReturnDeskController {
+pub struct PactumController {
     guardians: Vec<AccountId>,
     threshold: u32,
-    return_desk: [u8; 20],
+    pactum: [u8; 20],
     chain_id: u64,
     derivation_path: String,
     signer_contract: AccountId,
@@ -64,13 +64,13 @@ pub struct ReturnDeskController {
 }
 
 #[near]
-impl ReturnDeskController {
+impl PactumController {
     /// Initialized once. No function changes these values later.
     #[init]
     pub fn new(
         guardians: Vec<AccountId>,
         threshold: u32,
-        return_desk: String,
+        pactum: String,
         chain_id: U64,
         derivation_path: String,
         signer_contract: AccountId,
@@ -86,13 +86,13 @@ impl ReturnDeskController {
         }
         require!(max_reward_bps <= BPS, "max_reward_bps must not exceed 10000");
         require!(!derivation_path.is_empty(), "derivation_path must not be empty");
-        let return_desk = parse_hex_fixed(&return_desk)
-            .unwrap_or_else(|| env::panic_str("return_desk must be 20-byte hex"));
+        let pactum = parse_hex_fixed(&pactum)
+            .unwrap_or_else(|| env::panic_str("pactum must be 20-byte hex"));
 
         Self {
             guardians,
             threshold,
-            return_desk,
+            pactum,
             chain_id: chain_id.0,
             derivation_path,
             signer_contract,
@@ -113,7 +113,7 @@ impl ReturnDeskController {
 
         let id = self.next_proposal_id;
         self.next_proposal_id += 1;
-        let digest = to_hex(&eip712::case_digest(&parsed, &self.return_desk));
+        let digest = to_hex(&eip712::case_digest(&parsed, &self.pactum));
         self.proposals.insert(
             id,
             Proposal {
@@ -178,7 +178,7 @@ impl ReturnDeskController {
         Config {
             guardians: self.guardians.clone(),
             threshold: self.threshold,
-            return_desk: to_hex(&self.return_desk),
+            pactum: to_hex(&self.pactum),
             chain_id: U64(self.chain_id),
             derivation_path: self.derivation_path.clone(),
             signer_contract: self.signer_contract.clone(),
@@ -197,11 +197,11 @@ impl ReturnDeskController {
     /// The hash the contract would sign for these terms. Writes no state; used to compare with the EVM.
     pub fn case_digest(&self, terms: CaseTerms) -> String {
         let parsed = ParsedTerms::parse(&terms).unwrap_or_else(|err| env::panic_str(err));
-        to_hex(&eip712::case_digest(&parsed, &self.return_desk))
+        to_hex(&eip712::case_digest(&parsed, &self.pactum))
     }
 }
 
-impl ReturnDeskController {
+impl PactumController {
     fn require_guardian(&self) {
         require!(
             self.guardians.contains(&env::predecessor_account_id()),
@@ -214,7 +214,7 @@ impl ReturnDeskController {
     }
 
     // Section 7 of the spec: reward within the maximum, increasing deadlines, decreasing rewards.
-    // The remaining conditions match `ReturnDesk._validateTerms`, so bad terms are stopped right on NEAR.
+    // The other checks match `Pactum._validateTerms`, so bad terms are rejected on NEAR already.
     fn validate_terms(&self, terms: &CaseTerms) -> ParsedTerms {
         let parsed = ParsedTerms::parse(terms).unwrap_or_else(|err| env::panic_str(err));
         const ZERO: [u8; 32] = [0u8; 32];

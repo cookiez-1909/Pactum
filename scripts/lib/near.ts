@@ -1,4 +1,4 @@
-// Works with NEAR testnet: faucet, contract reads, EVM address derivation and calls to ReturnDeskController.
+// Works with NEAR testnet: faucet, contract reads, EVM address derivation and PactumController calls.
 import {
   Account,
   JsonRpcProvider,
@@ -142,7 +142,7 @@ export function toNearTerms(terms: CaseTerms): Record<string, unknown> {
 export interface ControllerInit {
   guardians: string[];
   threshold: number;
-  returnDesk: Address;
+  pactum: Address;
   chainId: bigint;
   derivationPath: string;
   maxRewardBps: number;
@@ -157,7 +157,7 @@ export async function deployController(
   const args = {
     guardians: init.guardians,
     threshold: init.threshold,
-    return_desk: init.returnDesk,
+    pactum: init.pactum,
     chain_id: init.chainId.toString(),
     derivation_path: init.derivationPath,
     signer_contract: MPC_CONTRACT,

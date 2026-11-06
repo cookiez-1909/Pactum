@@ -13,6 +13,9 @@ dist/
 # Local tool settings
 .claude/
 
+# Interface test screenshots and logs
+e2e/screenshots/
+
 # Data generated while running the interface
 web/public/deployment.json
 

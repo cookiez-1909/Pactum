@@ -55,7 +55,7 @@ import {
 type Mode = "local" | "testnet";
 
 const TOTAL_STEPS = 8;
-const DERIVATION_PATH = "return-desk-1";
+const DERIVATION_PATH = "pactum-1";
 const MAX_REWARD_BPS = 2000;
 const THRESHOLD = 2;
 const HOUR = 3600n;
@@ -82,7 +82,7 @@ interface Actors {
 interface ControllerSide {
   label: string;
   address: Address;
-  deploy(returnDesk: Address, chainId: bigint): Promise<void>;
+  deploy(pactum: Address, chainId: bigint): Promise<void>;
   sign(terms: CaseTerms, digest: Hex): Promise<Hex>;
   record: Record<string, unknown>;
 }
@@ -178,11 +178,11 @@ async function nearController(): Promise<ControllerSide> {
   const funder = await richestAccount([...guardians, stranger]);
   const controller = await createSubAccount(funder, "ctrl", CONTROLLER_DEPOSIT);
   const address = await deriveEvmAddress(controller.accountId, DERIVATION_PATH);
-  const wasm = readFileSync(new URL("controller/target/near/return_desk_controller.wasm", ROOT));
+  const wasm = readFileSync(new URL("controller/target/near/pactum_controller.wasm", ROOT));
   // Saves the exact deployed file in the repo so make verify can compare it with the code hash on NEAR.
   if (!process.argv.includes("--stage")) {
     mkdirSync(new URL("deployments/", ROOT), { recursive: true });
-    writeFileSync(new URL("deployments/return_desk_controller.wasm", ROOT), wasm);
+    writeFileSync(new URL("deployments/pactum_controller.wasm", ROOT), wasm);
   }
   const record: Record<string, unknown> = {
     simulated: false,
@@ -198,11 +198,11 @@ async function nearController(): Promise<ControllerSide> {
     label: `Chain Signatures through ${controller.accountId}`,
     address,
     record,
-    async deploy(returnDesk, chainId) {
+    async deploy(pactum, chainId) {
       nearTxs.deployController = await deployController(controller, wasm, {
         guardians: guardians.map((guardian) => guardian.accountId),
         threshold: THRESHOLD,
-        returnDesk,
+        pactum,
         chainId,
         derivationPath: DERIVATION_PATH,
         maxRewardBps: MAX_REWARD_BPS,
@@ -352,7 +352,7 @@ async function main() {
 }
 
 async function run(mode: Mode, stage: boolean) {
-  console.log(`Return Desk demo${mode === "local" ? " on a local Anvil node" : " on testnet"}. Do not send real or stolen funds.`);
+  console.log(`Pactum demo${mode === "local" ? " on a local Anvil node" : " on testnet"}. Do not send real or stolen funds.`);
   console.log(`mode: ${mode}${mode === "local" ? " (controller is SIMULATED, no Chain Signatures)" : ""}`);
 
   loadRootEnv();
@@ -363,19 +363,19 @@ async function run(mode: Mode, stage: boolean) {
   const actors = mode === "local" ? anvilActors() : loadOrCreateSepoliaActors();
   const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
   const vaultAbi = artifact("VulnerableVault", "VulnerableVault.sol").abi;
-  const deskAbi = artifact("ReturnDesk", "ReturnDesk.sol").abi;
+  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
 
   step(1, TOTAL_STEPS, "Deploy contracts");
   const controller = mode === "local" ? simulatedController() : await nearController();
   if (mode === "testnet") await fundActors(evm, actors);
   const usd = await evm.deploy(actors.deployer, "MockUSD", "MockUSD.sol", []);
   const vault = await evm.deploy(actors.deployer, "VulnerableVault", "VulnerableVault.sol", [usd]);
-  const desk = await evm.deploy(actors.deployer, "ReturnDesk", "ReturnDesk.sol", [controller.address]);
+  const desk = await evm.deploy(actors.deployer, "Pactum", "Pactum.sol", [controller.address]);
   const chainId = BigInt(evm.chain.id);
   await controller.deploy(desk, chainId);
   detail("MockUSD", usd);
   detail("VulnerableVault", vault);
-  detail("ReturnDesk", desk);
+  detail("Pactum", desk);
   detail("controller address", controller.address);
   detail("controlled by", controller.label);
 
@@ -406,7 +406,7 @@ async function run(mode: Mode, stage: boolean) {
   };
   const block = await evm.publicClient.getBlock();
   const terms: CaseTerms = {
-    caseId: keccak256(stringToHex(`return-desk-demo:${desk}`)),
+    caseId: keccak256(stringToHex(`pactum-demo:${desk}`)),
     token: usd,
     totalLoss: TOTAL_LOSS,
     maxReturn: TOTAL_LOSS,
@@ -438,13 +438,14 @@ async function run(mode: Mode, stage: boolean) {
     rpc: mode === "local" ? evm.rpc : undefined,
     stage: stage ? "open" : "complete",
     openBlock: openReceipt.blockNumber,
-    contracts: { MockUSD: usd, VulnerableVault: vault, ReturnDesk: desk },
+    contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: desk },
     controllerAddress: controller.address,
     near: controller.record,
     actors: {
       users: users.map((user) => user.address),
       attacker: actors.attacker.address,
       rewardWallet: actors.rewardWallet,
+      relayer: actors.deployer.address,
     },
     terms,
     digest,
@@ -482,7 +483,7 @@ async function run(mode: Mode, stage: boolean) {
   };
   detail("received", `${formatTokens(returned.args.received)} mUSD`);
   detail("reward", `${formatTokens(returned.args.reward)} mUSD to ${actors.rewardWallet}`);
-  detail("refund pool", `${formatTokens(returned.args.refund)} mUSD held by ReturnDesk`);
+  detail("refund pool", `${formatTokens(returned.args.refund)} mUSD held by Pactum`);
   detail("same transaction", returnReceipt.transactionHash);
 
   step(7, TOTAL_STEPS, "Users claim their refunds with Merkle proofs");

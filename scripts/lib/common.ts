@@ -43,7 +43,7 @@ export function artifact(contract: string, file = `${contract}.sol`): { abi: Abi
   return { abi: json.abi as Abi, bytecode: json.bytecode.object as Hex };
 }
 
-// An OpenZeppelin-standard Merkle tree, matching the leaf in ReturnDesk.claimRefund.
+// Merkle tree in OpenZeppelin's format, matching the leaf in Pactum.claimRefund.
 export function buildRefundTree(entries: { account: Address; allocation: bigint }[]): {
   root: Hex;
   allocations: Allocation[];

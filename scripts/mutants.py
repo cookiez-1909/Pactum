@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Mutation testing: plants each bug in a COPY of ReturnDesk and checks whether the Foundry tests catch it.
+# Mutation testing: injects one bug at a time into a COPY of Pactum and checks whether the Foundry tests catch it.
 # If a deliberately broken contract still passes, the tests are not good enough there.
 # Runs one mutant at a time to save memory. Never touches the real contracts/.
 import os
@@ -60,7 +60,7 @@ MUTANTS = [
     ("falling reward not checked", " || tiers[i].rewardBps >= tiers[i - 1].rewardBps", ""),
     ("reward above 100% allowed", " || tiers[0].rewardBps > BPS", ""),
     ("wrong tier typehash", 'keccak256("RewardTier(uint64 until,uint16 rewardBps)")', 'keccak256("RewardTier(uint64 until,uint32 rewardBps)")'),
-    ("wrong domain version", 'EIP712("ReturnDesk", "1")', 'EIP712("ReturnDesk", "2")'),
+    ("wrong domain version", 'EIP712("Pactum", "1")', 'EIP712("Pactum", "2")'),
     ("nonce left out of the hash", "terms.nonce,\n                    terms.chainId", "uint256(0),\n                    terms.chainId"),
     ("evidence left out of the hash", "terms.evidenceHash,\n                    keccak256", "bytes32(0),\n                    keccak256"),
     ("controller withdraw function added", "function getCase(bytes32 caseId) external view", "function withdraw(address token, uint256 amount) external { require(msg.sender == controller); IERC20(token).safeTransfer(controller, amount); }\n\n    function getCase(bytes32 caseId) external view"),
@@ -71,11 +71,11 @@ MUTANTS = [
 
 
 def main() -> int:
-    work = tempfile.mkdtemp(prefix="return-desk-mutants-")
+    work = tempfile.mkdtemp(prefix="pactum-mutants-")
     copy = os.path.join(work, "contracts")
     shutil.copytree(SRC, copy, ignore=shutil.ignore_patterns("out", "cache", "lib"))
     os.symlink(os.path.join(SRC, "lib"), os.path.join(copy, "lib"))
-    path = os.path.join(copy, "src/ReturnDesk.sol")
+    path = os.path.join(copy, "src/Pactum.sol")
     original = open(path).read()
     env = dict(os.environ, FOUNDRY_FUZZ_RUNS="100", FOUNDRY_INVARIANT_RUNS="32", FOUNDRY_INVARIANT_DEPTH="32")
 

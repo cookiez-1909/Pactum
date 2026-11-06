@@ -4,7 +4,7 @@
     {
       "name": "demo terms on Sepolia",
       "verifyingContract": "0x1111111111111111111111111111111111111111",
-      "digest": "0x877bfd00c0e86d915b29bed7daafbd4fce173b65382aa3c77f2977a3641f906a",
+      "digest": "0x8c4ba3d9bdecf1b040ab874e72bd6e3cd69b8b01f3816ee88b27db41e796a544",
       "terms": {
         "caseId": "0x327c568ef581a8f59e4613137fd44b8b508d5c0c05a9c20e6a1a2e413807b71b",
         "token": "0x2222222222222222222222222222222222222222",
@@ -31,7 +31,7 @@
     {
       "name": "single tier",
       "verifyingContract": "0xc6ef73c058ACBc8b73aeB57FB26EC8223796c563",
-      "digest": "0x28672eeb48afec527f1490d4840c15685bbfbf859513d905ccf22809cee1d263",
+      "digest": "0x5851024a28c3a0d169801e032887a3caae4f16713bdaec1517b7572ad8bd8e1c",
       "terms": {
         "caseId": "0x8da7a2edb4a7959acc438d56947dbbf88c400bfdb088ba1d9fa434af00fae649",
         "token": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC",
@@ -54,7 +54,7 @@
     {
       "name": "eight tiers on another chain",
       "verifyingContract": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",
-      "digest": "0x038919d1282afeec80ce323e57638136a6b9dfa14487145c22942bc7507f5601",
+      "digest": "0xfe31c6991349204d7148fa4e703c5a507e5fd601292ec4cdac77972a0873930e",
       "terms": {
         "caseId": "0x2195dd8c925d55dd17a3efba2feb123d00adc1770bc76c5c7a8ccaee0b3eac00",
         "token": "0x0000000000000000000000000000000000000001",
@@ -105,7 +105,7 @@
     {
       "name": "largest values",
       "verifyingContract": "0x00000000000000000000000000000000000000aa",
-      "digest": "0xe3b35e066852776afdc4028ca6c3fd5aeae5837ddec01ae87b0cdb2124550821",
+      "digest": "0x0e2da25e6e88436f652568100dedf346c9823c1f6307e01997f17a1512101c07",
       "terms": {
         "caseId": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         "token": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",

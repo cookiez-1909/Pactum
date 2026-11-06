@@ -4,7 +4,7 @@ test = "test"
 script = "script"
 out = "out"
 libs = ["lib"]
-fs_permissions = [{ access = "read", path = "./test/vectors" }, { access = "read", path = "./out/ReturnDesk.sol" }]
+fs_permissions = [{ access = "read", path = "./test/vectors" }, { access = "read", path = "./out/Pactum.sol" }]
 solc = "0.8.30"
 evm_version = "cancun"
 optimizer = true

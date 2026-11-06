@@ -47,7 +47,7 @@ pub struct Proposal {
     pub proposer: AccountId,
     pub approvals: Vec<AccountId>,
     pub status: ProposalStatus,
-    /// A 65-byte signature (r || s || v) in hex, ready to send to `ReturnDesk.openCase`.
+    /// The 65-byte signature (r || s || v) in hex, ready to pass to `Pactum.openCase`.
     pub signature: Option<String>,
 }
 
@@ -57,7 +57,7 @@ pub struct Proposal {
 pub struct Config {
     pub guardians: Vec<AccountId>,
     pub threshold: u32,
-    pub return_desk: String,
+    pub pactum: String,
     pub chain_id: U64,
     pub derivation_path: String,
     pub signer_contract: AccountId,

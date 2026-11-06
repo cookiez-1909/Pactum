@@ -1,4 +1,4 @@
-//! Runs the real ReturnDeskController wasm in a local NEAR sandbox, with a FAKE MPC contract.
+//! Runs the real PactumController wasm in a local NEAR sandbox against a MOCK MPC contract.
 //! The point is to test failure paths that cannot be forced on the real MPC network:
 //! MPC failures, malformed responses, too little gas, and `#[private]` in wasm.
 //! These tests do NOT prove real signatures. Real signatures are checked by `make verify`.
@@ -8,7 +8,7 @@ use near_workspaces::types::Gas;
 use near_workspaces::{Account, Contract, Worker};
 use serde_json::{json, Value};
 
-const CONTROLLER_WASM: &str = "../../controller/target/near/return_desk_controller.wasm";
+const CONTROLLER_WASM: &str = "../../controller/target/near/pactum_controller.wasm";
 const MOCK_WASM: &str = "../mock-signer/target/near/mock_signer.wasm";
 const DESK: &str = "0x1111111111111111111111111111111111111111";
 const SEPOLIA: &str = "11155111";
@@ -39,9 +39,9 @@ async fn setup() -> Setup {
         .args_json(json!({
             "guardians": [alice.id(), bob.id()],
             "threshold": 2,
-            "return_desk": DESK,
+            "pactum": DESK,
             "chain_id": SEPOLIA,
-            "derivation_path": "return-desk-1",
+            "derivation_path": "pactum-1",
             "signer_contract": signer.id(),
             "max_reward_bps": 2000,
         }))
@@ -155,7 +155,7 @@ async fn threshold_requests_exact_digest_with_real_cross_contract_call() {
     let request: Value = serde_json::from_str(last["request"].as_str().unwrap()).unwrap();
     let digest = proposal["digest"].as_str().unwrap().trim_start_matches("0x");
     assert_eq!(request["payload_v2"]["Ecdsa"], digest);
-    assert_eq!(request["path"], "return-desk-1");
+    assert_eq!(request["path"], "pactum-1");
     assert_eq!(request["domain_id"], 0);
 
     let signature = proposal["signature"].as_str().unwrap();
@@ -253,7 +253,7 @@ async fn wasm_rejects_unauthorized_calls_for_the_right_reason() {
         .args_json(json!({
             "guardians": [s.stranger.id()],
             "threshold": 1,
-            "return_desk": DESK,
+            "pactum": DESK,
             "chain_id": SEPOLIA,
             "derivation_path": "evil",
             "signer_contract": s.signer.id(),

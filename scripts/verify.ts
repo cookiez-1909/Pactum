@@ -32,10 +32,10 @@ async function main() {
   const path = new URL("deployments/sepolia.json", ROOT);
   if (!existsSync(path)) throw new Error("deployments/sepolia.json not found. It is created by: make demo-testnet");
   const d = JSON.parse(readFileSync(path, "utf8"));
-  const desk = d.contracts.ReturnDesk as Address;
+  const desk = d.contracts.Pactum as Address;
   const usd = d.contracts.MockUSD as Address;
   const vault = d.contracts.VulnerableVault as Address;
-  const { abi: deskAbi } = artifact("ReturnDesk", "ReturnDesk.sol");
+  const { abi: deskAbi } = artifact("Pactum", "Pactum.sol");
   const terms: CaseTerms = {
     ...d.terms,
     totalLoss: BigInt(d.terms.totalLoss),
@@ -47,22 +47,22 @@ async function main() {
   };
   const controllerAccount = d.near.controllerAccount as string;
 
-  console.log(`ReturnDesk ${desk} on Sepolia, controller ${controllerAccount} on NEAR testnet\n`);
+  console.log(`Pactum ${desk} on Sepolia, controller ${controllerAccount} on NEAR testnet\n`);
 
   // Control: the controller address really derives from the NEAR contract, and that account holds no keys.
   const onChainController = (await client.readContract({ address: desk, abi: deskAbi, functionName: "controller" })) as Address;
   const derived = await deriveEvmAddress(controllerAccount, d.near.derivationPath);
-  check("ReturnDesk.controller is derived from the NEAR contract", isAddressEqual(onChainController, derived), derived);
+  check("Pactum.controller is derived from the NEAR contract", isAddressEqual(onChainController, derived), derived);
   check("NEAR controller account has no access keys", (await accessKeyCount(controllerAccount)) === 0);
 
   // The code on NEAR must be exactly the wasm file in the repo. `make verify-wasm` rebuilds that file from source.
-  const wasm = readFileSync(new URL("deployments/return_desk_controller.wasm", ROOT));
+  const wasm = readFileSync(new URL("deployments/pactum_controller.wasm", ROOT));
   const account = await provider.viewAccount({ accountId: controllerAccount });
   const wasmHash = baseEncode(createHash("sha256").update(wasm).digest());
-  check("Deployed NEAR code matches deployments/return_desk_controller.wasm", account.code_hash === wasmHash, wasmHash);
+  check("Deployed NEAR code matches deployments/pactum_controller.wasm", account.code_hash === wasmHash, wasmHash);
 
-  const config = await view<{ return_desk: string; threshold: number; guardians: string[]; signer_contract: string }>(controllerAccount, "get_config");
-  check("NEAR contract targets this ReturnDesk", config.return_desk.toLowerCase() === desk.toLowerCase());
+  const config = await view<{ pactum: string; threshold: number; guardians: string[]; signer_contract: string }>(controllerAccount, "get_config");
+  check("NEAR contract targets this Pactum", config.pactum.toLowerCase() === desk.toLowerCase());
   check("NEAR contract uses the MPC signer", config.signer_contract === MPC_CONTRACT, MPC_CONTRACT);
   check("Approval needs more than one guardian", config.threshold >= 2, `${config.threshold} of ${config.guardians.length}`);
 
@@ -112,7 +112,7 @@ async function main() {
   // that hold this deployment's own values (controller, chain id, domain separator). This proves the running
   // contract has no function beyond the source, a withdraw function included.
   // The CBOR metadata at the end is excluded too: it is never executed and changes with the build settings.
-  const compiled = JSON.parse(readFileSync(new URL("contracts/out/ReturnDesk.sol/ReturnDesk.json", ROOT), "utf8"));
+  const compiled = JSON.parse(readFileSync(new URL("contracts/out/Pactum.sol/Pactum.json", ROOT), "utf8"));
   const onChain = ((await client.getCode({ address: desk })) ?? "0x").slice(2).toLowerCase();
   const local = (compiled.deployedBytecode.object as string).slice(2).toLowerCase();
   const references = Object.values(compiled.deployedBytecode.immutableReferences).flat() as { start: number; length: number }[];
@@ -125,7 +125,7 @@ async function main() {
     const metadataBytes = Number.parseInt(masked.slice(-4), 16) + 2;
     return masked.slice(0, -metadataBytes * 2);
   };
-  check("Deployed ReturnDesk bytecode matches this source", onChain.length === local.length && mask(onChain) === mask(local), `${onChain.length / 2} bytes`);
+  check("Deployed Pactum bytecode matches this source", onChain.length === local.length && mask(onChain) === mask(local), `${onChain.length / 2} bytes`);
   const external = Object.keys(compiled.methodIdentifiers as Record<string, string>).length;
   const changing = (compiled.abi as { type: string; name: string; stateMutability: string }[])
     .filter((item) => item.type === "function" && item.stateMutability !== "view" && item.stateMutability !== "pure")
@@ -136,7 +136,7 @@ async function main() {
   // No withdrawal path: try it with eth_call from the controller address itself.
   const { abi: mockAbi } = artifact("MockUSD", "MockUSD.sol");
   const deskBalance = (await client.readContract({ address: usd, abi: mockAbi, functionName: "balanceOf", args: [desk] })) as bigint;
-  check("ReturnDesk holds no leftover after all claims", deskBalance === 0n);
+  check("Pactum holds no leftover after all claims", deskBalance === 0n);
   const withdrawReverted = await client
     .simulateContract({
       account: onChainController,

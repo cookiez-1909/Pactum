@@ -4,7 +4,9 @@ import {
   createWalletClient,
   custom,
   http,
+  keccak256,
   parseAbi,
+  stringToHex,
   type Address,
   type Chain,
   type Hash,
@@ -21,6 +23,9 @@ export const deskAbi = parseAbi([
   "function claimed(bytes32 caseId, address account) view returns (uint256)",
   "function claimable(bytes32 caseId, address account, uint256 allocation) view returns (uint256)",
   "function returnFunds(bytes32 caseId, uint256 amount, address rewardTo)",
+  "function getTiers(bytes32 caseId) view returns ((uint64 until, uint16 rewardBps)[])",
+  "function hashCaseTerms((bytes32 caseId, address token, uint256 totalLoss, uint256 maxReturn, uint256 rewardCap, bytes32 refundRoot, bytes32 evidenceHash, (uint64 until, uint16 rewardBps)[] tiers, uint256 nonce, uint256 chainId) terms) view returns (bytes32)",
+  "function openCase((bytes32 caseId, address token, uint256 totalLoss, uint256 maxReturn, uint256 rewardCap, bytes32 refundRoot, bytes32 evidenceHash, (uint64 until, uint16 rewardBps)[] tiers, uint256 nonce, uint256 chainId) terms, bytes controllerSig)",
   "function claimRefund(bytes32 caseId, address account, uint256 allocation, bytes32[] proof)",
   "event CaseOpened(bytes32 indexed caseId, address indexed token, uint256 totalLoss, bytes32 refundRoot, bytes32 evidenceHash)",
   "event FundsReturned(bytes32 indexed caseId, address indexed from, address indexed rewardTo, uint256 received, uint256 reward, uint256 refund, uint16 rewardBps)",
@@ -33,41 +38,140 @@ export const erc20Abi = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
 ]);
 
+export interface CaseTerms {
+  caseId: Hex;
+  token: Address;
+  totalLoss: string;
+  maxReturn: string;
+  rewardCap: string;
+  refundRoot: Hex;
+  evidenceHash: Hex;
+  tiers: { until: string; rewardBps: number }[];
+  nonce: string;
+  chainId: string;
+}
+
+export interface Allocation {
+  account: Address;
+  allocation: string;
+  proof: Hex[];
+}
+
+export interface TokenInfo {
+  address: Address;
+  symbol: string;
+  name: string;
+  decimals: number;
+  priceUsd: number;
+}
+
+// The public record hashed into evidenceHash. Special conditions live here, so they cannot change later,
+// but the contract does not enforce them.
+export interface Evidence {
+  incident?: string;
+  offer?: { conditions: string };
+  [key: string]: unknown;
+}
+
+// The contract counts one case per token. The interface groups the cases of one incident together.
+export interface CaseInfo {
+  id: string;
+  incidentId: string;
+  incident: string;
+  attacker?: Address;
+  token: TokenInfo;
+  vault?: Address;
+  terms: CaseTerms;
+  evidence?: Evidence;
+  allocations: Allocation[];
+  txs: Record<string, Hash>;
+  openBlock: string;
+}
+
+// An asset that was taken but has no offer from the protocol yet, so there is no case on the contract.
+export interface PendingAsset {
+  id: string;
+  incidentId: string;
+  incident: string;
+  attacker?: Address;
+  token: TokenInfo;
+  vault?: Address;
+  totalLoss: string;
+  refundRoot: Hex;
+  allocations: Allocation[];
+  txs: Record<string, Hash>;
+}
+
+export interface IncidentInfo {
+  id: string;
+  name: string;
+  summary: string;
+  fictional: boolean;
+}
+
+export interface NearRecord {
+  simulated: boolean;
+  controllerAccount?: string;
+  derivationPath?: string;
+  guardians?: string[];
+  threshold?: number;
+  proposalId?: string;
+  txs?: Record<string, string>;
+}
+
 export interface Deployment {
   network: "local" | "sepolia";
   chainId: number;
   rpc?: string;
-  stage: "open" | "complete";
-  openBlock: string;
-  contracts: { MockUSD: Address; VulnerableVault: Address; ReturnDesk: Address };
+  contracts: { Pactum: Address; MockUSD?: Address; VulnerableVault?: Address };
   controllerAddress: Address;
-  near: {
-    simulated: boolean;
-    controllerAccount?: string;
-    derivationPath?: string;
-    guardians?: string[];
-    threshold?: number;
-    proposalId?: string;
-    txs?: Record<string, string>;
+  near: NearRecord;
+  actors: {
+    attacker: Address;
+    rewardWallet: Address;
+    hackers?: { address: Address; rewardWallet: Address }[];
+    newWallet?: Address;
+    stranger?: Address;
+    relayer?: Address;
+    owner?: Address;
+    users: Address[];
   };
-  actors: { users: Address[]; attacker: Address; rewardWallet: Address };
-  terms: {
-    caseId: Hex;
-    token: Address;
-    totalLoss: string;
-    maxReturn: string;
-    rewardCap: string;
-    refundRoot: Hex;
-    evidenceHash: Hex;
-    tiers: { until: string; rewardBps: number }[];
-    nonce: string;
-    chainId: string;
+  incidents: IncidentInfo[];
+  cases: CaseInfo[];
+  pending: PendingAsset[];
+}
+
+// demo.ts output holds one case and no `incidents`, so convert it to the same shape.
+export function normalizeDeployment(raw: Record<string, unknown>): Deployment {
+  const data = raw as unknown as Deployment & { terms?: CaseTerms; allocations?: Allocation[]; txs?: Record<string, Hash>; openBlock?: string; evidence?: Evidence };
+  if (Array.isArray(data.incidents)) return data;
+  const token = data.contracts.MockUSD as Address;
+  return {
+    ...data,
+    pending: [],
+    incidents: [
+      {
+        id: "demo",
+        name: "Demo protocol",
+        summary: "An intentionally buggy test vault was drained. This case runs the whole flow through NEAR Chain Signatures.",
+        fictional: true,
+      },
+    ],
+    cases: [
+      {
+        id: "demo-musd",
+        incidentId: "demo",
+        incident: "Demo protocol",
+        token: { address: token, symbol: "mUSD", name: "Mock USD", decimals: 18, priceUsd: 1 },
+        vault: data.contracts.VulnerableVault,
+        terms: data.terms as CaseTerms,
+        evidence: data.evidence,
+        allocations: data.allocations as Allocation[],
+        txs: data.txs as Record<string, Hash>,
+        openBlock: data.openBlock as string,
+      },
+    ],
   };
-  digest: Hex;
-  signature: Hex;
-  evidence: Record<string, unknown>;
-  allocations: { account: Address; allocation: string; proof: Hex[] }[];
-  txs: Record<string, Hash>;
 }
 
 export interface NearProposal {
@@ -76,13 +180,14 @@ export interface NearProposal {
   digest: string;
 }
 
+const rpcOf = (deployment: Deployment) => deployment.rpc ?? "https://ethereum-sepolia-rpc.publicnode.com";
+
 export function chainOf(deployment: Deployment): Chain {
   return deployment.network === "local" ? foundry : sepolia;
 }
 
 export function publicClientOf(deployment: Deployment): PublicClient {
-  const rpc = deployment.rpc ?? "https://ethereum-sepolia-rpc.publicnode.com";
-  return createPublicClient({ chain: chainOf(deployment), transport: http(rpc) });
+  return createPublicClient({ chain: chainOf(deployment), transport: http(rpcOf(deployment)) });
 }
 
 export function txUrl(deployment: Deployment, hash: string): string | null {
@@ -106,7 +211,7 @@ export async function fetchNearProposal(deployment: Deployment): Promise<NearPro
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: "return-desk",
+      id: "pactum",
       method: "query",
       params: {
         request_type: "call_function",
@@ -123,23 +228,46 @@ export async function fetchNearProposal(deployment: Deployment): Promise<NearPro
   return JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as NearProposal;
 }
 
+// The case id is derived from the incident and the token, so a reload still finds an offer that was just created.
+export function offerCaseId(incidentId: string, symbol: string): Hex {
+  return keccak256(stringToHex(`offer:${incidentId}:${symbol}`));
+}
+
+export function hashEvidence(evidence: Evidence): Hex {
+  return keccak256(stringToHex(JSON.stringify(evidence)));
+}
+
+// Local mode only: a test key plays the controller in place of the guardians on NEAR.
+export async function signAsSimulatedController(digest: Hex): Promise<Hex> {
+  const account = mnemonicToAccount("test test test test test test test test test test test junk", { addressIndex: 9 });
+  return await account.sign!({ hash: digest });
+}
+
 export type Persona = { name: string; address: Address; account: LocalAccount };
 
-// Test accounts for clicking around without a wallet. A production build never holds these keys.
+// Test accounts for clicking around without a wallet. A production build never holds real keys:
+// Anvil's mnemonic is public, and VITE_DEMO_KEYS is only read by the dev server.
 export function demoPersonas(deployment: Deployment): Persona[] {
   const accounts: { name: string; account: LocalAccount }[] = [];
   if (deployment.network === "local") {
     const mnemonic = "test test test test test test test test test test test junk";
     const at = (addressIndex: number) => mnemonicToAccount(mnemonic, { addressIndex });
     accounts.push(
-      { name: "Attacker", account: at(4) },
+      { name: "Hacker", account: at(4) },
+    );
+    if (deployment.actors.hackers) accounts.push({ name: "Hacker 2", account: at(10) }, { name: "Hacker 3", account: at(11) });
+    if (deployment.actors.newWallet) accounts.push({ name: "New wallet", account: at(12) });
+    accounts.push(
       { name: "User 1", account: at(1) },
       { name: "User 2", account: at(2) },
       { name: "User 3", account: at(3) },
     );
+    if (deployment.actors.users.length > 3) accounts.push({ name: "User 4", account: at(6) });
+    if (deployment.actors.owner) accounts.push({ name: "Protocol owner", account: at(8) });
+    if (deployment.actors.stranger) accounts.push({ name: "Stranger", account: at(7) });
   } else if (import.meta.env.DEV && import.meta.env.VITE_DEMO_KEYS) {
     const keys = JSON.parse(import.meta.env.VITE_DEMO_KEYS) as Record<string, Hex>;
-    const names: [string, string][] = [["Attacker", "attacker"], ["User 1", "alice"], ["User 2", "bob"], ["User 3", "carol"]];
+    const names: [string, string][] = [["Hacker", "attacker"], ["User 1", "alice"], ["User 2", "bob"], ["User 3", "carol"]];
     for (const [name, key] of names) {
       const value = keys[key];
       if (value) accounts.push({ name, account: privateKeyToAccount(value) });
@@ -160,17 +288,23 @@ export function hasInjectedWallet(): boolean {
   return injected() !== undefined;
 }
 
+export async function connectInjected(): Promise<Address> {
+  const provider = injected();
+  if (!provider) throw new Error("No browser wallet found.");
+  const [address] = (await provider.request({ method: "eth_requestAccounts" })) as Address[];
+  if (!address) throw new Error("The wallet returned no account.");
+  return address;
+}
+
 // Uses a test account if there is one, otherwise the browser wallet.
 export async function walletFor(deployment: Deployment, persona: Persona | null) {
   const chain = chainOf(deployment);
   if (persona) {
-    const rpc = deployment.rpc ?? "https://ethereum-sepolia-rpc.publicnode.com";
-    return { client: createWalletClient({ account: persona.account, chain, transport: http(rpc) }), account: persona.account };
+    return { client: createWalletClient({ account: persona.account, chain, transport: http(rpcOf(deployment)) }), account: persona.account };
   }
   const provider = injected();
-  if (!provider) throw new Error("No wallet found. Install a browser wallet, or run the local demo: make web-local");
-  const [address] = (await provider.request({ method: "eth_requestAccounts" })) as Address[];
-  if (!address) throw new Error("The wallet returned no account");
+  if (!provider) throw new Error("No browser wallet found.");
+  const address = await connectInjected();
   await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: `0x${chain.id.toString(16)}` }] });
   return { client: createWalletClient({ account: address, chain, transport: custom(provider) }), account: address };
 }

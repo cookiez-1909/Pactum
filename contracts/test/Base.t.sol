@@ -2,14 +2,14 @@
 pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {ReturnDesk} from "../src/ReturnDesk.sol";
+import {Pactum} from "../src/Pactum.sol";
 import {MockUSD} from "../src/demo/MockUSD.sol";
 
 /// @notice Shared data and helpers for the tests.
 abstract contract BaseTest is Test {
     uint256 internal constant ONE_MILLION = 1_000_000e18;
 
-    ReturnDesk internal desk;
+    Pactum internal desk;
     MockUSD internal usd;
 
     address internal controller;
@@ -35,7 +35,7 @@ abstract contract BaseTest is Test {
     function setUp() public virtual {
         vm.warp(1_800_000_000);
         (controller, controllerKey) = makeAddrAndKey("controller");
-        desk = new ReturnDesk(controller);
+        desk = new Pactum(controller);
         usd = new MockUSD();
         usd.mint(hacker, ONE_MILLION);
         vm.prank(hacker);
@@ -76,7 +76,7 @@ abstract contract BaseTest is Test {
     }
 
     // Default terms: 15% for 1 day, 10% until day 3, 5% until day 7.
-    function _terms() internal view returns (ReturnDesk.CaseTerms memory t) {
+    function _terms() internal view returns (Pactum.CaseTerms memory t) {
         t.caseId = CASE_ID;
         t.token = address(usd);
         t.totalLoss = ONE_MILLION;
@@ -84,20 +84,20 @@ abstract contract BaseTest is Test {
         t.rewardCap = 200_000e18;
         t.refundRoot = _root();
         t.evidenceHash = EVIDENCE;
-        t.tiers = new ReturnDesk.RewardTier[](3);
-        t.tiers[0] = ReturnDesk.RewardTier(tier1Until, 1500);
-        t.tiers[1] = ReturnDesk.RewardTier(tier2Until, 1000);
-        t.tiers[2] = ReturnDesk.RewardTier(tier3Until, 500);
+        t.tiers = new Pactum.RewardTier[](3);
+        t.tiers[0] = Pactum.RewardTier(tier1Until, 1500);
+        t.tiers[1] = Pactum.RewardTier(tier2Until, 1000);
+        t.tiers[2] = Pactum.RewardTier(tier3Until, 500);
         t.nonce = 1;
         t.chainId = block.chainid;
     }
 
-    function _sign(ReturnDesk target, ReturnDesk.CaseTerms memory t, uint256 key) internal view returns (bytes memory) {
+    function _sign(Pactum target, Pactum.CaseTerms memory t, uint256 key) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, target.hashCaseTerms(t));
         return abi.encodePacked(r, s, v);
     }
 
-    function _open(ReturnDesk.CaseTerms memory t) internal {
+    function _open(Pactum.CaseTerms memory t) internal {
         desk.openCase(t, _sign(desk, t, controllerKey));
     }
 

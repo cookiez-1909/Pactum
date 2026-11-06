@@ -117,7 +117,7 @@ const vectors = inputs.map((input) => ({
   verifyingContract: input.verifyingContract,
   digest: hashTypedData({
     domain: {
-      name: "ReturnDesk",
+      name: "Pactum",
       version: "1",
       chainId: input.chainId,
       verifyingContract: input.verifyingContract,

@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {ReturnDesk} from "../src/ReturnDesk.sol";
+import {Pactum} from "../src/Pactum.sol";
 import {BaseTest} from "./Base.t.sol";
 import {FeeOnTransferToken} from "./mocks/TestTokens.sol";
 
@@ -12,15 +12,15 @@ contract SplitFuzzTest is BaseTest {
         bps = uint16(bound(bps, 0, 10_000));
         cap = bound(cap, 0, ONE_MILLION);
 
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.rewardCap = cap;
-        t.tiers = new ReturnDesk.RewardTier[](1);
-        t.tiers[0] = ReturnDesk.RewardTier(uint64(block.timestamp + 1 days), bps);
+        t.tiers = new Pactum.RewardTier[](1);
+        t.tiers[0] = Pactum.RewardTier(uint64(block.timestamp + 1 days), bps);
         _open(t);
 
         _return(amount);
 
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         assertEq(c.totalReward + c.totalRefund, amount);
         assertEq(c.totalReturned, amount);
         assertLe(c.totalReward, cap);
@@ -37,13 +37,13 @@ contract SplitFuzzTest is BaseTest {
         aliceAllocation = bound(aliceAllocation, 1, ONE_MILLION - 1);
         bobAllocation = ONE_MILLION - aliceAllocation;
 
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.refundRoot = _pair(_leaf(alice, aliceAllocation), _leaf(bob, bobAllocation));
         _open(t);
         _return(returned);
 
         bytes32[] memory proof = new bytes32[](1);
-        ReturnDesk.Case memory c = desk.getCase(CASE_ID);
+        Pactum.Case memory c = desk.getCase(CASE_ID);
         uint256 aliceExpected = aliceAllocation * c.totalRefund / ONE_MILLION;
         uint256 bobExpected = bobAllocation * c.totalRefund / ONE_MILLION;
 
@@ -66,7 +66,7 @@ contract SplitFuzzTest is BaseTest {
 
 /// @notice Picks random valid actions on two cases sharing a token and one case using a fee-on-transfer token.
 contract Handler is Test {
-    ReturnDesk public immutable desk;
+    Pactum public immutable desk;
     FeeOnTransferToken public immutable token;
     bytes32[] public caseIds;
     address[] public users;
@@ -78,7 +78,7 @@ contract Handler is Test {
     // The handler measures the actual total received itself, as an independent check on the contract's books.
     mapping(bytes32 caseId => uint256) public measuredReceived;
 
-    constructor(ReturnDesk desk_, FeeOnTransferToken token_, bytes32[] memory caseIds_, address[] memory users_, uint256[] memory allocations_, bytes32[][] memory proofs_) {
+    constructor(Pactum desk_, FeeOnTransferToken token_, bytes32[] memory caseIds_, address[] memory users_, uint256[] memory allocations_, bytes32[][] memory proofs_) {
         desk = desk_;
         token = token_;
         caseIds = caseIds_;
@@ -116,7 +116,7 @@ contract Handler is Test {
     }
 }
 
-contract ReturnDeskInvariantTest is BaseTest {
+contract PactumInvariantTest is BaseTest {
     Handler private handler;
     FeeOnTransferToken private token;
     bytes32 private caseA = keccak256("case A");
@@ -126,7 +126,7 @@ contract ReturnDeskInvariantTest is BaseTest {
         super.setUp();
         token = new FeeOnTransferToken(100);
 
-        ReturnDesk.CaseTerms memory t = _terms();
+        Pactum.CaseTerms memory t = _terms();
         t.token = address(token);
         t.caseId = caseA;
         t.rewardCap = 60_000e18;
@@ -159,29 +159,29 @@ contract ReturnDeskInvariantTest is BaseTest {
         targetContract(address(handler));
     }
 
-    function _caseAt(uint256 index) private view returns (bytes32 caseId, ReturnDesk.Case memory c) {
+    function _caseAt(uint256 index) private view returns (bytes32 caseId, Pactum.Case memory c) {
         caseId = index == 0 ? caseA : caseB;
         c = desk.getCase(caseId);
     }
 
     function invariant_rewardPlusRefundEqualsReceived() public view {
         for (uint256 i = 0; i < 2; ++i) {
-            (bytes32 caseId, ReturnDesk.Case memory c) = _caseAt(i);
+            (bytes32 caseId, Pactum.Case memory c) = _caseAt(i);
             assertEq(c.totalReward + c.totalRefund, c.totalReturned);
             assertEq(c.totalReturned, handler.measuredReceived(caseId));
         }
     }
 
     function invariant_balanceCoversAllUnclaimedRefunds() public view {
-        (, ReturnDesk.Case memory a) = _caseAt(0);
-        (, ReturnDesk.Case memory b) = _caseAt(1);
+        (, Pactum.Case memory a) = _caseAt(0);
+        (, Pactum.Case memory b) = _caseAt(1);
         uint256 unclaimed = (a.totalRefund - a.totalClaimed) + (b.totalRefund - b.totalClaimed);
         assertEq(token.balanceOf(address(desk)), unclaimed);
     }
 
     function invariant_limitsHold() public view {
         for (uint256 i = 0; i < 2; ++i) {
-            (, ReturnDesk.Case memory c) = _caseAt(i);
+            (, Pactum.Case memory c) = _caseAt(i);
             assertLe(c.totalReward, c.rewardCap);
             assertLe(c.totalReturned, c.maxReturn);
             assertLe(c.totalClaimed, c.totalRefund);
@@ -190,7 +190,7 @@ contract ReturnDeskInvariantTest is BaseTest {
 
     function invariant_claimedSumMatchesTotal() public view {
         for (uint256 i = 0; i < 2; ++i) {
-            (bytes32 caseId, ReturnDesk.Case memory c) = _caseAt(i);
+            (bytes32 caseId, Pactum.Case memory c) = _caseAt(i);
             uint256 sum = desk.claimed(caseId, alice) + desk.claimed(caseId, bob) + desk.claimed(caseId, carol);
             assertEq(sum, c.totalClaimed);
         }
