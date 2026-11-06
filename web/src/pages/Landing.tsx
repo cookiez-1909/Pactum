@@ -252,7 +252,7 @@ export function Landing() {
           <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={22} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
           <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={45} format={(v) => `${Math.round(v)}/45`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
           <Reveal delay={160}><div className="metric"><span className="metric-value"><CountUp value={100} format={(v) => `${Math.round(v)}%`} /></span><span>of lines and branches in the contract covered</span></div></Reveal>
-          <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across seven testnet runs</span></div></Reveal>
+          <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across nine testnet runs</span></div></Reveal>
         </div>
         <Reveal>
           <ul className="proof-links">

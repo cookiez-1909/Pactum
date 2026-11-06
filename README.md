@@ -6,13 +6,14 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 
 | | |
 | --- | --- |
-| Pactum (Sepolia) | [`0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe`](https://sepolia.etherscan.io/address/0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe) |
-| MockUSD (Sepolia) | [`0x2f684e5d74e45d90d4d1d8f1c259a0ebef138400`](https://sepolia.etherscan.io/address/0x2f684e5d74e45d90d4d1d8f1c259a0ebef138400) |
-| VulnerableVault (Sepolia, intentionally buggy) | [`0xac541f28d6f808fb134d981b96b340084575a399`](https://sepolia.etherscan.io/address/0xac541f28d6f808fb134d981b96b340084575a399) |
-| PactumController (NEAR testnet) | [`ctrl-09d496de.rd-guardian-a-3ff0494a5d.testnet`](https://testnet.nearblocks.io/address/ctrl-09d496de.rd-guardian-a-3ff0494a5d.testnet) |
-| Controller address on EVM | [`0x6738DAbcf6D8bbCEdDCC94aDf4554c37A26dCCA1`](https://sepolia.etherscan.io/address/0x6738DAbcf6D8bbCEdDCC94aDf4554c37A26dCCA1) |
-| The one transaction | [reward and refund split](https://sepolia.etherscan.io/tx/0x58075756986e46439840b129da5c3040a6dbde081b0e73a8240f6c5c05a328f7) |
-| Chain Signatures approval | [`9tXZTd7i…`](https://testnet.nearblocks.io/txns/9tXZTd7irPuGTeD24Bg3TBuS7mS6Up3t7agDJ2XxkSXg) |
+| Pactum (Sepolia) | [`0x35f76b8dc1715fd23e660f6c75585253b942faff`](https://sepolia.etherscan.io/address/0x35f76b8dc1715fd23e660f6c75585253b942faff) |
+| PublicNotes (Sepolia) | [`0x1529ae55241d5cb73f99088dfb0d6c640406c373`](https://sepolia.etherscan.io/address/0x1529ae55241d5cb73f99088dfb0d6c640406c373) |
+| MockUSD (Sepolia) | [`0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db`](https://sepolia.etherscan.io/address/0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db) |
+| VulnerableVault (Sepolia, intentionally buggy) | [`0x5de4349d940905633932a1c80fcb761f4f062693`](https://sepolia.etherscan.io/address/0x5de4349d940905633932a1c80fcb761f4f062693) |
+| PactumController (NEAR testnet) | [`ctrl-0f16a663.rd-guardian-c-6b8f4bb36c.testnet`](https://testnet.nearblocks.io/address/ctrl-0f16a663.rd-guardian-c-6b8f4bb36c.testnet) |
+| Controller address on EVM | [`0x9A515Ea7671c2F95693aeCF0F5F45DD41d8f3ec7`](https://sepolia.etherscan.io/address/0x9A515Ea7671c2F95693aeCF0F5F45DD41d8f3ec7) |
+| The one transaction | [reward and refund split](https://sepolia.etherscan.io/tx/0x287923c2f635240a888f4531b2833ce46479ca905f4fa9ecd4b1508317a25250) |
+| Chain Signatures approval | [`DYBZ6UfG…`](https://testnet.nearblocks.io/txns/DYBZ6UfGowyq1Wo8pgMm9txoB3BG5b8mmDHuTECL8mtV) |
 | Video and X post | Not published yet |
 | Hosted demo | Not published yet |
 
@@ -33,7 +34,7 @@ In a clean-room run on a machine with cached Rust crates, these three took about
 Then, if you want more:
 
 ```text
-make test         → all tests pass: 72 in Foundry, 21 in Rust. Took 3 to 5 minutes, mostly compiling Rust
+make test         → all tests pass: 76 in Foundry, 21 in Rust. Took 3 to 5 minutes, mostly compiling Rust
 make scenarios    → 19 simulated situations on Anvil with real transactions and time travel, all marked PASS
 make intents-quote → prints a live NEAR Intents quote, no wallet and nothing is swapped
 make web-local    → serves http://localhost:5173 with 5 fictional hacks across 8 mock assets. Pick a test account, then write an offer, return funds or claim
@@ -125,6 +126,13 @@ Special conditions are free text. They are hashed into the signed terms through 
 
 **Why can the contract accept a claim from anyone?** A claim must carry a Merkle proof that the wallet and amount are on the list fixed when the case opened, and the tokens go only to that listed wallet. Letting someone else submit the transaction helps a user with no gas. The interface shows the claim button only to the listed wallet, and a test confirms that a claim sent by a stranger pays only the listed user.
 
+## Comments and offer text with no server
+
+[`PublicNotes`](contracts/src/PublicNotes.sol) only emits an event with a topic, an author and some text, and the app reads those events back. Everyone sees the same data, and the site can stay static.
+
+- **Discussion.** The author is the wallet that sent the comment, so the "Lost funds" label, which means the wallet is on that incident's refund list, cannot be faked. Posting costs gas, a comment cannot be deleted, and there is no moderation.
+- **Offer text.** Anyone can post a note, but the app only accepts text whose hash matches `evidenceHash` in the signed terms.
+
 ## Assets
 
 `Pactum` works with any ERC-20 on its own chain, in the token's smallest unit, so decimals do not change the formulas. The demo uses mock tokens: mBTC (8 decimals), mETH and mHYPE (18), mADA and mUSDC (6). `rewardCap` is a token amount, so no price oracle is needed.
@@ -143,7 +151,7 @@ Special conditions are free text. They are hashed into the signed terms through 
 
 Pactum deliberately does not route the holder's stolen funds through NEAR Intents. Public swaps can be matched between deposit and withdrawal, its SHIELD layer can delay flows linked to reported hacks, and its terms prohibit laundering. Hiding that trail is not a goal of this project.
 
-The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. Across seven testnet runs, the MPC network signed in 8.7 to 11.7 seconds, measured from the final approval to the stored signature.
+The digest matches byte for byte across three independent implementations. viem generates [test vectors](contracts/test/vectors/case_terms.json), and both Solidity and Rust are tested against them. Across nine testnet runs, the MPC network signed in 8.7 to 11.7 seconds, measured from the final approval to the stored signature.
 
 **Honest limit of this design.** On one chain, an EVM multisig could do most of this. What NEAR adds is keyless control separated from the team's own infrastructure, and one controller that could serve several EVM chains. The prototype runs on Sepolia only: **multi-chain is a design, not something built here**.
 
@@ -182,7 +190,7 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 
 | Command | Measured result |
 | --- | --- |
-| `make test-evm` | 72 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
+| `make test-evm` | 76 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
 | `cd contracts && forge coverage` | `Pactum.sol`: 100% lines and 100% branches |
 | `make mutants` | About 7 minutes. 45 of 45 bugs injected into a copy of `Pactum` were caught. 2 more changes do not alter behavior and are listed in the script |
 | `make test-near` | 21 passed |
@@ -205,8 +213,7 @@ The mock signer exists to force failures the real MPC network will not produce o
 - The test accounts in `make web-local` (Hacker, Hacker 2, Hacker 3, New wallet, Users, Protocol owner, Stranger) are demo wallets. On a real deployment nothing would label a wallet that moved funds as a hacker.
 - The hacks in `make web-local` use fictional protocols (Quillon DEX, Kestrel Bridge, Tidewater Perps, Northgate Lending, Marlin Vaults), and their dollar values use made-up prices.
 - The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms.
-- The text of an offer written in the form is kept in that browser, and only its hash is on-chain. A live version needs to publish the text somewhere public.
-- The Discussion tab has no server. Comments marked Sample are written for the demo, and new comments are saved only in that browser, so nobody else sees them. A live version needs shared storage and moderation.
+- The comments shown in `make web-local` are written for the demo and posted by test accounts.
 - "Hack tracker" in the interface lists real events with figures and links from public sources, as of 2026-11-06. None of those organizations uses Pactum. The "Would it fit?" column is this project's opinion.
 - Users, attacker and reward wallets in the demo are test accounts controlled by the demo script.
 - [`spike/chain-signatures`](spike/chain-signatures) is the first experiment that proved an MPC signature recovers correctly on the EVM. It is kept as evidence and is not part of the product.
@@ -214,7 +221,7 @@ The mock signer exists to force failures the real MPC network will not produce o
 ## Repository
 
 ```text
-contracts/    Solidity contracts and Foundry tests
+contracts/    Solidity contracts and Foundry tests: Pactum, PublicNotes and demo tokens
 controller/   NEAR contract in Rust
 scripts/      demo, verify, scenarios, mutation tests and test vector generation
 sandbox/      local NEAR sandbox tests and the mock MPC signer

@@ -186,7 +186,7 @@ text = await panel(page);
 check("the preview shows what the hacker keeps per asset", /mBTC\s+keeps 1\.6\s+returns 6\.4/.test(text), text.match(/mBTC[^\n]*\n?[^\n]*\n?[^\n]*/)?.[0]?.replace(/\n/g, " "));
 await page.screenshot({ path: `${out}/p6-offer-form.png`, fullPage: true });
 await publishButton.click();
-await page.waitForFunction(() => Object.keys(localStorage).filter((k) => k.includes("offer")).length >= 1, null, { timeout: 30000 });
+await page.locator(".toast", { hasText: "case opened" }).first().waitFor({ timeout: 30000 });
 await page.reload();
 await page.waitForSelector(".tab-panel", { timeout: 15000 });
 await page.waitForFunction(() => /Finish publishing|Evidence hash/.test(document.querySelector(".tab-panel")?.innerText ?? ""), null, { timeout: 15000 });
@@ -199,8 +199,8 @@ if (interrupted) {
 await page.waitForFunction(() => document.querySelector(".tab-panel")?.innerText.includes("Evidence hash"), null, { timeout: 30000 });
 await page.waitForTimeout(500);
 text = await panel(page);
-check("publishing opens the offer on every asset", /Hacker keeps\s*20%/.test(text.replace(/\n/g, " ")) && text.includes("Test conditions from the owner") && text.includes("Matches this text"));
-check("every asset of the incident was opened", (await page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes("offer")).length)) === 3);
+check("publishing opens the offer on every asset", /Hacker keeps\s*20%/.test(text.replace(/\n/g, " ")) && text.includes("Test conditions from the owner") && text.includes("Matches this text"), text.replace(/\n+/g, " | ").slice(0, 620));
+check("every asset of the incident was opened", (await page.locator(".limit-list li").count()) === 3);
 check("the incident no longer says awaiting offer", !(await page.innerText(".case-header")).includes("Awaiting offer"));
 await page.reload();
 await page.waitForSelector(".tab-panel", { timeout: 15000 });
@@ -208,7 +208,13 @@ await page.waitForFunction(() => document.querySelector(".tab-panel")?.innerText
 await page.waitForTimeout(800);
 const reloaded = await panel(page);
 check("the offer survives a reload, read back from the contract", reloaded.includes("Matches this text"), reloaded.match(/Evidence hash[\s\S]{0,90}/)?.[0]?.replace(/\n/g, " "));
-console.log("      stored:", await page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes("offer")).length));
+// Another visitor in another browser with nothing saved must read the same content from the chain.
+const visitor = await fresh();
+await visitor.goto(`${base}#/case/marlin/offer`);
+await visitor.waitForFunction(() => document.querySelector(".tab-panel")?.innerText.includes("Evidence hash"), null, { timeout: 25000 });
+const seen = await panel(visitor);
+check("another visitor sees the offer text, read from the chain", seen.includes("Test conditions from the owner") && seen.includes("Matches this text"));
+await visitor.close();
 
 check("the custom schedule was published", /20%\s+until[\s\S]*7\.5%\s+until/.test(await panel(page)));
 // The hacker returns under the offer and gets a 20% reward
@@ -342,10 +348,10 @@ check("an empty FAQ search says so", (await page.innerText("main")).includes("No
 // Discussion
 await go(page, "#/case/kestrel/discussion");
 text = await panel(page);
-check("discussion shows sample comments, labelled", text.includes("Sample") && text.includes("Protocol owner"));
+check("discussion shows comments read from the chain", text.includes("Protocol owner") && text.includes("Is 20% too generous?"));
 check("comment authors carry labels", text.includes("Lost funds"));
-check("sample comments show their own ages", text.includes("12m ago") && text.includes("42m ago"));
-check("the page says new comments stay in this browser", text.includes("saved only in this browser"));
+check("sample comments show their own ages", /\d+[mh] ago/.test(text));
+check("the page says comments are public and permanent", text.includes("Public and permanent") && text.includes("no server"));
 const before = await page.locator(".comment").count();
 await as(page, "Stranger");
 check("a stranger's composer has no Lost funds label", (await page.locator(".composer-author .lost-funds").count()) === 0);
@@ -354,19 +360,23 @@ check("a victim's composer has the Lost funds label", (await page.locator(".comp
 check("an empty comment cannot be posted", await page.locator(".composer-foot .button").isDisabled());
 await page.locator(".tab-panel textarea").fill("<b>Will I get my ETH back?</b>");
 await page.locator(".composer-foot .button").click();
-await page.waitForTimeout(250);
+await page.waitForFunction((n) => document.querySelectorAll(".comment").length === n, before + 1, { timeout: 30000 });
 check("the comment appears first", (await page.locator(".comment-text").first().innerText()).includes("<b>Will I get my ETH back?</b>"));
 check("HTML in a comment is shown as text", (await page.locator(".comment-text b").count()) === 0);
-check("the count goes up", (await page.locator(".comment").count()) === before + 1);
-await page.reload();
-await page.waitForSelector(".comment", { timeout: 15000 });
-check("the comment survives a reload", (await page.locator(".comment").count()) === before + 1);
-await as(page, "Stranger");
-check("only the author can delete", (await page.locator(".comment .link-button").count()) === 0);
+const reader = await fresh();
+await reader.goto(`${base}#/case/kestrel/discussion`);
+await reader.waitForFunction((n) => document.querySelectorAll(".comment").length === n, before + 1, { timeout: 25000 });
+check("another visitor sees the new comment", (await reader.locator(".comment-text").first().innerText()).includes("Will I get my ETH back?"));
+check("the author's Lost funds label cannot be faked, it follows the wallet", (await reader.locator(".comment").first().innerText()).includes("Lost funds"));
+await reader.close();
+check("comments cannot be deleted", (await page.locator(".comment .link-button").count()) === 0);
+await page.locator(".wallet-button").click();
+await page.locator("#custom-wallet").fill("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+await page.locator(".wallet-custom .button").click();
+await page.waitForTimeout(250);
+await page.locator(".tab-panel textarea").fill("from a typed-in wallet");
+check("a typed-in wallet cannot post", await page.locator(".composer-foot .button").isDisabled());
 await as(page, "User 1");
-await page.locator(".comment .link-button").first().click();
-await page.waitForTimeout(200);
-check("the author can delete their comment", (await page.locator(".comment").count()) === before);
 await page.screenshot({ path: `${out}/p9-discussion.png`, fullPage: true });
 
 // Other pages

@@ -54,6 +54,7 @@ const test = createTestClient({ mode: "anvil", chain: foundry, transport });
 const { abi: deskAbi, bytecode: deskCode } = artifact("Pactum");
 const { abi: tokenAbi, bytecode: tokenCode } = artifact("MockToken");
 const { abi: vaultAbi, bytecode: vaultCode } = artifact("VulnerableVault");
+const { abi: notesAbi, bytecode: notesCode } = artifact("PublicNotes");
 
 async function deploy(abi: Abi, bytecode: Hex, args: unknown[] = []): Promise<Address> {
   const hash = await createWalletClient({ account: deployer, chain: foundry, transport }).deployContract({
@@ -201,9 +202,35 @@ const standardTiers: Tiers = (now) => [
   { until: now + 168n * HOUR, rewardBps: 500 },
 ];
 
+// Sample comments for the fictional incidents, really posted to Anvil by test accounts.
+const SAMPLE_COMMENTS: { incident: string; author: LocalAccount; minutesAgo: number; text: string }[] = [
+  { incident: "quillon", author: user2, minutesAgo: 400, text: "The offer ended with only part of the ADA back. Can I still claim what did come back?" },
+  { incident: "quillon", author: user1, minutesAgo: 380, text: "Yes. Refunds stay claimable after the deadline. I claimed mine after it closed." },
+  { incident: "northgate", author: owner, minutesAgo: 300, text: "All funds are back. The reward cap applied, so more went to users than the 10% rate alone would give." },
+  { incident: "northgate", author: user1, minutesAgo: 240, text: "Claimed. Thanks to whoever pushed for the cap." },
+  { incident: "tidewater", author: user1, minutesAgo: 90, text: "Part of the USDC came back and I already claimed. It went straight to my wallet with no form to fill in." },
+  { incident: "marlin", author: user1, minutesAgo: 60, text: "No offer yet. Does anyone know when the team plans to publish one? The funds have not moved." },
+  { incident: "tidewater", author: stranger, minutesAgo: 55, text: "Anyone else watching the 15% tier expire? Only the USDC and ETH have moved so far." },
+  { incident: "kestrel", author: owner, minutesAgo: 42, text: "We have published the offer. Keep 20% and return the rest within 48 hours. We will not try to contact you, and a full post-mortem follows either way." },
+  { incident: "marlin", author: stranger, minutesAgo: 40, text: "Every hour without terms makes a return less likely. They should publish soon." },
+  { incident: "kestrel", author: user1, minutesAgo: 35, text: "Lost most of my position here. If this comes back I would still get 80%. Better than what usually happens after a bridge hack." },
+  { incident: "tidewater", author: user3, minutesAgo: 30, text: "My BTC has not moved. Is there anything I need to do, or does it appear in the refund tab when it comes back?" },
+  { incident: "tidewater", author: user2, minutesAgo: 25, text: "Nothing to do. It shows up as available once funds return, and you can claim again each time more arrives." },
+  { incident: "kestrel", author: stranger, minutesAgo: 20, text: "Is 20% too generous? The holder could just take everything to a mixer. Curious what others think." },
+  { incident: "kestrel", author: user2, minutesAgo: 12, text: "I would rather get 80% this week than nothing. The reward drops to 10% after two days, so there is a real reason to move fast." },
+];
+
 async function main() {
   console.log("Seeding fictional incidents on a local Anvil node. The controller is SIMULATED with a test key.");
   desk = await deploy(deskAbi, deskCode, [controller.address]);
+  const notes = await deploy(notesAbi, notesCode);
+
+  // Posts the comments first and moves time forward in between, so each comment has a different age.
+  const seedStart = (await client.getBlock()).timestamp;
+  for (const item of SAMPLE_COMMENTS) {
+    await test.setNextBlockTimestamp({ timestamp: seedStart + BigInt(400 - item.minutesAgo) * 60n });
+    await send(item.author, notes, notesAbi, "post", [keccak256(stringToHex(`discussion:${item.incident}`)), item.text]);
+  }
 
   // This incident is built first because it needs time to pass its final deadline.
   await setUpIncident({
@@ -326,7 +353,8 @@ async function main() {
     chainId: foundry.id,
     rpc: RPC,
     stage: "seeded",
-    contracts: { Pactum: desk },
+    contracts: { Pactum: desk, PublicNotes: notes },
+    notesBlock: "0",
     controllerAddress: controller.address,
     near: { simulated: true },
     actors: {

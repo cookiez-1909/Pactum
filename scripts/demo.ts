@@ -371,11 +371,14 @@ async function run(mode: Mode, stage: boolean) {
   const usd = await evm.deploy(actors.deployer, "MockUSD", "MockUSD.sol", []);
   const vault = await evm.deploy(actors.deployer, "VulnerableVault", "VulnerableVault.sol", [usd]);
   const desk = await evm.deploy(actors.deployer, "Pactum", "Pactum.sol", [controller.address]);
+  const publicNotes = await evm.deploy(actors.deployer, "PublicNotes", "PublicNotes.sol", []);
+  const notesBlock = (await evm.publicClient.getTransactionReceipt({ hash: evm.txs.deployPublicNotes! })).blockNumber;
   const chainId = BigInt(evm.chain.id);
   await controller.deploy(desk, chainId);
   detail("MockUSD", usd);
   detail("VulnerableVault", vault);
   detail("Pactum", desk);
+  detail("PublicNotes", publicNotes);
   detail("controller address", controller.address);
   detail("controlled by", controller.label);
 
@@ -438,7 +441,8 @@ async function run(mode: Mode, stage: boolean) {
     rpc: mode === "local" ? evm.rpc : undefined,
     stage: stage ? "open" : "complete",
     openBlock: openReceipt.blockNumber,
-    contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: desk },
+    contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes },
+    notesBlock,
     controllerAddress: controller.address,
     near: controller.record,
     actors: {

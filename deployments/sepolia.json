@@ -2,16 +2,18 @@
   "network": "sepolia",
   "chainId": 11155111,
   "stage": "complete",
-  "openBlock": "12078483",
+  "openBlock": "12079716",
   "contracts": {
-    "MockUSD": "0x2f684e5d74e45d90d4d1d8f1c259a0ebef138400",
-    "VulnerableVault": "0xac541f28d6f808fb134d981b96b340084575a399",
-    "Pactum": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe"
+    "MockUSD": "0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db",
+    "VulnerableVault": "0x5de4349d940905633932a1c80fcb761f4f062693",
+    "Pactum": "0x35f76b8dc1715fd23e660f6c75585253b942faff",
+    "PublicNotes": "0x1529ae55241d5cb73f99088dfb0d6c640406c373"
   },
-  "controllerAddress": "0x6738DAbcf6D8bbCEdDCC94aDf4554c37A26dCCA1",
+  "notesBlock": "12079702",
+  "controllerAddress": "0x9A515Ea7671c2F95693aeCF0F5F45DD41d8f3ec7",
   "near": {
     "simulated": false,
-    "controllerAccount": "ctrl-09d496de.rd-guardian-a-3ff0494a5d.testnet",
+    "controllerAccount": "ctrl-0f16a663.rd-guardian-c-6b8f4bb36c.testnet",
     "derivationPath": "pactum-1",
     "guardians": [
       "rd-guardian-a-3ff0494a5d.testnet",
@@ -20,11 +22,11 @@
     ],
     "threshold": 2,
     "txs": {
-      "deployController": "CnCaW2VS5wcxX8TNy8ewdhRRn8oDCqGJannqqtZYJqzc",
-      "removeKeys": "6EXsrCtQrHU3ki6ux6mxuMjnHBawArLhowun3Zhd6GPD",
-      "propose": "4mqxQtzANeom4Qp2MKYgCpFAdZ9CzPpmutti82tZrEqG",
-      "approve1": "AtmRkwQBVpALEK4arRoU2cMc1yhyCghg8jCRfBLe2Pp",
-      "approve2": "9tXZTd7irPuGTeD24Bg3TBuS7mS6Up3t7agDJ2XxkSXg"
+      "deployController": "csUcgVtNc68XCZ1DDK5SSBUfGip9sJbemUgahmQFALh",
+      "removeKeys": "3EqwXkfjSvurWFvLgaPPRLkwUhGy9oEQzxL3oo6fNRcD",
+      "propose": "CPKsAXLi3vX4icR3HfHLBo2Ce3RReuBWEMCKFDbhgeag",
+      "approve1": "Ez1tia6q2zftYBHTBEFy8QZkUpFfUZCpq4DaFbRwQcE1",
+      "approve2": "DYBZ6UfGowyq1Wo8pgMm9txoB3BG5b8mmDHuTECL8mtV"
     },
     "proposalId": "0"
   },
@@ -39,32 +41,32 @@
     "relayer": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC"
   },
   "terms": {
-    "caseId": "0x020e82fee3d658b04773c82b018247812adeea5e5308303b2402ab592b6b1c54",
-    "token": "0x2f684e5d74e45d90d4d1d8f1c259a0ebef138400",
+    "caseId": "0x2dfdb05d7eed48e849285b1cb377f9c3e0f60b625eaa55068592eb52eafc478d",
+    "token": "0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db",
     "totalLoss": "1000000000000000000000000",
     "maxReturn": "1000000000000000000000000",
     "rewardCap": "150000000000000000000000",
     "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
-    "evidenceHash": "0xee49322f0a5224bd213145e5a71494eac6693a3c6062cdaa96f0fec0bee694d2",
+    "evidenceHash": "0xafc4d5d4357d591fc9e30e52fad04ef616fcb4139743ad461ce42c585de26622",
     "tiers": [
       {
-        "until": "1794250656",
+        "until": "1794265704",
         "rewardBps": 1000
       },
       {
-        "until": "1794596256",
+        "until": "1794611304",
         "rewardBps": 500
       }
     ],
     "nonce": "1",
     "chainId": "11155111"
   },
-  "digest": "0x20c75b68a550c89206f3ce1c130b72d758a41ca710a89d2de737842c5e7c5f92",
-  "signature": "0x5cb9b6616c200e9b503be88950b47ad5c21c83b24e67d02535fe74229f1038857e6b2e6fbcc9bbb73a99ef915c3b1c6f687ff4b83b46a2159f6abbb266ece3e31c",
+  "digest": "0x311aa98cd39c675f1cba6542f5ef4fdeb906a30ff81cef575836cf023a77ca97",
+  "signature": "0x0d06e932ffe670db6b3f153bc182634663251c0392ff85cc82c8d45d13394beb775a3b56b7eccc17085b75156bda7f152a3ebb91feb7ecc1773bb19901064b8d1b",
   "evidence": {
-    "protocol": "0xac541f28d6f808fb134d981b96b340084575a399",
-    "token": "0x2f684e5d74e45d90d4d1d8f1c259a0ebef138400",
-    "drainTx": "0x326d8f60a1b7691f7aea460e7284c93367f66aa13de047745f0cfa9bec113736",
+    "protocol": "0x5de4349d940905633932a1c80fcb761f4f062693",
+    "token": "0xaf8a87b4b07c832e0ed7a1c702166dcb1ab5c4db",
+    "drainTx": "0x1fbcd5f1603a713a23028be5ce4cc4e4f5b622f9dfef4dad8bb0b123cb53de6a",
     "totalLoss": "1000000000000000000000000",
     "allocations": [
       {
@@ -107,18 +109,19 @@
     }
   ],
   "txs": {
-    "deployMockUSD": "0x873d37fea48322269b7da4b336815013e058f1b42e1ff2253676817983ec3167",
-    "deployVulnerableVault": "0xda4b338bc7ef8cb5b64ca6da6dbbb27a792c769f1bc8ffccb97d7ee0c3e66d49",
-    "deployPactum": "0x11ab4f3fc67ea3eafd2ba0788984de8c1620b1470c3d7045c6c8d1255b340e9c",
-    "deposit0": "0xa25e25378bda2c95454444470c445f5dd8c57ef515b64b54b6eca290c5862129",
-    "deposit1": "0x269e0c25fbfe2d2bd1e6e86736fd656cfd23950c024e9c19e45b2b06f8e770ba",
-    "deposit2": "0xbd09a5c0640cd8f41088a8bf24b6737ad373a91bcd6d1e58d37c17b8cd92510d",
-    "drain": "0x326d8f60a1b7691f7aea460e7284c93367f66aa13de047745f0cfa9bec113736",
-    "openCase": "0x1b09723652d9363a09934ed4d5073b1cd559678e176d8e1d496964d71ef5e1b3",
-    "approveReturn": "0xf55e39cf11f63d6a346aee1200d90c3308f7158fc64417d1f2d94e3bb9a52bcc",
-    "returnFunds": "0x58075756986e46439840b129da5c3040a6dbde081b0e73a8240f6c5c05a328f7",
-    "claim0": "0x77d8a98ac6061b640ebdb597aa5078fbca1dc34784b98c105e728738ef5f9847",
-    "claim1": "0x43d64d3c2609165cdc688d29cc1b4ae438090623174c9e59333957b5ddc21cad",
-    "claim2": "0xcde1e049c879d97fd3939a1e34e5aa2f3c3b4658385b9b5907f1107d58738040"
+    "deployMockUSD": "0x8a93ff76f4c0af3b904c43eed64714707158fb245215506467a4fdee5ba0132c",
+    "deployVulnerableVault": "0xeeac10cef775685b3901456ec8e394957ff25f9437aa2e8f14925d8eb6b021f5",
+    "deployPactum": "0xcd0badf3277a0cf935e8e414c6c6a1a7f54999ad8d2c26bdc9636d7a17a23872",
+    "deployPublicNotes": "0x7e9f17d1fc52e91093736768e25f8dba16bbc9d4d9d54977c4e2d34e2c481faf",
+    "deposit0": "0x7385eaf1001da333d03ae92323878154f116fc608e44b7bed8910b28b42a62b1",
+    "deposit1": "0x43f59a85bde52def8e90c0ee8ee5d074ab9bcfe2b8fb72aeb826e8184a06e876",
+    "deposit2": "0x667ff397a3a8322a24af8ad354b5ecedb19908693e4abb15a698113288735dfe",
+    "drain": "0x1fbcd5f1603a713a23028be5ce4cc4e4f5b622f9dfef4dad8bb0b123cb53de6a",
+    "openCase": "0x5055d273ecc0f86672b95441f8991f804a0c712f86468820111d3e5fcd1c499c",
+    "approveReturn": "0x27a8145bad9cfdbc54c65c0348c7dda8a8c49a9470976c3b4d47e3f2d39e5e20",
+    "returnFunds": "0x287923c2f635240a888f4531b2833ce46479ca905f4fa9ecd4b1508317a25250",
+    "claim0": "0x36ea23cefc7cb5dcd36b50ce61325e1b374c07b19508e8d32f92bc8731620679",
+    "claim1": "0x1480b6032c6acc59588e55e40664ff9871ab6fa28f6e9c82f8de25ceb0d18db4",
+    "claim2": "0xc14b56179fe4edccafdc5dd743499b42218457d6f853fc816f9e48890c3564e4"
   }
 }

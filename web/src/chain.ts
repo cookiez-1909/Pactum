@@ -32,6 +32,11 @@ export const deskAbi = parseAbi([
   "event RefundClaimed(bytes32 indexed caseId, address indexed account, uint256 amount)",
 ]);
 
+export const notesAbi = parseAbi([
+  "function post(bytes32 topic, string text)",
+  "event Note(bytes32 indexed topic, address indexed author, string text)",
+]);
+
 export const erc20Abi = parseAbi([
   "function balanceOf(address account) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)",
@@ -123,7 +128,9 @@ export interface Deployment {
   network: "local" | "sepolia";
   chainId: number;
   rpc?: string;
-  contracts: { Pactum: Address; MockUSD?: Address; VulnerableVault?: Address };
+  contracts: { Pactum: Address; PublicNotes?: Address; MockUSD?: Address; VulnerableVault?: Address };
+  // Block to start reading public notes from.
+  notesBlock?: string;
   controllerAddress: Address;
   near: NearRecord;
   actors: {
@@ -231,6 +238,10 @@ export async function fetchNearProposal(deployment: Deployment): Promise<NearPro
 // The case id is derived from the incident and the token, so a reload still finds an offer that was just created.
 export function offerCaseId(incidentId: string, symbol: string): Hex {
   return keccak256(stringToHex(`offer:${incidentId}:${symbol}`));
+}
+
+export function discussionTopic(incidentId: string): Hex {
+  return keccak256(stringToHex(`discussion:${incidentId}`));
 }
 
 export function hashEvidence(evidence: Evidence): Hex {

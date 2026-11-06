@@ -30,7 +30,7 @@ const GROUPS: { id: Audience; label: string; intro: string; items: Item[] }[] = 
       { q: "What happens after the deadline?", a: "The contract rejects the return and your tokens stay with you. There is no reward after the last deadline." },
       { q: "Does returning the funds protect me from prosecution?", a: "No. The contract commits to a payment and nothing else. It gives no immunity, and a protocol's special conditions cannot bind police or courts." },
       { q: "Am I anonymous?", a: "Do not assume so. Pactum asks for nothing about you, but every transaction is public and blockchain analysis can link wallets. Paying a sanctioned party can also be illegal for the people involved." },
-      { q: "Are the special conditions in an offer binding?", a: "The contract does not enforce them. It only enforces the reward, deadlines and refunds. The text is fixed by a hash, so it cannot be changed quietly, but keeping those promises is up to the protocol." },
+      { q: "Are the special conditions in an offer binding?", a: "The contract does not enforce them. It only enforces the reward, deadlines and refunds. The text is public on the chain and fixed by a hash, so it cannot be changed quietly, but keeping those promises is up to the protocol." },
     ],
   },
   {

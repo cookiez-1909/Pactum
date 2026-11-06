@@ -2,16 +2,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Hash } from "viem";
 import { useApp, useToast } from "../appdata";
-import { deskAbi, fetchNearProposal, hashEvidence, offerCaseId, publicClientOf, signAsSimulatedController, txUrl, walletFor, type CaseInfo, type CaseTerms, type Evidence, type NearProposal, type PendingAsset } from "../chain";
+import { deskAbi, discussionTopic, notesAbi, fetchNearProposal, hashEvidence, offerCaseId, publicClientOf, signAsSimulatedController, txUrl, walletFor, type CaseInfo, type CaseTerms, type Evidence, type NearProposal, type PendingAsset } from "../chain";
 import { AssetIcon, RecoveryBar, RecoveryLegend, StatusBadge } from "../components/case-bits";
 import { Check } from "../components/icons";
 import { CopyButton, Party } from "../components/Party";
 import { countdown, shortAddress, tokens, usd } from "../format";
 import { nearName } from "../labels";
-import { currentOffer, incidentStatus, incidentTotals, saveOfferEvidence, statusOf, usdOf, type Incident } from "../useDesk";
+import { currentOffer, incidentStatus, incidentTotals, statusOf, usdOf, type Incident } from "../useDesk";
+import { useNotes } from "../useNotes";
 import { useWallet } from "../wallet";
 import { Ledger, Refund, ReturnFunds, RewardSchedule, TxLink, type SessionTx } from "./CasePage";
-import { Discussion, discussionCount } from "./Discussion";
+import { Discussion } from "./Discussion";
 
 export type Tab = "incident" | "offer" | "return" | "refund" | "discussion" | "ledger";
 export const TAB_IDS: Tab[] = ["incident", "offer", "return", "refund", "discussion", "ledger"];
@@ -29,7 +30,7 @@ function offerConditions(incident: Incident): string {
 }
 
 export function IncidentPage({ incident, tab, symbol }: { incident: Incident; tab: Tab; symbol: string | null }) {
-  const { desk } = useApp();
+  const { deployment, desk } = useApp();
   const [sessionTxs, setSessionTxs] = useState<SessionTx[]>([]);
   const { refresh, states, now } = desk;
   const onTx = useCallback(
@@ -45,6 +46,7 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
   const selected = incident.cases.find((info) => info.token.symbol === symbol) ?? incident.cases[0];
   const needsAsset = tab === "return" || tab === "refund" || tab === "ledger";
   const conditions = offerConditions(incident);
+  const discussion = useNotes(deployment, discussionTopic(incident.id));
 
   return (
     <div className="page">
@@ -69,7 +71,7 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
 
       <nav className="tabs" aria-label="Case sections">
         {TABS.map(({ id, label }) => (
-          <a key={id} href={`#/case/${incident.id}/${id}${selected && (id === "return" || id === "refund" || id === "ledger") ? `/${selected.token.symbol}` : ""}`} className={tab === id ? "tab is-active" : "tab"} aria-current={tab === id ? "page" : undefined}>{label}{id === "discussion" && <span className="tab-count">{discussionCount(incident.id)}</span>}</a>
+          <a key={id} href={`#/case/${incident.id}/${id}${selected && (id === "return" || id === "refund" || id === "ledger") ? `/${selected.token.symbol}` : ""}`} className={tab === id ? "tab is-active" : "tab"} aria-current={tab === id ? "page" : undefined}>{label}{id === "discussion" && <span className="tab-count">{discussion.notes.length}</span>}</a>
         ))}
       </nav>
 
@@ -96,7 +98,7 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
         )}
         {tab === "incident" && <Overview incident={incident} />}
         {tab === "offer" && <OfferTab incident={incident} onTx={onTx} />}
-        {tab === "discussion" && <Discussion incident={incident} />}
+        {tab === "discussion" && <Discussion incident={incident} notes={discussion.notes} failed={discussion.failed} reload={discussion.reload} />}
       </div>
     </div>
   );
@@ -308,11 +310,11 @@ function OfferView({ incident }: { incident: Incident }) {
           {conditions ? (
             <blockquote className="conditions">{conditions}</blockquote>
           ) : verified.some((item) => item === null) ? (
-            <p className="muted">The text of this offer is not stored in this browser. Its hash is on-chain.</p>
+            <p className="muted">The text of this offer could not be found on the chain. Only its hash is available.</p>
           ) : (
             <p className="muted">The protocol added no special conditions.</p>
           )}
-          <p className="notice"><strong>The contract does not enforce this text.</strong> It enforces the reward, deadlines and refunds. This text is hashed into the signed terms, so anyone can check it was not changed afterwards.</p>
+          <p className="notice"><strong>The contract does not enforce this text.</strong> It enforces the reward, deadlines and refunds. The text is public on the chain and hashed into the signed terms, so anyone can check it was not changed afterwards.</p>
           <dl className="facts offer-hash">
             <div>
               <dt>Evidence hash</dt>
@@ -462,12 +464,14 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
         const evidence: Evidence = { incident: incident.name, protocol: asset.vault as string, token: asset.token.address, drainTx: asset.txs.drain, totalLoss: asset.totalLoss, offer: { conditions: finalConditions } };
         const terms = buildTerms(incident, asset, tiers, evidence, finalBps, deployment.chainId, index);
         const args = termsForContract(terms);
+        // Publishes the text before opening the case, so an offer is never open without readable conditions.
+        const noteHash = await wallet.writeContract({ account, chain: wallet.chain, address: deployment.contracts.PublicNotes!, abi: notesAbi, functionName: "post", args: [terms.caseId, JSON.stringify(evidence)] });
+        await client.waitForTransactionReceipt({ hash: noteHash });
         const digest = await client.readContract({ address: desk_, abi: deskAbi, functionName: "hashCaseTerms", args: [args] });
         const signature = await signAsSimulatedController(digest);
         const hash = await wallet.writeContract({ account, chain: wallet.chain, address: desk_, abi: deskAbi, functionName: "openCase", args: [args, signature] });
         const receipt = await client.waitForTransactionReceipt({ hash });
         if (receipt.status !== "success") throw new Error(`Opening ${asset.token.symbol} reverted`);
-        saveOfferEvidence(desk_, terms.caseId, evidence, hash);
         onTx(`Offer published for ${asset.token.symbol}`, hash);
         toast({ kind: "ok", title: `${asset.token.symbol} case opened`, href: txUrl(deployment, hash) });
       }

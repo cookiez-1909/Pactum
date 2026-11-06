@@ -1,7 +1,8 @@
 // Polls the contract's state. Time follows the chain's latest block.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Address, Hash, Hex } from "viem";
+import { keccak256, stringToHex, type Address, type Hash, type Hex } from "viem";
 import { deskAbi, offerCaseId, publicClientOf, type CaseInfo, type Deployment, type Evidence, type IncidentInfo, type PendingAsset } from "./chain";
+import { readNotes } from "./useNotes";
 
 export interface CaseState {
   totalReturned: bigint;
@@ -95,26 +96,6 @@ export function incidentTotals(incident: Incident, states: Record<string, CaseSt
   return { lost, reward, refund, returned };
 }
 
-const STORAGE_PREFIX = "pactum-offer:";
-
-// Terms are stored on the contract, but special conditions only have a hash there.
-// In the local build, the text is kept in the browser. Real use needs public storage, for example a NEAR contract.
-export function saveOfferEvidence(desk: Address, caseId: Hex, evidence: Evidence, openTx: Hash): void {
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}${desk}:${caseId}`, JSON.stringify({ evidence, openTx }));
-  } catch {
-    // If it cannot be saved, the page reports that only the hash remains.
-  }
-}
-
-function loadOfferEvidence(desk: Address, caseId: Hex): { evidence?: Evidence; openTx?: Hash } {
-  try {
-    return JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}${desk}:${caseId}`) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-
 export interface DeskData {
   cases: CaseInfo[];
   pending: PendingAsset[];
@@ -135,6 +116,7 @@ export function useDesk(deployment: Deployment): DeskData {
   const [clockSkew, setClockSkew] = useState(0);
   const [tick, setTick] = useState(Date.now());
   const desk = deployment.contracts.Pactum;
+  const notes = deployment.contracts.PublicNotes;
 
   const refresh = useCallback(async () => {
     try {
@@ -155,7 +137,15 @@ export function useDesk(deployment: Deployment): DeskData {
               client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [caseId] }),
               client.readContract({ address: desk, abi: deskAbi, functionName: "getTiers", args: [caseId] }),
             ]);
-            const saved = loadOfferEvidence(desk, caseId);
+            // Anyone can post a note, so only accept one whose hash matches the signed terms on the contract.
+            let evidence: Evidence | undefined;
+            if (notes) {
+              const logs = await readNotes(client, notes, BigInt(deployment.notesBlock ?? "0"), caseId);
+              const match = logs.find((log) => keccak256(stringToHex(log.args.text ?? "")) === stored.evidenceHash);
+              if (match) evidence = JSON.parse(match.args.text!) as Evidence;
+            }
+            const opened = await client.getContractEvents({ address: desk, abi: deskAbi, eventName: "CaseOpened", args: { caseId }, fromBlock: BigInt(deployment.notesBlock ?? "0") });
+            const openTx = opened[0]?.transactionHash;
             return {
               id: asset.id,
               incidentId: asset.incidentId,
@@ -163,9 +153,9 @@ export function useDesk(deployment: Deployment): DeskData {
               token: asset.token,
               vault: asset.vault,
               allocations: asset.allocations,
-              evidence: saved.evidence,
-              txs: saved.openTx ? { ...asset.txs, openCase: saved.openTx } : asset.txs,
-              openBlock: "0",
+              evidence,
+              txs: openTx ? { ...asset.txs, openCase: openTx } : asset.txs,
+              openBlock: opened[0]?.blockNumber.toString() ?? deployment.notesBlock ?? "0",
               terms: {
                 caseId,
                 token: stored.token,
@@ -195,7 +185,7 @@ export function useDesk(deployment: Deployment): DeskData {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message.split("\n")[0]! : "Could not read the contract");
     }
-  }, [client, desk, deployment]);
+  }, [client, desk, notes, deployment]);
 
   useEffect(() => {
     void refresh();
@@ -207,7 +197,8 @@ export function useDesk(deployment: Deployment): DeskData {
     };
   }, [refresh]);
 
-  const madeKey = madeOffers.map((item) => item.id).join();
+  // Recomputes when there is a new offer, and when the text of an existing offer is read.
+  const madeKey = madeOffers.map((item) => `${item.id}:${item.evidence ? 1 : 0}`).join();
   const { cases, pending, incidents } = useMemo(() => {
     const allCases = [...deployment.cases, ...madeOffers];
     const stillPending = deployment.pending.filter((asset) => !madeOffers.some((item) => item.id === asset.id));
