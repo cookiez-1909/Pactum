@@ -297,16 +297,24 @@ await page.waitForSelector(".convert", { timeout: 20000 });
 text = await page.innerText(".convert");
 check("the refund page offers another asset through NEAR Intents", text.includes("Receive it in another asset") && text.includes("NEAR Intents"));
 check("it warns what a quote sends out", text.includes("sends the amount and this destination address"));
+check("with nothing returned yet there is nothing to convert", (await page.innerText(".convert-button")).includes("Nothing available"));
+// Northgate is fully returned and User 3 has not claimed, so there is a real amount to quote.
+await go(page, "#/case/northgate/refund/mUSDC");
+await page.waitForSelector(".convert", { timeout: 20000 });
+await page.waitForFunction(() => /Available now\s+292,500 mUSDC/.test(document.querySelector(".tab-panel")?.innerText ?? ""), null, { timeout: 15000 });
 await page.locator(".convert input").fill("bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq");
-await page.waitForFunction(() => document.querySelector(".convert-button") && !document.querySelector(".convert-button").disabled, null, { timeout: 15000 }).catch(() => {});
-if (await page.locator(".convert-button").isDisabled()) {
-  check("nothing to convert is stated plainly", (await page.innerText(".convert-button")).includes("Nothing available"));
-} else {
-  await page.locator(".convert-button").click();
-  await page.waitForSelector(".quote-result, .convert .field-error", { timeout: 30000 });
-  const quote = await page.innerText(".convert");
-  check("a live quote comes back, and it says nothing was swapped", quote.includes("About") && quote.includes("Nothing was swapped"), quote.match(/About[^\n]*/)?.[0] ?? quote.slice(-120));
-}
+await page.locator(".convert-button").click();
+await page.waitForSelector(".quote-result, .convert .field-error", { timeout: 30000 });
+const liveQuote = await page.innerText(".convert");
+check("a live quote comes back for the user's refund", /About\s+[0-9.]+ BTC/.test(liveQuote), liveQuote.match(/About[^\n]*/)?.[0] ?? liveQuote.slice(-140));
+check("the quote says nothing was swapped", liveQuote.includes("Nothing was swapped"));
+await page.locator(".convert input").fill("not-an-address");
+await page.locator(".convert-button").click();
+await page.waitForSelector(".convert .field-error", { timeout: 30000 });
+check("a bad destination shows the service's own error", (await page.innerText(".convert .field-error")).includes("NEAR Intents returned"));
+await page.getByRole("button", { name: "USDC on Base" }).click();
+await page.waitForTimeout(150);
+check("an EVM destination fills in this wallet", ((await page.locator(".convert input").inputValue()).toLowerCase()) === "0x90f79bf6eb2c4f870365e785982e1f101e93b906");
 await page.screenshot({ path: `${out}/p16-intents.png`, fullPage: true });
 
 // FAQ
