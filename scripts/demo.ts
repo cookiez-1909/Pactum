@@ -2,7 +2,8 @@
 //   tsx demo.ts --mode local    : Anvil with a SIMULATED controller using a test key. No NEAR needed.
 //   tsx demo.ts --mode testnet  : Sepolia, Base Sepolia, Robinhood testnet and NEAR testnet. The hack happens on all three chains,
 //                                 the council on NEAR votes in the third chain, then one approval opens the offer on all three.
-//   Add --stage: on the main chain, stop right after openCase so the viewer returns funds and claims refunds in the interface.
+//   Add --stage to reuse the controller and Pactum contracts in deployments/, so it only costs gas. It creates a new hack
+//   and a new offer, then on the main chain stops right after openCase so a viewer can return and claim in the app.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import {
@@ -187,39 +188,76 @@ function simulatedController(): ControllerSide {
   };
 }
 
-async function nearController(): Promise<ControllerSide> {
+// Results of the last full run, so --stage can reuse them without deploying anything on NEAR.
+function savedRun(network: string) {
+  const path = new URL(`deployments/${network}.json`, ROOT);
+  if (!existsSync(path)) throw new Error(`deployments/${network}.json not found. Run first: make demo-testnet`);
+  return JSON.parse(readFileSync(path, "utf8")) as {
+    contracts: { Pactum: Address; PublicNotes: Address };
+    notesBlock: string;
+    controllerAddress: Address;
+    near: { controllerAccount: string; txs: Record<string, string> };
+  };
+}
+
+// Creates a new controller unless `reuse` is set: then it only calls the existing one, which nobody can change since it has no keys.
+async function nearController(reuse: boolean): Promise<ControllerSide> {
   // Guardians are reused between runs. The controller is always new because that account has every key removed.
   const { guardians, stranger } = await loadOrCreateNearAccounts();
+  const saved = reuse ? savedRun("sepolia") : undefined;
   // Takes funds from the account with the most NEAR. A parent account has no rights over its sub-accounts.
-  const funder = await richestAccount([...guardians, stranger]);
-  const controller = await createSubAccount(funder, "ctrl", CONTROLLER_DEPOSIT);
+  const fresh = saved ? undefined : await createSubAccount(await richestAccount([...guardians, stranger]), "ctrl", CONTROLLER_DEPOSIT);
+  const controller = { accountId: saved ? saved.near.controllerAccount : fresh!.accountId };
   const address = await deriveEvmAddress(controller.accountId, DERIVATION_PATH);
-  const wasm = readFileSync(new URL("controller/target/near/pactum_controller.wasm", ROOT));
+  if (saved && address.toLowerCase() !== saved.controllerAddress.toLowerCase()) throw new Error(`Saved controller address does not match ${address}`);
+  const wasm = readFileSync(new URL(saved ? "deployments/pactum_controller.wasm" : "controller/target/near/pactum_controller.wasm", ROOT));
   // Saves the exact deployed file in the repo so make verify can compare it with the code hash on NEAR.
-  if (!process.argv.includes("--stage")) {
+  if (fresh) {
     mkdirSync(new URL("deployments/", ROOT), { recursive: true });
     writeFileSync(new URL("deployments/pactum_controller.wasm", ROOT), wasm);
   }
+  // Keeps the original run's deploy and vote transactions so the interface lists them all.
   const sharedTxs: Record<string, string> = {};
+  for (const key of ["deployController", "removeKeys", "proposeChain", "approveChain1", "approveChain2"]) {
+    const hash = saved?.near.txs[key];
+    if (hash) sharedTxs[key] = hash;
+  }
+  // The contract may differ from the saved file if the file was edited by hand, so ask the contract itself.
+  const requireServed = async (deployments: { chainId: bigint; pactum: Address }[]) => {
+    const config = await view<{ deployments: { chain_id: string; pactum: string }[] }>(controller.accountId, "get_config");
+    for (const { chainId, pactum } of deployments) {
+      const served = config.deployments.some((item) => item.chain_id === chainId.toString() && item.pactum.toLowerCase() === pactum.toLowerCase());
+      if (!served) throw new Error(`${controller.accountId} does not serve ${pactum} on chain ${chainId}`);
+    }
+  };
 
   return {
     label: `Chain Signatures through ${controller.accountId}`,
     address,
     async deploy(deployments) {
-      sharedTxs.deployController = await deployController(controller, wasm, {
+      if (!fresh) {
+        await requireServed(deployments);
+        detail("near contract", `${controller.accountId} (reused, nothing deployed on NEAR)`);
+        return;
+      }
+      sharedTxs.deployController = await deployController(fresh, wasm, {
         guardians: guardians.map((guardian) => guardian.accountId),
         threshold: THRESHOLD,
         deployments,
         derivationPath: DERIVATION_PATH,
         maxRewardBps: MAX_REWARD_BPS,
       });
-      sharedTxs.removeKeys = await removeAllAccessKeys(controller);
+      sharedTxs.removeKeys = await removeAllAccessKeys(fresh);
       const keys = await accessKeyCount(controller.accountId);
       if (keys !== 0) throw new Error(`Controller still has ${keys} access keys`);
       detail("near contract", `${controller.accountId} (0 access keys left)`);
     },
     // The controller was created without this chain. The council votes it in, and the signing address does not change.
     async addChain(chainId, pactum, label) {
+      if (!fresh) {
+        await requireServed([{ chainId, pactum }]);
+        return;
+      }
       const [first, second] = guardians as [NearCredentials, NearCredentials, NearCredentials];
       if (!(await expectNearFailure(stranger, controller.accountId, "propose_chain", { chain_id: chainId.toString(), pactum }, "caller is not a guardian"))) {
         throw new Error("A stranger was able to propose a chain");
@@ -392,9 +430,21 @@ async function main() {
 
 // Deploys one chain's contracts. The NEAR controller needs every chain's Pactum address when it is created,
 // so this step finishes on all chains before the controller is deployed.
-async function deployChain(network: ChainRun["network"], label: string, evm: Evm, actors: Actors, controllerAddress: Address): Promise<ChainRun> {
+async function deployChain(network: ChainRun["network"], label: string, evm: Evm, actors: Actors, controllerAddress: Address, reuse = false): Promise<ChainRun> {
+  // The token and fake protocol are always new because the story needs a new hack. Pactum is shared by every case.
   const usd = await evm.deploy(actors.deployer, "MockUSD", "MockUSD.sol", []);
   const vault = await evm.deploy(actors.deployer, "VulnerableVault", "VulnerableVault.sol", [usd]);
+  if (reuse) {
+    const saved = savedRun(network);
+    detail(`Pactum on ${label}`, `${saved.contracts.Pactum} (reused)`);
+    return {
+      network,
+      label,
+      evm,
+      contracts: { MockUSD: usd, VulnerableVault: vault, Pactum: saved.contracts.Pactum, PublicNotes: saved.contracts.PublicNotes },
+      notesBlock: BigInt(saved.notesBlock),
+    };
+  }
   const desk = await evm.deploy(actors.deployer, "Pactum", "Pactum.sol", [controllerAddress]);
   const publicNotes = await evm.deploy(actors.deployer, "PublicNotes", "PublicNotes.sol", []);
   const notesBlock = (await evm.publicClient.getTransactionReceipt({ hash: evm.txs.deployPublicNotes! })).blockNumber;
@@ -413,7 +463,8 @@ async function run(mode: Mode, stage: boolean) {
   const deskAbi = artifact("Pactum", "Pactum.sol").abi;
 
   step(1, TOTAL_STEPS, "Deploy contracts");
-  const controller = mode === "local" ? simulatedController() : await nearController();
+  const reuse = mode === "testnet" && stage;
+  const controller = mode === "local" ? simulatedController() : await nearController(reuse);
   const chains: ChainRun[] = [];
   if (mode === "local") {
     chains.push(await deployChain("local", "Anvil", new Evm(foundry, "http://127.0.0.1:8546"), actors, controller.address));
@@ -425,9 +476,9 @@ async function run(mode: Mode, stage: boolean) {
     await fundActors(baseEvm, actors);
     // Gas here is very cheap: about 0.00003 ETH measured for the whole deploy step.
     await fundActors(robinhoodEvm, actors, "0.0005");
-    chains.push(await deployChain("sepolia", "Sepolia", sepoliaEvm, actors, controller.address));
-    chains.push(await deployChain("base-sepolia", "Base Sepolia", baseEvm, actors, controller.address));
-    chains.push(await deployChain("robinhood-testnet", "Robinhood testnet", robinhoodEvm, actors, controller.address));
+    chains.push(await deployChain("sepolia", "Sepolia", sepoliaEvm, actors, controller.address, reuse));
+    chains.push(await deployChain("base-sepolia", "Base Sepolia", baseEvm, actors, controller.address, reuse));
+    chains.push(await deployChain("robinhood-testnet", "Robinhood testnet", robinhoodEvm, actors, controller.address, reuse));
   }
   const toDeployment = (chain: ChainRun) => ({ chainId: BigInt(chain.evm.chain.id), pactum: chain.contracts.Pactum });
   // The last chain is not there at creation: when funds move to a new chain, the council votes it in.
@@ -477,7 +528,7 @@ async function run(mode: Mode, stage: boolean) {
     chains.map(async (chain) => {
       const block = await chain.evm.publicClient.getBlock();
       const terms: CaseTerms = {
-        caseId: keccak256(stringToHex(`pactum-demo:${chain.contracts.Pactum}`)),
+        caseId: keccak256(stringToHex(`pactum-demo:${chain.contracts.Pactum}:${chain.contracts.MockUSD}`)),
         token: chain.contracts.MockUSD,
         totalLoss: TOTAL_LOSS,
         maxReturn: TOTAL_LOSS,
@@ -488,7 +539,8 @@ async function run(mode: Mode, stage: boolean) {
           { until: block.timestamp + 72n * HOUR, rewardBps: 1000 },
           { until: block.timestamp + 168n * HOUR, rewardBps: 500 },
         ],
-        nonce: 1n,
+        // When Pactum is reused, the old nonces are already spent on both NEAR and the EVM.
+        nonce: reuse ? block.timestamp : 1n,
         chainId: BigInt(chain.evm.chain.id),
       };
       return { terms, digest: await chain.evm.read<Hex>(chain.contracts.Pactum, deskAbi, "hashCaseTerms", [terms]) };

@@ -1,5 +1,5 @@
 # Main project commands. See README.md for details.
-.PHONY: setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet verify verify-wasm intents-quote build-near vectors web-local clean
+.PHONY: setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
 
 setup:
 	git submodule update --init
@@ -53,6 +53,15 @@ demo-testnet: build-near
 verify-wasm: build-near
 	cmp controller/target/near/pactum_controller.wasm deployments/pactum_controller.wasm
 	@echo "PASS: rebuilt wasm is byte-identical to deployments/pactum_controller.wasm"
+
+# A new hack on testnet that stops on the main chain so the rest is clicked in the app. Reuses the existing controller, so it only costs gas.
+demo-stage:
+	cd contracts && forge build
+	cd scripts && npx tsx demo.ts --mode testnet --stage
+
+# Requests 5 testnet NEAR for an account, the same way as the NEAR faucet page. Example: make faucet ACCOUNT=abc.testnet
+faucet:
+	cd scripts && npx tsx faucet.ts $(ACCOUNT)
 
 # Re-reads the existing testnet transactions. No wallet needed.
 verify:

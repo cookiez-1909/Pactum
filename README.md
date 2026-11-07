@@ -52,6 +52,10 @@ make web-local    → serves http://localhost:5173 with 5 fictional hacks across
 cargo install cargo-near --locked --version 0.23.0 --no-default-features
 ```
 
+`make demo-stage` creates a new hack and a new offer on the same controller and `Pactum` contracts, so it only costs gas, then stops after `openCase` on Sepolia so you can return and claim in the app with `cd web && npm run dev`. It does not change `deployments/`.
+
+`make faucet ACCOUNT=<id>.testnet` asks for 5 testnet NEAR the same way as the [NEAR docs faucet](https://docs.near.org/getting-started/faucet), and it is rate limited in the same way.
+
 ## The problem
 
 After a hack, a protocol often posts an on-chain message such as "return 90%, keep 10%". That negotiation has three weak points:
