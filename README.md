@@ -29,7 +29,7 @@ You need `git`, `make`, [Foundry](https://getfoundry.sh), Rust, Node.js 22 or ne
 ```text
 make setup        → installs submodules and npm packages
 make demo-local   → log contains: stolen 1,000,000; reward 100,000; refund pool 900,000; claimed 900,000
-make verify       → reads the existing testnet transactions, prints 81 checks marked PASS across the three chains and NEAR, then a PASS summary
+make verify       → reads the existing testnet transactions, prints 93 checks marked PASS across the three chains and NEAR, then a PASS summary
 ```
 
 In a clean-room run on a machine with cached Rust crates, these three took about a minute. Warnings from `npm ci` do not stop the setup.
@@ -37,7 +37,7 @@ In a clean-room run on a machine with cached Rust crates, these three took about
 Then, if you want more:
 
 ```text
-make test         → all tests pass: 91 in Foundry, 83 in Rust, 7 for the refund list tool. Took 3 to 5 minutes, mostly compiling Rust
+make test         → all tests pass: 91 in Foundry, 124 in Rust (83 for the controller, 41 for the registry), 7 for the refund list tool. Took 3 to 5 minutes, mostly compiling Rust
 make scenarios    → 22 simulated situations on Anvil with real transactions and time travel, all marked PASS
 make intents-quote → prints a live NEAR Intents quote, no wallet and nothing is swapped
 make web-local    → serves http://localhost:5173 with 5 fictional hacks across 8 mock assets. Pick a test account, then write an offer, return funds or claim. Open Guardians to read the real offers live from NEAR testnet
@@ -47,7 +47,7 @@ make web-local    → serves http://localhost:5173 with 5 fictional hacks across
 
 `make demo-local`, `make scenarios` and the cases in `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet`, `make verify` and the Guardians page involve the real NEAR contract. The Guardians page reads it live, even in `make web-local`.
 
-`make demo-testnet` runs the whole story on testnet: the same hack on Sepolia, Base Sepolia and Robinhood testnet, guardians voting Robinhood testnet into a controller that started with two chains, one approval round on NEAR for one offer, then a return and refunds on each chain. Then a drill: guardians replace a member and vote them back, sign the largest offer the contract allows, cancel it, and revoke it on all three chains. It costs about 3 NEAR, because it deploys a new controller. It needs a key funded with ETH on all three chains in `.env` (see [`.env.example`](.env.example)) and `cargo-near`. The NEAR faucet limits how many accounts one machine can create, so the script reuses guardian accounts between runs.
+`make demo-testnet` runs the whole story on testnet: the same hack on Sepolia, Base Sepolia and Robinhood testnet, guardians voting Robinhood testnet into a controller that started with two chains, one approval round on NEAR for one offer, then a return and refunds on each chain. Then a drill: guardians replace a member and vote them back, sign the largest offer the contract allows, cancel it, and revoke it on all three chains. It costs about 3 NEAR, because it deploys a new controller. Then run `make registry-testnet`, which deploys a registry for that controller, stakes 0.6 NEAR and runs two drill challenges. It costs about 3.5 NEAR. It needs a key funded with ETH on all three chains in `.env` (see [`.env.example`](.env.example)) and `cargo-near`. The NEAR faucet limits how many accounts one machine can create, so the script reuses guardian accounts between runs.
 
 ```bash
 cargo install cargo-near --locked --version 0.23.0 --no-default-features
@@ -168,6 +168,8 @@ Special conditions are free text. They are hashed into the signed terms through 
 
 ## How NEAR is used
 
+**Money at stake, as in Hyperliquid's HIP-3.** Anyone can deploy a copy of Pactum, so a copy alone proves nothing. [`PactumRegistry`](registry/src/lib.rs) is a NEAR contract that lists only operators who staked NEAR. To register, a guardian of a controller attaches the stake, and the registry asks that controller on NEAR whether the caller really is one of its guardians. Anyone else is refunded, so nobody can claim someone else's controller. Anyone can open a challenge with public evidence and a deposit. A council decides by threshold: dismiss, and the challenger loses the deposit, or slash a percentage, and the challenger gets it back. A 100% slash bans that controller for good. Slashed NEAR stays in the registry forever, which has no access keys and no function to move it, so a slash pays nobody, as in HIP-3 where slashed stake is burned. An operator who asks to leave drops off the list at once but stays slashable for 7 days, and cannot leave within 183 days of joining. A challenge nobody decides within 30 days can be closed by anyone, so it cannot block a withdrawal forever. On testnet, a stranger's attempt to register the live controller was refused and refunded, a guardian staked 0.6 NEAR, one drill challenge was dismissed and another slashed 10%, and `make verify` checks all of it. The Return funds tab shows whether the operator has money at stake.
+
 - **One approval for every chain.** An offer is one text plus one case for each token on each chain, up to 12 cases. Guardians approve it once, and [`PactumController`](controller/src/lib.rs) requests a separate signature for each case. One transaction can start 3 signatures, and `retry_signature` signs the rest of a larger offer or retries a failure, without touching signatures already made. A separate multisig on each chain would need a round of signatures per chain. In the testnet run, one approval produced 3 signatures in 9.1 seconds, and a 12-case offer took 53.4 seconds.
 - **One set of rules, and new chains by vote.** All chains share the guardians, the 2-of-3 threshold, the 20% reward limit and the signing address. `propose_chain` and `approve_chain` add a chain by the same threshold and keep the address, even though the contract has no keys left. A vote cannot replace a chain already served. In the testnet run, the controller started with Sepolia and Base Sepolia, and guardians voted in Robinhood testnet. Each digest binds the chain id and the contract address, so `make verify` confirms that a Sepolia signature is rejected on the other two.
 - **Chain Signatures: control without a private key.** `Pactum.controller` is an address derived from the NEAR contract account. Its signature comes from the MPC network, only when the contract asks. `make verify` checks the derivation and that the signature recovers to that address on each chain.
@@ -208,6 +210,7 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 - **Professional groups may not return funds.** The best fit is an independent hacker at a small or mid-sized protocol.
 - **The team writes the refund list.** "No team withdrawal" means no function, not that the team cannot benefit. A dishonest team could add its own wallets to the list, and guardians who are not careful would sign it. The list is fixed and public before any money arrives, so it can be checked, and `make refund-list` rebuilds it from chain data. The contract cannot tell who really lost funds.
 - **Fake offers.** Registration only protects one set of guardians. Anyone can deploy their own `Pactum` and controller with their own guardians, call it the official offer for a real hack, and put their own wallet on the refund list. The contract would run correctly. A holder has to check that the protocol itself published the contract address, and nothing on chain enforces that. A hacked official account defeats this too, which is why guardians should confirm through a second channel.
+- **The stake is small and the council is a test.** The testnet stake is 0.6 NEAR. For real use it would have to exceed what one act of fraud can take, and the registry cannot compare NEAR with a token's value because it has no price oracle. The three council members are test accounts created by the demo script, as sub-accounts of a guardian's account, which gives that account no control over them. Who sits on the council is the same open question as who the guardians are. Unlike HIP-3, there is no fee to pay operators back for locking money, and the council is fixed at deployment with no vote to replace a member.
 - **Guardians must check properly.** Off-chain verification is human judgment, and the contract cannot check that it happened. Who chooses the guardians in real use is not decided yet, and a threshold of guardians can vote to replace the others or lower the threshold.
 - **The refund list must stay available.** The contract stores only its root, and neither a NEAR proposal (4,096 bytes) nor `PublicNotes` (2,000 bytes) holds a list of real size, so "no server" does not cover it. The file must be hosted somewhere. If every copy were lost, nobody could claim. Anyone with a copy can republish it, and the root proves it is genuine.
 - **Demo guardians.** The three guardian accounts on testnet are test accounts controlled by the demo script, so this run shows the mechanism and not independent people.
@@ -227,11 +230,11 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 | `make test-evm` | 91 passed. Fuzz 1,000 runs, invariants 256 runs at depth 64 |
 | `cd contracts && forge coverage` | `Pactum.sol`: 100% lines and 100% branches |
 | `make mutants` | About 7 minutes. 53 of 53 bugs injected into a copy of `Pactum` were caught. 2 more changes do not alter behavior and are listed in the script |
-| `make test-near` | 83 passed |
+| `make test-near` | 124 passed: 83 for the controller, 41 for the registry |
 | `make test-refund-list` | 7 passed |
 | `make scenarios` | 22 of 22 situations on Anvil, including time travel across reward tiers, assets with different decimals, funds moved through several wallets and a team hacking itself |
 | `make test-ui` | Drives the app in Chromium through every role, offers, returns, refunds and phones. Needs `npx playwright install chromium` in `e2e/`, or `CHROMIUM_PATH` set |
-| `make test-sandbox` | 17 passed: the real NEAR wasm in a local sandbox against a **mock** MPC signer, including the largest offer with the longest text. The first build took about 8 minutes |
+| `make test-sandbox` | 26 passed: the real NEAR wasm in a local sandbox. 17 run the controller against a **mock** MPC signer, including the largest offer with the longest text. 9 run the registry against the real controller wasm, with real refunds and transfers. The first build took about 8 minutes |
 
 Covered as the spec requires: a reward floor against a deadline or another return arriving first, wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval, invalid terms, a chain the controller does not serve, separate digests per chain, offer text that does not match its hash, one failed signature in a multi-chain offer, offers larger than one transaction can sign, a stranger adding a chain, a vote trying to replace a served chain, replacing a guardian, votes from a removed guardian, cancelling before and after signing, a failed revocation, and a proposal with no storage deposit.
 
@@ -259,7 +262,8 @@ The mock signer exists to force failures the real MPC network will not produce o
 
 ```text
 contracts/    Solidity contracts and Foundry tests: Pactum, PublicNotes and demo tokens
-controller/   NEAR contract in Rust
+controller/   NEAR contract in Rust that approves offers and requests Chain Signatures
+registry/     NEAR contract in Rust that lists staked operators and slashes them after a challenge
 scripts/      demo, verify, scenarios, mutation tests, refund list tool and test vector generation
 sandbox/      local NEAR sandbox tests and the mock MPC signer
 web/          React app: landing page, cases, offers, returns, refunds, discussion, activity, guardians, hack tracker and FAQ

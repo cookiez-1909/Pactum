@@ -1,5 +1,5 @@
 # Main project commands. See README.md for details.
-.PHONY: refund-list test-refund-list setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
+.PHONY: registry-testnet refund-list test-refund-list setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
 
 setup:
 	git submodule update --init
@@ -13,11 +13,12 @@ test-evm:
 
 test-near:
 	cd controller && cargo test
+	cd registry && cargo test
 
 # Runs the real wasm in a local NEAR sandbox against a MOCK MPC contract, to exercise MPC failure paths.
 test-sandbox: build-near
 	cd sandbox/mock-signer && cargo near build non-reproducible-wasm --no-abi
-	cd sandbox/tests && cargo test --test flow -- --test-threads=2
+	cd sandbox/tests && cargo test -- --test-threads=2
 
 # Simulated situations on Anvil with time travel. The controller is a test key.
 scenarios:
@@ -43,6 +44,7 @@ demo-local:
 
 build-near:
 	cd controller && cargo near build non-reproducible-wasm --no-abi
+	cd registry && cargo near build non-reproducible-wasm --no-abi
 
 # Runs for real on Sepolia and NEAR testnet. Needs a wallet with Sepolia ETH in .env.
 demo-testnet: build-near
@@ -52,7 +54,8 @@ demo-testnet: build-near
 # Rebuilds the NEAR contracts from source and compares them with the deployed wasm. Needs cargo-near and the pinned toolchain.
 verify-wasm: build-near
 	cmp controller/target/near/pactum_controller.wasm deployments/pactum_controller.wasm
-	@echo "PASS: rebuilt wasm is byte-identical to deployments/pactum_controller.wasm"
+	cmp registry/target/near/pactum_registry.wasm deployments/pactum_registry.wasm
+	@echo "PASS: rebuilt wasm is byte-identical to the files in deployments/"
 
 # A new hack on testnet that stops on the main chain so the rest is clicked in the app. Reuses the existing controller, so it only costs gas.
 demo-stage:
@@ -62,6 +65,10 @@ demo-stage:
 # Requests 5 testnet NEAR for an account, the same way as the NEAR faucet page. Example: make faucet ACCOUNT=abc.testnet
 faucet:
 	cd scripts && npx tsx faucet.ts $(ACCOUNT)
+
+# Deploys the operator registry to NEAR testnet, stakes for the current controller and runs challenge drills. Run after demo-testnet.
+registry-testnet: build-near
+	cd scripts && npx tsx registry.ts
 
 # Builds a refund list from a CSV or from token transfer history. See the top of scripts/refund-list.ts for arguments.
 refund-list:

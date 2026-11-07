@@ -1,0 +1,29 @@
+{
+  "registry": "registry-b13824a5.rd-guardian-b-90c085b48d.testnet",
+  "controller": "ctrl-4944dd8b.rd-guardian-b-90c085b48d.testnet",
+  "owner": "rd-guardian-b-90c085b48d.testnet",
+  "stranger": "rd-stranger-93cc38385a.testnet",
+  "council": [
+    "council-a-b76efbc7.rd-guardian-b-90c085b48d.testnet",
+    "council-b-ad71af7d.rd-guardian-b-90c085b48d.testnet",
+    "council-c-62323862.rd-guardian-b-90c085b48d.testnet"
+  ],
+  "threshold": 2,
+  "stakeAttached": "610000000000000000000000",
+  "challenges": {
+    "dismissed": "0",
+    "upheld": "1"
+  },
+  "txs": {
+    "deploy": "FzgMAnFf1MRjHukuhd2LAAesYkkrCan9xZeJgwpKQzrE",
+    "removeKeys": "Gp661yCVrpc6y146rEpm6xjtwph5adLR5WF6BZ2hwuCj",
+    "strangerRegister": "7kHQQjd7DZsJgQDWRBktL8mf83qdBvR95wxX3pfem1j3",
+    "register": "x1URiHdx7LMyfrK6sf4ZenGC4tWP6zchabmnZkR8B8e",
+    "challengeDismissed": "8FLkhwrAzpxYrtwSbYhYz6M43o2Yao1aU21wwtrnvYRK",
+    "dismiss1": "dYrga66BisKw5xZo5q2ZqgRccDnFLbqtJ4LRZ4a8SCE",
+    "dismiss2": "XG4RCxfYEs3J6rdbfQ78nFsuhWtg2RGXSfJfov2XmwM",
+    "challengeUpheld": "4g5pNR7AgXbnLS7PQnFwhe1LTZcKYJUyqVMudtD6Tn9H",
+    "slash1": "68GfU2JiLymFsU3pFxHTzyLqDTyU7hGGkTcz9ve43LGX",
+    "slash2": "65NrT2tnxDK8svdJ2ujnp4vCYLd4vXJATEohYnLy2G43"
+  }
+}

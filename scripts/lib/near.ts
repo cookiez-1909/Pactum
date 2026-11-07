@@ -229,7 +229,17 @@ export async function accessKeyCount(accountId: string): Promise<number> {
   return keys.length;
 }
 
-async function callOk(guardian: NearCredentials, controller: string, methodName: string, args: Record<string, unknown>, tgas: bigint, deposit = 0n) {
+// Deploys a contract and initializes it in one transaction, so nobody can call `new` first.
+export async function deployWithInit(credentials: NearCredentials, wasm: Uint8Array, args: Record<string, unknown>): Promise<string> {
+  const outcome = await accountOf(credentials).signAndSendTransaction({
+    receiverId: credentials.accountId,
+    actions: [actions.deployContract(wasm), actions.functionCall("new", args, 100n * TGAS, 0n)],
+    waitUntil: "FINAL",
+  });
+  return outcome.transaction.hash;
+}
+
+export async function callOk(guardian: NearCredentials, controller: string, methodName: string, args: Record<string, unknown>, tgas: bigint, deposit = 0n) {
   const outcome = await accountOf(guardian).callFunctionRaw({ contractId: controller, methodName, args, gas: tgas * TGAS, deposit, waitUntil: "FINAL" });
   const status = outcome.status as { SuccessValue?: string };
   if (typeof status.SuccessValue !== "string") throw new Error(`${methodName} failed: ${JSON.stringify(outcome.status)}`);

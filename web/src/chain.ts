@@ -216,6 +216,41 @@ export interface NearProposal {
   cases: NearProposalCase[];
 }
 
+export interface RegistryOperator {
+  controller: string;
+  owner: string;
+  website: string;
+  stake: string;
+  total_slashed: string;
+  unstake_at: string | null;
+  open_challenges: number;
+  banned: boolean;
+  withdrawn: boolean;
+}
+
+export interface RegistryChallenge {
+  id: string;
+  controller: string;
+  challenger: string;
+  evidence: string;
+  status: string;
+  slashed: string;
+  votes: { voter: string; verdict: "Dismiss" | { Slash: { bps: number } } }[];
+}
+
+export interface RegistryConfig {
+  council: string[];
+  council_threshold: number;
+  min_stake: string;
+  unstake_delay_seconds: string;
+  min_hold_seconds: string;
+  challenge_deposit: string;
+  total_slashed: string;
+}
+
+// Readable NEAR amounts from yoctoNEAR.
+export const nearAmount = (yocto: string | bigint) => `${(Number(BigInt(yocto) / 10n ** 18n) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 })} NEAR`;
+
 export interface NearGuardianVote {
   id: string;
   guardians: string[];

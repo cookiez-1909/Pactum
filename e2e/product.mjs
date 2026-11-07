@@ -130,6 +130,7 @@ text = await page.innerText(".tab-panel");
 check("return page shows the conditions too", text.includes("Special conditions from the protocol"));
 check("return page has a box to verify the offer", text.includes("Verify this offer") && text.includes("A fake site can show the same checks"));
 check("the refund list is really checked against the signed root", (await page.locator(".verify-row.is-good").filter({ hasText: "every proof matches the signed root" }).count()) === 1);
+check("the stake check says it is simulated locally", (await page.locator(".verify-row.is-neutral").filter({ hasText: "Operator has money at stake" }).count()) === 1);
 check("the local contract is not called official", (await page.locator(".verify-row.is-neutral").filter({ hasText: "Contract is on the official list" }).count()) === 1);
 const pactumAddress = await page.evaluate(async () => (await (await fetch("./deployment.json")).json()).contracts.Pactum);
 await page.getByLabel("Send my reward to").fill(pactumAddress);
@@ -521,6 +522,10 @@ const drill = guardians.locator(".proposal", { hasText: "Drill, not a real offer
 check("a cancelled offer says so", (await drill.innerText()).includes("Cancelled by a guardian vote") && (await drill.innerText()).includes("Voted to cancel"));
 await guardians.waitForFunction(() => { const rows = [...document.querySelectorAll(".proposal")].find((el) => el.textContent.includes("Drill, not a real offer"))?.querySelectorAll(".offer-chain") ?? []; return rows.length === 12 && [...rows].every((el) => /Revoked on chain/.test(el.textContent ?? "")); }, null, { timeout: 40000 });
 check("each revoked case is read back as revoked from its own chain", true);
+await guardians.waitForSelector(".stake-card", { timeout: 20000 });
+const stakeText = await guardians.innerText(".stake-card");
+check("the guardians page shows the real stake from NEAR", stakeText.includes("Listed") && /Staked\s*0\.54 NEAR/.test(stakeText.replace(/\n/g, " ")), stakeText.slice(0, 120));
+check("the challenge drills are shown with their outcome", stakeText.includes("Dismissed") && stakeText.includes("Upheld: 0.06 NEAR slashed"));
 check("the guardian changes are listed", (await guardians.innerText(".guardian-votes")).includes("Applied"));
 check("nothing can be relayed from the local demo's test accounts", (await guardians.locator(".relay-button").count()) === 0);
 const firstOffer = guardians.locator(".proposal").last();

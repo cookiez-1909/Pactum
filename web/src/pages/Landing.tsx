@@ -39,7 +39,7 @@ const COMPARISON = [
 
 const LIMITS = [
   { title: "The team writes the refund list", body: "A dishonest team could add its own wallets. The list is fixed and public before any money arrives, so guardians and users can check it, but the contract cannot tell who really lost funds." },
-  { title: "An offer can be fake", body: "Anyone can deploy their own copy of Pactum and call it official. Check that the protocol itself published the contract address. Nothing on chain can do this for you." },
+  { title: "An offer can be fake", body: "Anyone can deploy their own copy of Pactum and call it official. A staked operator has money to lose, but the stake on testnet is small. Check that the protocol itself published the contract address." },
   { title: "A team could hack itself", body: "It could drain its own protocol and collect the reward. A reward cap, several guardians and public evidence reduce this but do not remove it. This is the biggest weakness." },
   { title: "No immunity", body: "The contract commits to a payment and nothing more. Prosecution is still possible." },
   { title: "Sanctions are unsolved", body: "Paying a sanctioned party can be illegal. Real use needs legal advice and screening, and this prototype has neither." },
@@ -215,6 +215,9 @@ export function Landing({ anchor }: { anchor?: string }) {
             Stolen funds move between chains, so one offer can cover them all. Guardians approve once on NEAR and the contract gets a signature for each chain, with the same signing address on every one. If the funds move to a new chain, guardians vote it in. This has run on Sepolia, Base Sepolia and Robinhood testnet, and a signature made for one chain is rejected on the others.
           </p>
           <p className="section-lead">
+            Anyone can deploy a copy of Pactum, so the official list is the set of operators with NEAR at stake, as in Hyperliquid&rsquo;s HIP-3. Anyone can challenge an operator with evidence, a council decides, and slashed NEAR stays locked for good, so a slash pays nobody.
+          </p>
+          <p className="section-lead">
             NEAR Intents adds the last step for users: a refund can be swapped for another asset on another chain, without a bridge. The app shows live quotes for this. No swap runs here, because NEAR Intents has no testnet.
           </p>
           <p className="section-lead muted">
@@ -255,7 +258,7 @@ export function Landing({ anchor }: { anchor?: string }) {
           <p className="section-lead">The full flow has run on Sepolia, Base Sepolia and Robinhood testnet, signed by one contract on NEAR testnet. <code>make verify</code> re-checks it from public data, with no wallet.</p>
         </Reveal>
         <div className="metrics">
-          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={81} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
+          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={93} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
           <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={53} format={(v) => `${Math.round(v)}/53`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
           <Reveal delay={160}><div className="metric"><span className="metric-value"><CountUp value={100} format={(v) => `${Math.round(v)}%`} /></span><span>of lines and branches in the contract covered</span></div></Reveal>
           <Reveal delay={240}><div className="metric"><span className="metric-value">9.1s</span><span>for the MPC network to sign for three chains, from one approval on testnet</span></div></Reveal>

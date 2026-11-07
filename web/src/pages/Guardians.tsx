@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { keccak256, stringToHex, type Address, type Hex } from "viem";
 import proof from "../../../deployments/sepolia.json";
+import registryInfo from "../../../deployments/registry.json";
 import { useApp, useToast } from "../appdata";
-import { caseIsOpen, demoGuardians, guardianCall, nearAccessKeyCount, nearAccountUrl, nearView, nonceIsUsed, relayToChain, TESTNET_CHAINS, type DemoGuardian, type NearChainVote, type NearConfig, type NearGuardianVote, type NearProposal, type NearProposalCase } from "../chain";
+import { caseIsOpen, demoGuardians, nearAmount, type RegistryChallenge, type RegistryConfig, type RegistryOperator, guardianCall, nearAccessKeyCount, nearAccountUrl, nearView, nonceIsUsed, relayToChain, TESTNET_CHAINS, type DemoGuardian, type NearChainVote, type NearConfig, type NearGuardianVote, type NearProposal, type NearProposalCase } from "../chain";
 import { ExternalLink } from "../components/icons";
 import { shortAddress } from "../format";
 import { nearName } from "../labels";
@@ -18,6 +19,7 @@ interface Snapshot {
   votes: NearChainVote[];
   guardianVotes: NearGuardianVote[];
   keys: number | null;
+  stake: { config: RegistryConfig; operator: RegistryOperator | null; listed: boolean; challenges: RegistryChallenge[] } | null;
 }
 
 const STATUS_NOTE: Record<string, string> = {
@@ -78,15 +80,20 @@ export function Guardians() {
 
   const load = useCallback(async () => {
     try {
-      const [config, proposals, votes, guardianVotes, keys] = await Promise.all([
+      const [config, proposals, votes, guardianVotes, keys, registryConfig, operator, listed, challenges] = await Promise.all([
         nearView<NearConfig>(account, "get_config", {}),
         nearView<NearProposal[]>(account, "list_proposals", { from: "0", limit: PAGE_SIZE }),
         nearView<NearChainVote[]>(account, "list_chain_proposals", { from: "0", limit: PAGE_SIZE }),
         nearView<NearGuardianVote[]>(account, "list_guardian_proposals", { from: "0", limit: PAGE_SIZE }),
         nearAccessKeyCount(account),
+        nearView<RegistryConfig>(registryInfo.registry, "get_config", {}),
+        nearView<RegistryOperator>(registryInfo.registry, "get_operator", { controller: account }),
+        nearView<boolean>(registryInfo.registry, "is_listed", { controller: account }),
+        nearView<RegistryChallenge[]>(registryInfo.registry, "list_challenges", { from: "0", limit: PAGE_SIZE }),
       ]);
       if (!config || !proposals || !votes) throw new Error("empty");
-      setData({ config, proposals, votes, guardianVotes: guardianVotes ?? [], keys });
+      const stake = registryConfig ? { config: registryConfig, operator, listed: listed ?? false, challenges: (challenges ?? []).filter((item) => item.controller === account) } : null;
+      setData({ config, proposals, votes, guardianVotes: guardianVotes ?? [], keys, stake });
       setFailed(false);
     } catch {
       setFailed(true);
@@ -139,6 +146,7 @@ export function Guardians() {
                 <div><dt>Access keys</dt><dd>{data.keys === null ? "…" : `${data.keys}. Nobody can change this contract or act as it.`}</dd></div>
               </dl>
             </section>
+            {data.stake && <StakeCard stake={data.stake} />}
             <section className="card">
               <h2>Chains served</h2>
               <ul className="chain-list">
@@ -173,6 +181,40 @@ export function Guardians() {
         </div>
       )}
     </div>
+  );
+}
+
+const DAY = 86_400;
+
+function StakeCard({ stake }: { stake: NonNullable<Snapshot["stake"]> }) {
+  const { config, operator, listed, challenges } = stake;
+  return (
+    <section className="card stake-card">
+      <h2>Money at stake</h2>
+      {operator ? (
+        <dl className="facts">
+          <div><dt>Status</dt><dd><span className={listed ? "badge badge-open" : "badge"}>{listed ? "Listed" : "Not listed"}</span></dd></div>
+          <div><dt>Staked</dt><dd>{nearAmount(operator.stake)}, at least {nearAmount(config.min_stake)}</dd></div>
+          <div><dt>Slashed so far</dt><dd>{nearAmount(operator.total_slashed)}</dd></div>
+          <div><dt>Staked by</dt><dd>{nearName(operator.owner)}, a guardian of this controller</dd></div>
+          <div><dt>Leaving</dt><dd>Stays slashable for {Number(config.unstake_delay_seconds) / DAY} days after asking to leave, and at least {Number(config.min_hold_seconds) / DAY} days after joining.</dd></div>
+          <div><dt>Council</dt><dd>{config.council_threshold} of {config.council.length} decide a challenge</dd></div>
+        </dl>
+      ) : (
+        <p className="muted">This controller has no stake in the registry.</p>
+      )}
+      {challenges.length > 0 && (
+        <ol className="chain-list challenge-list">
+          {challenges.map((item) => (
+            <li key={item.id}>
+              <span>{item.evidence}</span>
+              <span className="chain-vote">{item.status === "Upheld" ? `Upheld: ${nearAmount(item.slashed)} slashed` : item.status}. Votes: {item.votes.map((vote) => (vote.verdict === "Dismiss" ? "dismiss" : `slash ${vote.verdict.Slash.bps / 100}%`)).join(", ") || "none yet"}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="fine-print">Anyone can deploy a copy of Pactum, but only a staked operator is listed in <a href={nearAccountUrl(registryInfo.registry)} target="_blank" rel="noreferrer">the registry</a>. Anyone can challenge it with evidence and a small deposit. The council decides, and slashed NEAR stays locked in the registry for good, so nobody profits from a slash. These challenges are drills, and the council is test accounts.</p>
+    </section>
   );
 }
 

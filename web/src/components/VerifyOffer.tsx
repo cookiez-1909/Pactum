@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import proof from "../../../deployments/sepolia.json";
 import baseProof from "../../../deployments/base-sepolia.json";
 import robinhoodProof from "../../../deployments/robinhood-testnet.json";
+import registry from "../../../deployments/registry.json";
 import { useApp } from "../appdata";
-import { addressUrl, checkRefundList, fetchNearProposal, type CaseInfo } from "../chain";
+import { addressUrl, checkRefundList, fetchNearProposal, nearAmount, nearView, type CaseInfo, type RegistryOperator } from "../chain";
 import { CopyButton } from "./Party";
 import { Check, ExternalLink } from "./icons";
 import { shortAddress, tokens } from "../format";
@@ -33,6 +34,7 @@ export function VerifyOffer({ info }: { info: CaseInfo }) {
   const official = OFFICIAL_CONTRACTS.includes(pactum.toLowerCase());
   const list = useMemo(() => checkRefundList(info.allocations, info.terms.refundRoot, BigInt(info.terms.totalLoss)), [info.allocations, info.terms.refundRoot, info.terms.totalLoss]);
   const [near, setNear] = useState<{ result: Result; text: string }>({ result: "waiting", text: "Reading NEAR…" });
+  const [stake, setStake] = useState<{ result: Result; text: string }>({ result: "waiting", text: "Reading NEAR…" });
   const explorer = addressUrl(deployment, pactum);
   const officialPost = info.evidence?.offer?.officialPost;
 
@@ -54,6 +56,27 @@ export function VerifyOffer({ info }: { info: CaseInfo }) {
     };
   }, [deployment, info.terms.caseId]);
 
+  // The operator must have a stake in the registry. A fork without a stake is not listed here.
+  useEffect(() => {
+    const controller = deployment.near.controllerAccount;
+    if (deployment.near.simulated || !controller) {
+      setStake({ result: "neutral", text: "Simulated in this local demo. The Guardians page shows the real stake on NEAR testnet." });
+      return;
+    }
+    let cancelled = false;
+    Promise.all([nearView<boolean>(registry.registry, "is_listed", { controller }), nearView<RegistryOperator>(registry.registry, "get_operator", { controller })])
+      .then(([listed, operator]) => {
+        if (cancelled) return;
+        if (!operator) return setStake({ result: "bad", text: "This operator has no stake in the registry." });
+        const slashed = BigInt(operator.total_slashed) > 0n ? ` It has been slashed ${nearAmount(operator.total_slashed)} before.` : "";
+        setStake(listed ? { result: "good", text: `${nearAmount(operator.stake)} staked, and it loses that if the council finds fraud.${slashed}` } : { result: "bad", text: `Not listed: the stake was withdrawn, slashed or is below the minimum.${slashed}` });
+      })
+      .catch(() => !cancelled && setStake({ result: "waiting", text: "Could not read NEAR." }));
+    return () => {
+      cancelled = true;
+    };
+  }, [deployment]);
+
   return (
     <section className="card verify-offer">
       <h2>Verify this offer</h2>
@@ -63,6 +86,7 @@ export function VerifyOffer({ info }: { info: CaseInfo }) {
           <code>{shortAddress(pactum)}</code> <CopyButton value={pactum} label="contract address" />
           {explorer && <> <a href={explorer} target="_blank" rel="noreferrer"><ExternalLink /></a></>}
         </Row>
+        <Row result={stake.result} title="Operator has money at stake">{stake.text}</Row>
         <Row result={near.result} title="Approved by guardians on NEAR">{near.text}</Row>
         <Row result={list.ok ? "good" : "bad"} title="Refund list matches the signed terms">
           {list.ok

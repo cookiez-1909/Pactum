@@ -288,7 +288,8 @@ export function HowItWorks() {
         <ul className="plain-list">
           <li>The refund list must be correct, and the team writes it. A dishonest team could add its own wallets. A wrong list can misallocate that case&rsquo;s refunds, though it cannot pay more than the case&rsquo;s pool or reach another case&rsquo;s tokens. It is fixed and public before funds arrive, so it can be checked, and the file must stay available.</li>
           <li>Guardians must really check who is asking. The contract cannot tell, and who chooses the guardians in real use is not decided yet.</li>
-          <li>An offer can be fake. Anyone can deploy their own copy of Pactum, so check that the protocol itself published the contract address.</li>
+          <li>An offer can be fake. Anyone can deploy their own copy of Pactum, so check that the protocol itself published the contract address, and that its operator has NEAR at stake.</li>
+          <li>The council must slash fairly. It decides challenges against staked operators, and on testnet it is three test accounts.</li>
           <li>The Chain Signatures MPC network must behave correctly.</li>
           <li>Guardians must not approve a case for a hack their own team staged. A reward cap and public evidence reduce this risk, but do not remove it.</li>
         </ul>

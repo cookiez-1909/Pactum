@@ -260,6 +260,44 @@ async function checkDrill(targets: Target[]): Promise<void> {
   }
 }
 
+// The list of staked operators: this controller must be on it, and slashed funds must stay in the contract.
+async function checkRegistry(targets: Target[]): Promise<void> {
+  const path = new URL("deployments/registry.json", ROOT);
+  if (!existsSync(path)) throw new Error("deployments/registry.json not found. It is created by: make registry-testnet");
+  const saved = JSON.parse(readFileSync(path, "utf8"));
+  const account = saved.registry as string;
+  console.log(`\nRegistry ${account} on NEAR testnet\n`);
+  check("Registry account has no access keys", (await accessKeyCount(account)) === 0);
+  const wasm = readFileSync(new URL("deployments/pactum_registry.wasm", ROOT));
+  const info = await provider.viewAccount({ accountId: account });
+  const wasmHash = baseEncode(createHash("sha256").update(wasm).digest());
+  check("Deployed registry code matches deployments/pactum_registry.wasm", info.code_hash === wasmHash, wasmHash);
+
+  const controller = targets[0]!.d.near.controllerAccount as string;
+  const config = await view<{ council: string[]; council_threshold: number; min_stake: string; total_slashed: string; total_forfeited: string }>(account, "get_config");
+  check("Slashing needs more than one council member", config.council_threshold >= 2, `${config.council_threshold} of ${config.council.length}`);
+  check("The council is separate from the guardians", config.council.every((member) => !targets[0]!.d.near.guardians.includes(member)));
+  check("This controller is on the staked list", saved.controller === controller && (await view<boolean>(account, "is_listed", { controller })));
+  const operator = await view<{ owner: string; stake: string; total_slashed: string }>(account, "get_operator", { controller });
+  const guardians = await view<{ guardians: string[] }>(controller, "get_config");
+  check("The operator is a guardian of that controller", guardians.guardians.includes(operator.owner), operator.owner);
+  check("The stake is above the minimum", BigInt(operator.stake) >= BigInt(config.min_stake), `${Number(BigInt(operator.stake)) / 1e24} NEAR`);
+
+  const strangerTx = await provider.viewTransactionStatus({ txHash: saved.txs.strangerRegister, accountId: saved.stranger, waitUntil: "FINAL" });
+  const answered = JSON.stringify(strangerTx.receipts_outcome.map((item: { outcome: { status: unknown } }) => item.outcome.status));
+  check("A stranger's registration was refused", answered.includes(Buffer.from("false").toString("base64")), saved.txs.strangerRegister);
+
+  const challenges = await view<{ id: string; status: string; votes: { verdict: unknown }[]; slashed: string }[]>(account, "list_challenges", { from: "0", limit: 50 });
+  const dismissed = challenges.find((item) => item.id === saved.challenges.dismissed);
+  const upheld = challenges.find((item) => item.id === saved.challenges.upheld);
+  check("One challenge was dismissed by the council", dismissed?.status === "Dismissed" && dismissed.votes.filter((vote) => vote.verdict === "Dismiss").length >= config.council_threshold);
+  const stakedBefore = BigInt(saved.stakeAttached) - 10n ** 22n;
+  check("One challenge slashed 10% of the stake", upheld?.status === "Upheld" && BigInt(upheld.slashed) === stakedBefore / 10n, upheld ? `${Number(BigInt(upheld.slashed)) / 1e24} NEAR` : "missing");
+  check("The slashed money is recorded", BigInt(operator.total_slashed) === BigInt(upheld?.slashed ?? -1) && BigInt(config.total_slashed) >= BigInt(operator.total_slashed));
+  const locked = BigInt(operator.stake) + BigInt(config.total_slashed) + BigInt(config.total_forfeited);
+  check("The registry still holds every stake, slash and forfeit", BigInt(info.amount) >= locked, `${Number(BigInt(info.amount)) / 1e24} NEAR held`);
+}
+
 // One council signing for several chains is only safe if a signature for one chain is useless on another.
 async function checkCrossChain(first: Target, second: Target): Promise<void> {
   console.log(`\n${first.label} and ${second.label}\n`);
@@ -292,6 +330,7 @@ async function main() {
   for (const target of targets) await checkChain(target);
   for (const other of targets.slice(1)) await checkCrossChain(targets[0]!, other);
   await checkDrill(targets);
+  await checkRegistry(targets);
 
   console.log(failures === 0 ? "\nPASS: every check matched public on-chain data" : `\nFAIL: ${failures} checks failed`);
   process.exit(failures === 0 ? 0 : 1);
