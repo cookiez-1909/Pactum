@@ -129,5 +129,35 @@
         "chainId": "18446744073709551615"
       }
     }
+  ],
+  "revocations": [
+    {
+      "name": "demo terms on Sepolia",
+      "verifyingContract": "0x1111111111111111111111111111111111111111",
+      "chainId": "11155111",
+      "nonce": "1",
+      "digest": "0x6de21623b9646941a9433021ff1ec75c236acb5652742759d3dbfd209b6104bc"
+    },
+    {
+      "name": "single tier",
+      "verifyingContract": "0xc6ef73c058ACBc8b73aeB57FB26EC8223796c563",
+      "chainId": "1",
+      "nonce": "0",
+      "digest": "0x2c69509ca7ab59950fd3a9ddc13ebec8c3e6f0ff6b3040aa7aa31d303d4397c5"
+    },
+    {
+      "name": "eight tiers on another chain",
+      "verifyingContract": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",
+      "chainId": "42161",
+      "nonce": "42",
+      "digest": "0x1bce4e3014b4d4cb9af2fec04d4520a0bc80cb664337f09a693d0def5b031c3d"
+    },
+    {
+      "name": "largest values",
+      "verifyingContract": "0x00000000000000000000000000000000000000aa",
+      "chainId": "18446744073709551615",
+      "nonce": "18446744073709551615",
+      "digest": "0x68de98e8beb9ecc82726c0174d18a51519ac186904b5dd18cc3a7e3ed3ea10b0"
+    }
   ]
 }

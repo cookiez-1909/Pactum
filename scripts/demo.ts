@@ -40,21 +40,26 @@ import {
 import {
   accessKeyCount,
   approveChain,
+  approveGuardians,
   approveOffer,
   createFaucetAccount,
   createSubAccount,
   richestAccount,
+  topUpAccounts,
   deployController,
   deriveEvmAddress,
   expectNearFailure,
   getProposal,
   proposeChain,
+  proposeGuardians,
   proposeOffer,
   removeAllAccessKeys,
   retrySignature,
   toNearTerms,
   view,
+  voteCancel,
   type NearCredentials,
+  type NearProposal,
 } from "./lib/near.ts";
 
 type Mode = "local" | "testnet";
@@ -64,7 +69,7 @@ const DERIVATION_PATH = "pactum-1";
 const MAX_REWARD_BPS = 2000;
 const THRESHOLD = 2;
 const HOUR = 3600n;
-// Enough to pay storage for the 166 KB contract and the proposals.
+// Enough to pay storage for a contract of about 205 KB. Proposers pay storage for their own proposals.
 const CONTROLLER_DEPOSIT = 3n * 10n ** 24n;
 
 // Anvil's default mnemonic, which everyone knows. Local mode only.
@@ -92,6 +97,10 @@ interface ControllerSide {
   addChain(chainId: bigint, pactum: Address, label: string): Promise<void>;
   // One approval for the whole offer, returning one signature per case in order.
   signOffer(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<{ signatures: Hex[]; record: Record<string, unknown> }>;
+  // Proposes an offer and casts one approval, so the other one can be clicked on the Guardians page.
+  proposeForApproval?(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<string>;
+  // Rehearses what is only needed in an incident: replacing a guardian, and cancelling a large signed offer.
+  drill?(chains: ChainRun[], actors: Actors, tree: ReturnType<typeof buildRefundTree>): Promise<void>;
 }
 
 // An EVM chain the demo runs on, with its deployed contracts and the name of its results file.
@@ -204,6 +213,7 @@ function savedRun(network: string) {
 async function nearController(reuse: boolean): Promise<ControllerSide> {
   // Guardians are reused between runs. The controller is always new because that account has every key removed.
   const { guardians, stranger } = await loadOrCreateNearAccounts();
+  await topUpAccounts([...guardians, stranger], 6n * 10n ** 23n, 10n ** 24n);
   const saved = reuse ? savedRun("sepolia") : undefined;
   // Takes funds from the account with the most NEAR. A parent account has no rights over its sub-accounts.
   const fresh = saved ? undefined : await createSubAccount(await richestAccount([...guardians, stranger]), "ctrl", CONTROLLER_DEPOSIT);
@@ -229,6 +239,21 @@ async function nearController(reuse: boolean): Promise<ControllerSide> {
       const served = config.deployments.some((item) => item.chain_id === chainId.toString() && item.pactum.toLowerCase() === pactum.toLowerCase());
       if (!served) throw new Error(`${controller.accountId} does not serve ${pactum} on chain ${chainId}`);
     }
+  };
+
+  // Waits until every case is done, and asks for more signatures while any are unsigned. One transaction signs at most 3.
+  const signUntil = async (caller: NearCredentials, id: string, done: (proposal: NearProposal) => boolean) => {
+    const txs: string[] = [];
+    let proposal = await getProposal(controller.accountId, id);
+    for (let attempt = 0; attempt < 120 && !done(proposal); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      proposal = await getProposal(controller.accountId, id);
+      if (done(proposal)) break;
+      const inFlight = proposal.cases.some((item) => item.status === "Signing" || item.status === "RevokeSigning");
+      if (!inFlight) txs.push(await retrySignature(caller, controller.accountId, id));
+    }
+    if (!done(proposal)) throw new Error(`Signing did not finish for proposal ${id}`);
+    return { proposal, txs };
   };
 
   return {
@@ -300,16 +325,9 @@ async function nearController(reuse: boolean): Promise<ControllerSide> {
       const started = Date.now();
       offerTxs.approve2 = await approveOffer(second, controller.accountId, id);
       detail("guardian 2 of 2", `${second.accountId} approved`);
-      let proposal = await getProposal(controller.accountId, id);
       // Signatures arrive after the approval transaction. A failed case is signed again; only approved hashes can be signed.
-      for (let attempt = 0; attempt < 40 && proposal.status !== "Signed"; attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        proposal = await getProposal(controller.accountId, id);
-        if (proposal.status === "Approved" && proposal.cases.every((item) => item.status !== "Signing")) {
-          offerTxs.retry = await retrySignature(first, controller.accountId, id);
-        }
-      }
-      if (proposal.status !== "Signed") throw new Error(`Signing failed, status ${proposal.status}. Retry with retry_signature.`);
+      const { proposal, txs: retries } = await signUntil(first, id, (item) => item.status === "Signed");
+      if (retries[0]) offerTxs.retry = retries[0];
       detail("chain signatures", `${cases.length} signatures in ${((Date.now() - started) / 1000).toFixed(1)}s, from one approval round`);
       return {
         signatures: proposal.cases.map((item) => item.signature as Hex),
@@ -323,6 +341,111 @@ async function nearController(reuse: boolean): Promise<ControllerSide> {
           txs: { ...sharedTxs, ...offerTxs },
         },
       };
+    },
+    async proposeForApproval(cases, evidence) {
+      const [first] = guardians as [NearCredentials];
+      const { id } = await proposeOffer(first, controller.accountId, cases.map((item) => item.terms), evidence);
+      await approveOffer(first, controller.accountId, id);
+      return id;
+    },
+    async drill(chains, actors, tree) {
+      const [first, second, third] = guardians as [NearCredentials, NearCredentials, NearCredentials];
+      const deskAbi = artifact("Pactum", "Pactum.sol").abi;
+      const memberIds = guardians.map((guardian) => guardian.accountId);
+      const txs: Record<string, string> = {};
+
+      // Replaces a guardian: the third one leaves, a new one joins, then they swap back so the council is as before.
+      const swapped = [first.accountId, second.accountId, stranger.accountId];
+      const out = await proposeGuardians(first, controller.accountId, swapped, THRESHOLD);
+      txs.proposeGuardians = out.txHash;
+      txs.approveGuardians1 = await approveGuardians(first, controller.accountId, out.id);
+      txs.approveGuardians2 = await approveGuardians(second, controller.accountId, out.id);
+      const during = await view<{ guardians: string[] }>(controller.accountId, "get_config");
+      if (during.guardians.join() !== swapped.join()) throw new Error("The guardian vote did not apply");
+      if (!(await expectNearFailure(third, controller.accountId, "propose_guardians", { guardians: memberIds, threshold: THRESHOLD }, "caller is not a guardian"))) {
+        throw new Error("A removed guardian could still act");
+      }
+      detail("guardian vote", "one guardian replaced, and the removed one was rejected on NEAR");
+      const back = await proposeGuardians(stranger, controller.accountId, memberIds, THRESHOLD);
+      txs.restoreGuardians = back.txHash;
+      txs.restoreGuardians1 = await approveGuardians(first, controller.accountId, back.id);
+      txs.restoreGuardians2 = await approveGuardians(second, controller.accountId, back.id);
+      const again = await deriveEvmAddress(controller.accountId, DERIVATION_PATH);
+      if (again !== address) throw new Error(`Signing address changed: ${again}`);
+      detail("guardian vote", "voted back, signing address unchanged");
+
+      // The largest offer the contract allows: 12 cases on 3 chains and a text of exactly 4096 bytes. Every signature is real.
+      const text = "Drill, not a real offer. Guardians approve the largest offer the contract allows, then vote to cancel it before any case opens. ".padEnd(4096, ".");
+      const block = await Promise.all(chains.map((chain) => chain.evm.publicClient.getBlock()));
+      const terms: { chain: ChainRun; terms: CaseTerms }[] = Array.from({ length: 12 }, (_, index) => {
+        const position = index % chains.length;
+        const chain = chains[position]!;
+        return {
+          chain,
+          terms: {
+            caseId: keccak256(stringToHex(`pactum-drill:${chain.contracts.Pactum}:${index}`)),
+            token: chain.contracts.MockUSD,
+            totalLoss: TOTAL_LOSS,
+            maxReturn: TOTAL_LOSS,
+            rewardCap: 150_000n * ONE_TOKEN,
+            refundRoot: tree.root,
+            evidenceHash: keccak256(stringToHex(text)),
+            tiers: [{ until: block[position]!.timestamp + 168n * HOUR, rewardBps: 500 }],
+            nonce: 1000n + BigInt(index),
+            chainId: BigInt(chain.evm.chain.id),
+          },
+        };
+      });
+      const proposed = await proposeOffer(first, controller.accountId, terms.map((item) => item.terms), text);
+      txs.proposeLarge = proposed.txHash;
+      txs.approveLarge1 = await approveOffer(first, controller.accountId, proposed.id);
+      const signStart = Date.now();
+      txs.approveLarge2 = await approveOffer(second, controller.accountId, proposed.id);
+      const signed = await signUntil(first, proposed.id, (item) => item.status === "Signed");
+      const signSeconds = (Date.now() - signStart) / 1000;
+      detail("largest offer", `${signed.proposal.cases.length} signatures in ${signSeconds.toFixed(1)}s, ${text.length} bytes of text`);
+
+      // The case-opening signature works now. After revocation it no longer does.
+      const opens = (index: number, signature: Hex) => terms[index]!.chain.evm.publicClient.simulateContract({
+        account: actors.deployer,
+        address: terms[index]!.chain.contracts.Pactum,
+        abi: deskAbi,
+        functionName: "openCase",
+        args: [terms[index]!.terms, signature],
+      }).then(() => "opens").catch((error: Error) => error.message);
+      for (const [index, item] of signed.proposal.cases.entries()) {
+        const result = await opens(index, item.signature as Hex);
+        if (result !== "opens") throw new Error(`A signed case could not open before the cancel: ${result}`);
+      }
+
+      txs.cancel1 = await voteCancel(first, controller.accountId, proposed.id);
+      const cancelStart = Date.now();
+      txs.cancel2 = await voteCancel(second, controller.accountId, proposed.id);
+      const cancelled = await signUntil(first, proposed.id, (item) => item.cases.every((entry) => entry.status === "Revoked"));
+      const revokeSeconds = (Date.now() - cancelStart) / 1000;
+      detail("cancel vote", `${cancelled.proposal.cases.length} revocations in ${revokeSeconds.toFixed(1)}s`);
+
+      const revocations: Record<string, unknown>[] = [];
+      for (const [index, item] of cancelled.proposal.cases.entries()) {
+        const { chain, terms: caseTerms } = terms[index]!;
+        await chain.evm.send(actors.deployer, chain.contracts.Pactum, deskAbi, "revokeNonce", [caseTerms.nonce, item.revocation], "revokeNonce");
+        const after = await opens(index, item.signature as Hex);
+        if (!after.includes("NonceUsed")) throw new Error(`A revoked offer could still open: ${after}`);
+        revocations.push({ network: chain.network, caseIndex: index, nonce: caseTerms.nonce, tx: chain.evm.txs.revokeNonce, terms: caseTerms });
+      }
+      detail("revoked on chain", `${revocations.length} offers, each openCase now fails with NonceUsed`);
+
+      writeFileSync(new URL("deployments/drill.json", ROOT), toJson({
+        controllerAccount: controller.accountId,
+        proposalId: proposed.id,
+        guardianProposals: [out.id, back.id],
+        signSeconds,
+        revokeSeconds,
+        textBytes: text.length,
+        txs,
+        revocations,
+      }));
+      console.log("  saved deployments/drill.json");
     },
   };
 }
@@ -555,6 +678,36 @@ async function run(mode: Mode, stage: boolean) {
     const near = mode === "local" ? record : { ...record, caseIndex: index };
     await finishChain(mode, stage && chain === chains[0], chain, controller, actors, chains, offerCases[index]!, signatures[index]!, near, evidence, tree);
   }
+
+  if (mode === "testnet" && !stage && controller.drill) {
+    console.log("\n=== Drill: replace a guardian, then cancel a signed offer ===");
+    await controller.drill(chains, actors, tree);
+  }
+
+  // Adds an offer that is one vote short, so the viewer can approve it and relay the signature on the Guardians page.
+  if (mode === "testnet" && stage && controller.proposeForApproval) {
+    const text = "Follow-up offer: if more of the same token comes back, keep 5% within 7 days.";
+    const followUps = await Promise.all(
+      chains.slice(1).map(async (chain) => {
+        const block = await chain.evm.publicClient.getBlock();
+        const terms: CaseTerms = {
+          caseId: keccak256(stringToHex(`pactum-followup:${chain.contracts.Pactum}:${chain.contracts.MockUSD}`)),
+          token: chain.contracts.MockUSD,
+          totalLoss: TOTAL_LOSS,
+          maxReturn: TOTAL_LOSS,
+          rewardCap: 50_000n * ONE_TOKEN,
+          refundRoot: tree.root,
+          evidenceHash: keccak256(stringToHex(text)),
+          tiers: [{ until: block.timestamp + 168n * HOUR, rewardBps: 500 }],
+          nonce: block.timestamp + 1n,
+          chainId: BigInt(chain.evm.chain.id),
+        };
+        return { terms, digest: await chain.evm.read<Hex>(chain.contracts.Pactum, deskAbi, "hashCaseTerms", [terms]) };
+      }),
+    );
+    const id = await controller.proposeForApproval(followUps, text);
+    console.log(`\nProposal ${id} has one of two approvals. Approve it on the Guardians page in the app, then relay its signatures.`);
+  }
 }
 
 // The rest on one chain: open the case with the existing signature, return funds, claim refunds.
@@ -624,7 +777,9 @@ async function finishChain(
     if (mode === "testnet") {
       // Test keys for the video recorder, read only by the dev server. The file is blocked by .gitignore.
       const demoKeys = { attacker: process.env.DEMO_ATTACKER_KEY, alice: process.env.DEMO_ALICE_KEY, bob: process.env.DEMO_BOB_KEY, carol: process.env.DEMO_CAROL_KEY };
-      writeFileSync(new URL("web/.env.local", ROOT), `VITE_DEMO_KEYS=${JSON.stringify(demoKeys)}\n`, { mode: 0o600 });
+      // NEAR keys of the test guardians, to approve right on the Guardians page while recording.
+      const { guardians } = await loadOrCreateNearAccounts();
+      writeFileSync(new URL("web/.env.local", ROOT), `VITE_DEMO_KEYS=${JSON.stringify(demoKeys)}\nVITE_DEMO_GUARDIANS=${JSON.stringify(guardians)}\n`, { mode: 0o600 });
     }
     console.log("\nCase is open. Saved web/public/deployment.json. Continue in the web app.");
     return;
@@ -637,7 +792,7 @@ async function finishChain(
     desk,
     deskAbi,
     "returnFunds",
-    [terms.caseId, stolen, actors.rewardWallet],
+    [terms.caseId, stolen, actors.rewardWallet, quotedReward],
     "returnFunds",
   );
   const returned = parseEventLogs({ abi: deskAbi, logs: returnReceipt.logs, eventName: "FundsReturned" })[0] as unknown as {

@@ -11,6 +11,7 @@ const DOMAIN_NAME: &[u8] = b"Pactum";
 const DOMAIN_VERSION: &[u8] = b"1";
 const REWARD_TIER_TYPE: &[u8] = b"RewardTier(uint64 until,uint16 rewardBps)";
 const CASE_TERMS_TYPE: &[u8] = b"CaseTerms(bytes32 caseId,address token,uint256 totalLoss,uint256 maxReturn,uint256 rewardCap,bytes32 refundRoot,bytes32 evidenceHash,RewardTier[] tiers,uint256 nonce,uint256 chainId)RewardTier(uint64 until,uint16 rewardBps)";
+const REVOKE_NONCE_TYPE: &[u8] = b"RevokeNonce(uint256 nonce)";
 
 fn keccak(data: &[u8]) -> [u8; 32] {
     env::keccak256_array(data)
@@ -53,6 +54,20 @@ fn tiers_hash(terms: &ParsedTerms) -> [u8; 32] {
     hash_words(&hashes)
 }
 
+fn typed_digest(chain_id: u64, verifying_contract: &[u8; 20], struct_hash: &[u8; 32]) -> [u8; 32] {
+    let mut message = Vec::with_capacity(66);
+    message.extend_from_slice(&[0x19, 0x01]);
+    message.extend_from_slice(&domain_separator(chain_id, verifying_contract));
+    message.extend_from_slice(struct_hash);
+    keccak(&message)
+}
+
+/// Hash for revoking a signed offer. It must match `Pactum.hashRevokeNonce` byte for byte.
+pub fn revoke_digest(nonce: u64, chain_id: u64, verifying_contract: &[u8; 20]) -> [u8; 32] {
+    let struct_hash = hash_words(&[keccak(REVOKE_NONCE_TYPE), word_u64(nonce)]);
+    typed_digest(chain_id, verifying_contract, &struct_hash)
+}
+
 /// Final hash: keccak256(0x1901 || domainSeparator || structHash).
 pub fn case_digest(terms: &ParsedTerms, verifying_contract: &[u8; 20]) -> [u8; 32] {
     let struct_hash = hash_words(&[
@@ -68,9 +83,5 @@ pub fn case_digest(terms: &ParsedTerms, verifying_contract: &[u8; 20]) -> [u8; 3
         word_u64(terms.nonce),
         word_u64(terms.chain_id),
     ]);
-    let mut message = Vec::with_capacity(66);
-    message.extend_from_slice(&[0x19, 0x01]);
-    message.extend_from_slice(&domain_separator(terms.chain_id, verifying_contract));
-    message.extend_from_slice(&struct_hash);
-    keccak(&message)
+    typed_digest(terms.chain_id, verifying_contract, &struct_hash)
 }

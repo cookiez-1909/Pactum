@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, isAddress, parseUnits, zeroAddress, type Address, type Hash } from "viem";
+import { formatUnits, isAddress, isAddressEqual, parseEventLogs, parseUnits, zeroAddress, type Address, type Hash } from "viem";
 import { useApp, useToast } from "../appdata";
 import {
   deskAbi,
@@ -11,6 +11,7 @@ import {
   type CaseInfo,
 } from "../chain";
 import { ConvertRefund } from "../components/ConvertRefund";
+import { VerifyOffer } from "../components/VerifyOffer";
 import { Check, ExternalLink } from "../components/icons";
 import { Party } from "../components/Party";
 import { countdown, shortAddress, tokens } from "../format";
@@ -121,7 +122,8 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
 
   // Left empty, the reward goes to the returning wallet. Another wallet only if the user wants one.
   const rewardTo = rewardText.trim() || address || "";
-  const rewardToValid = isAddress(rewardTo) && rewardTo !== zeroAddress;
+  const rewardToPactum = isAddress(rewardTo) && isAddressEqual(rewardTo, desk);
+  const rewardToValid = isAddress(rewardTo) && rewardTo !== zeroAddress && !rewardToPactum;
   const holdsNothing = balance === 0n;
   const overBalance = preview !== null && balance !== null && preview.accepted > balance;
   const rewardShare = preview && preview.accepted > 0n ? Number((preview.reward * 10_000n) / preview.accepted) / 100 : 0;
@@ -144,13 +146,17 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
         onTx("Holder approves the token", approveHash);
       }
       setStep("return");
-      const hash = await wallet.writeContract({ account, chain: wallet.chain, address: desk, abi: deskAbi, functionName: "returnFunds", args: [terms.caseId, preview.accepted, rewardTo as Address] });
+      const hash = await wallet.writeContract({ account, chain: wallet.chain, address: desk, abi: deskAbi, functionName: "returnFunds", args: [terms.caseId, preview.accepted, rewardTo as Address, preview.reward] });
       const receipt = await client.waitForTransactionReceipt({ hash });
       if (receipt.status !== "success") throw new Error("The transaction reverted");
       onTx("Funds returned, reward paid in the same transaction", hash);
       await loadBalance();
-      setResult({ reward: preview.reward, refund: preview.refund, hash });
-      toast({ kind: "ok", title: "Funds returned", detail: `${fmt(preview.reward)} ${sym} reward, ${fmt(preview.refund)} ${sym} to refunds.`, href: txUrl(deployment, hash) });
+      // Reports the real amounts from the on-chain event, not the precomputed ones.
+      const paid = parseEventLogs({ abi: deskAbi, logs: receipt.logs, eventName: "FundsReturned" })[0]?.args;
+      const reward = paid?.reward ?? preview.reward;
+      const refund = paid?.refund ?? preview.refund;
+      setResult({ reward, refund, hash });
+      toast({ kind: "ok", title: "Funds returned", detail: `${fmt(reward)} ${sym} reward, ${fmt(refund)} ${sym} to refunds.`, href: txUrl(deployment, hash) });
     } catch (reason) {
       const text = errorText(reason, "The transaction failed");
       setFailure(text);
@@ -202,6 +208,7 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
               </dl>
               {amount !== null && preview.accepted < amount && <p className="fine-print">Only {fmt(preview.accepted)} {sym} will be pulled. That is all this case still accepts.</p>}
               {preview.capped && <p className="fine-print">The reward cap limits this payout. The excess goes to refunds.</p>}
+              <p className="fine-print">If the reward would be lower than this when the transaction lands, for example after a deadline or another return, it reverts and your tokens stay with you.</p>
             </div>
           )}
 
@@ -209,7 +216,7 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
             <span>Send my reward to <span className="optional">Optional</span></span>
             <input value={rewardText} spellCheck={false} placeholder={address ? `This wallet, ${shortAddress(address)}` : "0x…"} aria-invalid={rewardText.trim().length > 0 && !rewardToValid} onChange={(event) => setRewardText(event.target.value)} />
           </label>
-          {rewardText.trim().length > 0 && !rewardToValid && <p className="field-error">Enter a valid address other than the zero address. Tokens sent to a wrong address cannot be recovered.</p>}
+          {rewardText.trim().length > 0 && !rewardToValid && <p className="field-error">{rewardToPactum ? "This is the Pactum contract. A reward sent here would be locked forever." : "Enter a valid address other than the zero address. Tokens sent to a wrong address cannot be recovered."}</p>}
           <p className="field-hint muted">Leave it empty to use this wallet, or enter any wallet you like. No sign-up and no identity check.</p>
 
           {blockReason && <p className="block-reason" role="status">{blockReason}</p>}
@@ -245,11 +252,12 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
       </div>
 
       <div className="col-side">
+        <VerifyOffer info={info} />
         <RewardSchedule info={info} state={state} />
         <section className="card card-quiet">
           <h2>Do I have to prove I am the hacker?</h2>
           <p>No. The contract never asks who took the funds. Tokens are interchangeable, so it only counts what arrives. A wallet with no link to the hack works, even after mixers.</p>
-          <p>Nobody can abuse this to take money. The caller gives up their own tokens, and at most the published reward comes back.</p>
+          <p>Nobody can use this to take money from the case. The caller gives up their own tokens, and at most the published reward comes back.</p>
           <p><strong>The one limit:</strong> it must be this exact token on this chain. Funds that were swapped or bridged away must be swapped or bridged back first.</p>
         </section>
         <p className="notice">Paying a reward is all this contract can promise. It does not grant immunity from prosecution, and it does not check sanctions lists.</p>
@@ -405,11 +413,11 @@ export function Refund({ info, state, onTx }: { info: CaseInfo; state: CaseState
         </section>
         <section className="card card-quiet">
           <h2>How does it know who is owed?</h2>
-          <p>The list was fixed when the case opened, and the contract stores only its Merkle root. A claim must prove that the wallet and amount are on that list, so nobody can add themselves or raise their amount.</p>
+          <p>The list was fixed when the case opened, and the contract stores only its Merkle root. A claim must prove that the wallet and amount are on that list, so nobody can add themselves or raise their amount afterwards. Whoever wrote the list could have added wallets before that, so it is worth reading.</p>
           <p>The contract also accepts a claim sent by someone else, so a user with no gas can get help. The tokens still go only to the listed wallet.</p>
         </section>
         <section className="card card-quiet">
-          <h2>The team cannot touch this pool</h2>
+          <h2>The team has no way to withdraw this pool</h2>
           <p>Pactum has no owner, no upgrade path and no withdraw function.</p>
         </section>
       </div>

@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppProvider, ToastProvider, useApp } from "./appdata";
 import { normalizeDeployment, type Deployment } from "./chain";
-import { Logo } from "./components/icons";
 import { Shell } from "./components/Shell";
 import { IncidentPage, TAB_IDS, type Tab } from "./pages/IncidentPage";
 import { CasesPage } from "./pages/CasesPage";
-import { Faq } from "./pages/Faq";
 import { Guardians } from "./pages/Guardians";
 import { Landing } from "./pages/Landing";
 import { ActivityPage, HowItWorks, MyWallet, Tracker } from "./pages/others";
@@ -68,13 +66,13 @@ export function App() {
     };
   }, []);
 
-  // The landing page needs no chain data, so it shows immediately.
-  if (route.page === "") return <Landing />;
+  // The landing page needs no chain data, so it shows immediately. The FAQ is the end of this page.
+  if (route.page === "" || route.page === "faq") return <Landing anchor={route.page === "faq" ? "faq" : undefined} />;
 
   if (!deployment) {
     return (
       <div className="loading-screen">
-        <Logo size={40} />
+        <span className="brand-name">Pactum</span>
         <p>{loadError ? "Waiting for a deployment. Run: make web-local" : "Loading…"}</p>
         <a href="#/">Back to home</a>
       </div>
@@ -103,12 +101,11 @@ function Routed({ route }: { route: Route }) {
       {route.page === "wallet" && <MyWallet />}
       {route.page === "guardians" && <Guardians />}
       {route.page === "how" && <HowItWorks />}
-      {route.page === "faq" && <Faq />}
       {route.page === "case" && incident && <IncidentPage key={incident.id} incident={incident} tab={route.tab} symbol={route.symbol} />}
       {route.page === "case" && !incident && (
         <div className="page"><p className="empty">Case not found. <a href="#/cases">Back to all cases</a></p></div>
       )}
-      {!["cases", "tracker", "activity", "wallet", "guardians", "how", "faq", "case"].includes(route.page) && (
+      {!["cases", "tracker", "activity", "wallet", "guardians", "how", "case"].includes(route.page) && (
         <div className="page"><p className="empty">Page not found. <a href="#/cases">Go to cases</a></p></div>
       )}
     </Shell>

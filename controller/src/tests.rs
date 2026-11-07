@@ -3,11 +3,11 @@
 use near_sdk::json_types::U64;
 use near_sdk::serde_json::{self, Value};
 use near_sdk::test_utils::{get_created_receipts, VMContextBuilder};
-use near_sdk::{env, test_vm_config, testing_env, AccountId, PromiseResult, RuntimeFeesConfig};
+use near_sdk::{env, test_vm_config, testing_env, AccountId, NearToken, PromiseResult, RuntimeFeesConfig};
 
 use crate::types::{
     evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseStatus, CaseTerms, ChainProposalStatus,
-    Deployment, ProposalStatus, RewardTier, Scalar, SignResponse,
+    Deployment, GuardianProposalStatus, ProposalStatus, RewardTier, Scalar, SignResponse,
 };
 use crate::PactumController;
 
@@ -28,6 +28,18 @@ fn set_caller(name: &str) {
     context
         .current_account_id(account("controller.testnet"))
         .predecessor_account_id(account(name))
+        .attached_deposit(NearToken::from_near(1))
+        .block_timestamp(NOW_SECONDS * 1_000_000_000)
+        .prepaid_gas(near_sdk::Gas::from_tgas(300));
+    testing_env!(context.build());
+}
+
+fn set_caller_with_deposit(name: &str, deposit: NearToken) {
+    let mut context = VMContextBuilder::new();
+    context
+        .current_account_id(account("controller.testnet"))
+        .predecessor_account_id(account(name))
+        .attached_deposit(deposit)
         .block_timestamp(NOW_SECONDS * 1_000_000_000)
         .prepaid_gas(near_sdk::Gas::from_tgas(300));
     testing_env!(context.build());
@@ -921,4 +933,333 @@ fn list_limit_is_capped() {
     }
     assert_eq!(c.list_proposals(U64(0), 1000).len(), 50);
     assert_eq!(c.list_proposals(U64(50), 1000).len(), 10);
+}
+
+// The revocation hash must match viem and Solidity, through the same vector file.
+#[test]
+fn revoke_digest_matches_shared_vectors() {
+    let vectors: Value = serde_json::from_str(VECTORS).unwrap();
+    let list = vectors["revocations"].as_array().unwrap();
+    assert!(list.len() >= 4);
+    for vector in list {
+        set_caller("deployer.testnet");
+        let chain_id: u64 = vector["chainId"].as_str().unwrap().parse().unwrap();
+        let nonce: u64 = vector["nonce"].as_str().unwrap().parse().unwrap();
+        let contract: [u8; 20] = parse_hex_fixed(vector["verifyingContract"].as_str().unwrap()).unwrap();
+        let digest = to_hex(&crate::eip712::revoke_digest(nonce, chain_id, &contract));
+        assert_eq!(digest, vector["digest"].as_str().unwrap(), "{}", vector["name"]);
+    }
+}
+
+#[test]
+#[should_panic(expected = "for storage")]
+fn offer_needs_a_deposit_for_storage() {
+    let mut c = contract(2);
+    set_caller_with_deposit("alice.testnet", NearToken::from_yoctonear(0));
+    c.propose_offer(vec![terms()], EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "for storage")]
+fn chain_vote_needs_a_deposit_for_storage() {
+    let mut c = contract(2);
+    set_caller_with_deposit("alice.testnet", NearToken::from_yoctonear(0));
+    c.propose_chain(U64(46_630), DESK.to_string());
+}
+
+#[test]
+#[should_panic(expected = "for storage")]
+fn guardian_vote_needs_a_deposit_for_storage() {
+    let mut c = contract(2);
+    set_caller_with_deposit("alice.testnet", NearToken::from_yoctonear(0));
+    c.propose_guardians(vec![account("alice.testnet")], 1);
+}
+
+// The excess deposit goes back to the proposer and does not stay in the contract.
+#[test]
+fn storage_deposit_refunds_the_excess() {
+    let mut c = contract(2);
+    set_caller_with_deposit("alice.testnet", NearToken::from_near(1));
+    c.propose_offer(vec![terms()], EVIDENCE.to_string());
+    let refunds: Vec<_> = get_created_receipts().into_iter().filter(|receipt| receipt.receiver_id == account("alice.testnet")).collect();
+    assert_eq!(refunds.len(), 1);
+}
+
+#[test]
+fn guardians_can_replace_a_member() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("alice.testnet"), account("bob.testnet"), account("dave.testnet")], 2);
+    c.approve_guardians(id);
+    assert!(c.get_config().guardians.contains(&account("carol.testnet")), "changed below threshold");
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    let config = c.get_config();
+    assert!(!config.guardians.contains(&account("carol.testnet")));
+    assert!(config.guardians.contains(&account("dave.testnet")));
+    assert_eq!(c.list_guardian_proposals(U64(0), 10)[0].status, GuardianProposalStatus::Applied);
+}
+
+#[test]
+#[should_panic(expected = "caller is not a guardian")]
+fn a_removed_guardian_cannot_act() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("alice.testnet"), account("bob.testnet")], 2);
+    c.approve_guardians(id);
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    set_caller("carol.testnet");
+    c.propose_offer(vec![terms()], EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "caller is not a guardian")]
+fn a_stranger_cannot_propose_guardians() {
+    let mut c = contract(2);
+    set_caller("mallory.testnet");
+    c.propose_guardians(vec![account("mallory.testnet")], 1);
+}
+
+#[test]
+#[should_panic(expected = "threshold must be between")]
+fn a_guardian_vote_cannot_set_an_impossible_threshold() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_guardians(vec![account("alice.testnet")], 2);
+}
+
+#[test]
+#[should_panic(expected = "duplicate guardian")]
+fn a_guardian_vote_cannot_repeat_a_member() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_guardians(vec![account("alice.testnet"), account("alice.testnet")], 2);
+}
+
+#[test]
+#[should_panic(expected = "too many guardians")]
+fn a_guardian_vote_has_a_size_limit() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let many = (0..17).map(|index| account(&format!("g{index}.testnet"))).collect();
+    c.propose_guardians(many, 2);
+}
+
+#[test]
+#[should_panic(expected = "guardian proposal is not pending")]
+fn a_guardian_vote_applies_only_once() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("alice.testnet"), account("bob.testnet"), account("carol.testnet")], 2);
+    c.approve_guardians(id);
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    set_caller("carol.testnet");
+    c.approve_guardians(id);
+}
+
+// Votes from members who left the council do not count toward a pending proposal.
+#[test]
+fn a_removed_guardians_vote_stops_counting() {
+    let mut c = contract(2);
+    let offer = propose(&mut c);
+    set_caller("carol.testnet");
+    c.approve_offer(offer);
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("alice.testnet"), account("bob.testnet")], 2);
+    c.approve_guardians(id);
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    set_caller("alice.testnet");
+    c.approve_offer(offer);
+    assert_eq!(status(&c, offer), ProposalStatus::Pending, "carol's old vote must not count");
+    assert_eq!(c.get_proposal(offer).unwrap().approvals, vec![account("alice.testnet")]);
+    set_caller("bob.testnet");
+    c.approve_offer(offer);
+    assert_eq!(status(&c, offer), ProposalStatus::Approved);
+}
+
+#[test]
+fn rotating_guardians_keeps_the_limit_and_the_signing_path() {
+    let mut c = contract(2);
+    let before = c.get_config();
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("bob.testnet"), account("dave.testnet")], 1);
+    c.approve_guardians(id);
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    let after = c.get_config();
+    assert_eq!(after.threshold, 1);
+    assert_eq!(after.max_reward_bps, before.max_reward_bps);
+    assert_eq!(after.derivation_path, before.derivation_path);
+    assert_eq!(after.signer_contract, before.signer_contract);
+    assert_eq!(after.deployments, before.deployments);
+}
+
+#[test]
+fn cancelling_a_pending_offer_frees_its_ids() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    assert_eq!(status(&c, id), ProposalStatus::Pending, "cancelled below threshold");
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(proposal.status, ProposalStatus::Cancelled);
+    assert_eq!(proposal.cases[0].status, CaseStatus::Cancelled);
+    assert!(sign_receipts().is_empty(), "nothing was signed, so nothing needs revoking");
+    // The same case id and nonce can be reused, because they were never signed.
+    let again = propose(&mut c);
+    assert_eq!(status(&c, again), ProposalStatus::Pending);
+}
+
+#[test]
+#[should_panic(expected = "proposal is not pending")]
+fn a_cancelled_offer_cannot_be_approved() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    set_caller("carol.testnet");
+    c.approve_offer(id);
+}
+
+#[test]
+#[should_panic(expected = "caller is not a guardian")]
+fn a_stranger_cannot_vote_to_cancel() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("mallory.testnet");
+    c.vote_cancel(id);
+}
+
+#[test]
+#[should_panic(expected = "already voted to cancel")]
+fn a_cancel_vote_counts_once() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    c.vote_cancel(id);
+}
+
+#[test]
+#[should_panic(expected = "proposal is already cancelled")]
+fn an_offer_cancels_once() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    set_caller("carol.testnet");
+    c.vote_cancel(id);
+}
+
+#[test]
+#[should_panic(expected = "a signature is in flight")]
+fn cancel_waits_for_a_signature_in_flight() {
+    let mut c = contract(2);
+    let id = approved_and_signing(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+}
+
+fn signed_offer(c: &mut PactumController) -> U64 {
+    let id = approved_and_signing(c);
+    deliver(c, id, PromiseResult::Successful(response_bytes()));
+    assert_eq!(status(c, id), ProposalStatus::Signed);
+    id
+}
+
+// A signed offer: cancelling creates one revocation signature for the right nonce, chain and contract.
+#[test]
+fn cancelling_a_signed_offer_requests_a_revocation() {
+    let mut c = contract(2);
+    let id = signed_offer(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(proposal.status, ProposalStatus::Cancelled);
+    assert_eq!(proposal.cases[0].status, CaseStatus::RevokeSigning);
+    let desk: [u8; 20] = parse_hex_fixed(DESK).unwrap();
+    let expected = to_hex(&crate::eip712::revoke_digest(1, SEPOLIA, &desk));
+    assert_eq!(proposal.cases[0].revoke_digest.as_deref(), Some(expected.as_str()));
+    assert_ne!(proposal.cases[0].digest, expected);
+    assert_eq!(sign_receipts().len(), 1);
+
+    deliver(&mut c, id, PromiseResult::Successful(response_bytes()));
+    let revoked = c.get_proposal(id).unwrap();
+    assert_eq!(revoked.status, ProposalStatus::Cancelled, "a revocation must not mark the offer as signed");
+    assert_eq!(revoked.cases[0].status, CaseStatus::Revoked);
+    assert!(revoked.cases[0].revocation.is_some());
+    assert!(revoked.cases[0].signature.is_some(), "the original signature stays on record");
+}
+
+// A signed case id and nonce are not freed, because the old signature still exists out there.
+#[test]
+#[should_panic(expected = "case_id already proposed")]
+fn a_revoked_case_keeps_its_ids() {
+    let mut c = contract(2);
+    let id = signed_offer(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    propose(&mut c);
+}
+
+#[test]
+fn a_failed_revocation_can_be_retried_by_anyone() {
+    let mut c = contract(2);
+    let id = signed_offer(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    deliver(&mut c, id, PromiseResult::Failed);
+    let failed = c.get_proposal(id).unwrap();
+    assert_eq!(failed.cases[0].status, CaseStatus::RevokePending);
+    assert!(failed.cases[0].revocation.is_none());
+    set_caller("mallory.testnet");
+    c.retry_signature(id);
+    assert_eq!(c.get_proposal(id).unwrap().cases[0].status, CaseStatus::RevokeSigning);
+    assert_eq!(sign_receipts().len(), 1);
+}
+
+#[test]
+#[should_panic(expected = "proposal is not awaiting a signature")]
+fn a_finished_cancellation_has_nothing_to_retry() {
+    let mut c = contract(2);
+    let id = propose(&mut c);
+    set_caller("alice.testnet");
+    c.vote_cancel(id);
+    set_caller("bob.testnet");
+    c.vote_cancel(id);
+    c.retry_signature(id);
+}
+
+// Cancel votes from members who left the council no longer count either.
+#[test]
+fn a_removed_guardians_cancel_vote_stops_counting() {
+    let mut c = contract(2);
+    let offer = propose(&mut c);
+    set_caller("carol.testnet");
+    c.vote_cancel(offer);
+    set_caller("alice.testnet");
+    let id = c.propose_guardians(vec![account("alice.testnet"), account("bob.testnet")], 2);
+    c.approve_guardians(id);
+    set_caller("bob.testnet");
+    c.approve_guardians(id);
+    set_caller("alice.testnet");
+    c.vote_cancel(offer);
+    assert_eq!(status(&c, offer), ProposalStatus::Pending);
 }

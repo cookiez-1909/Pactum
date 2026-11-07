@@ -97,7 +97,7 @@ contract Handler is Test {
         amount = bound(amount, 1, 200_000e18);
         token.mint(address(this), amount);
         uint256 returnedBefore = desk.getCase(caseId).totalReturned;
-        desk.returnFunds(caseId, amount, REWARD_TO);
+        desk.returnFunds(caseId, amount, REWARD_TO, 0);
         measuredReceived[caseId] += desk.getCase(caseId).totalReturned - returnedBefore;
     }
 

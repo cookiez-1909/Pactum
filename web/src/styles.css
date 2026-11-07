@@ -94,7 +94,9 @@ dd { margin: 0; }
 .sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 14px; min-height: 48px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
 .brand:hover { text-decoration: none; }
-.brand-name { font-size: 17px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+.brand-name { font-size: 18px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+.brand-initial { display: none; font-size: 18px; font-weight: 600; }
+.is-collapsed .brand-initial { display: inline; }
 .sidebar-close { display: none; }
 .side-nav { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .side-link {
@@ -518,7 +520,34 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .quote-amount strong { font-family: var(--mono); font-weight: 500; overflow-wrap: anywhere; }
 .quote-result .fine-print strong { color: var(--ink-2); }
 
+/* Two-way talks */
+.tab-stack { display: grid; gap: 16px; }
+.negotiation .notice { margin-top: 10px; }
+.negotiation-thread { margin-top: 14px; }
+.negotiation-composer { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
+.negotiation-send { margin-top: 12px; }
+.holds-funds { padding: 1px 7px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 12px; }
+.counter-ask { margin: 6px 0 2px; color: var(--ink); }
+.counter-limit { color: var(--warn); font-size: 13px; }
+.register-sources { margin: 10px 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+.register-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+/* Registering a protocol after a hack */
+.register-card .button-block { margin-top: 16px; }
+.register-tag { display: inline-block; margin-bottom: 10px; }
+.register-statement { margin-top: 14px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius-sm); }
+.register-statement code { overflow-wrap: anywhere; }
+.verify-list { display: grid; gap: 12px; margin: 10px 0; padding: 0; list-style: none; }
+.verify-row { display: flex; gap: 10px; }
+.verify-mark { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); color: var(--ink-3); font-size: 12px; font-weight: 700; }
+.verify-mark svg { width: 12px; height: 12px; }
+.verify-row.is-good .verify-mark { background: var(--good-soft); color: var(--good); }
+.verify-row.is-bad .verify-mark { background: var(--warn-soft); color: var(--warn); }
+.verify-title { color: var(--ink); font-size: 14px; font-weight: 500; }
+.verify-body { color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
+
 /* FAQ */
+.faq-body { max-width: 860px; margin-top: 28px; }
 .faq-search { display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink-3); }
 .faq-search input { border: 0; background: transparent; font-family: inherit; }
 .faq-search:focus-within { border-color: var(--brand); }
@@ -538,7 +567,6 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .faq-answer > div { overflow: hidden; }
 .faq-item.is-open .faq-answer { grid-template-rows: 1fr; }
 .faq-answer p { padding: 0 16px 14px; color: var(--ink-2); max-width: 72ch; }
-.faq-more { margin-top: 20px; }
 
 /* Hack tracker */
 .tracker { display: grid; gap: 8px; margin-top: 16px; }
@@ -782,7 +810,7 @@ textarea:focus { outline: none; border-color: var(--brand); }
 }
 
 /* Trang Guardians */
-.proposals { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.proposals { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .proposal { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .proposal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
 .proposal-chain { font-weight: 600; color: var(--ink); }
@@ -793,6 +821,12 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .proposal-record { margin-top: 10px; font-size: 13px; color: var(--ink-2); }
 .proposal-record summary { cursor: pointer; }
 .proposal-record pre { margin: 8px 0 0; padding: 10px; max-height: 280px; overflow: auto; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.proposal-offer { max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
+.guardian-controls { margin: 0 0 12px; }
+.guardian-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.guardian-cli pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.relay-button { display: flex; margin-top: 6px; padding: 4px 10px; font-size: 13px; white-space: nowrap; }
+.guardian-votes .chain-list li { display: grid; gap: 2px; }
 .chain-list { display: grid; gap: 8px; margin: 0 0 10px; padding: 0; list-style: none; }
 .chain-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .page > .notice { margin-bottom: 16px; }

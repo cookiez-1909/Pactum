@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatUnits, parseUnits, type Address } from "viem";
 import type { TokenInfo } from "../chain";
+import { decimalString } from "../format";
 
 const API = "https://1click.chaindefuser.com/v0";
 
@@ -171,8 +172,8 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
       {failure && <p className="field-error" role="alert">NEAR Intents returned: {failure}</p>}
       {quote && (
         <div className="quote-result" role="status">
-          <p className="quote-amount">About <strong>{quote.amountOut} {destination.symbol}</strong></p>
-          <p className="muted small">Worth about ${Number(quote.usdOut).toLocaleString("en-US", { maximumFractionDigits: 2 })}, in about {Math.max(1, Math.round(quote.seconds / 60))} minutes.</p>
+          <p className="quote-amount">About <strong>{decimalString(quote.amountOut)} {destination.symbol}</strong></p>
+          <p className="muted small">Worth about ${Number(quote.usdOut).toLocaleString("en-US", { maximumFractionDigits: 2 })}, in about {Math.max(1, Math.round(quote.seconds / 60))} {Math.round(quote.seconds / 60) > 1 ? "minutes" : "minute"}.</p>
           <p className="fine-print"><strong>Nothing was swapped.</strong> This is a real quote at mainnet prices. NEAR Intents has no testnet and {token.symbol} is a mock token, so the swap itself is not available in this demo.</p>
         </div>
       )}

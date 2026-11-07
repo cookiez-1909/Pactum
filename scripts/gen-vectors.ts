@@ -153,5 +153,19 @@ const vectors = inputs.map((input) => ({
 }));
 
 mkdirSync(dirname(OUTPUT.pathname), { recursive: true });
-writeFileSync(OUTPUT, `${JSON.stringify({ count: vectors.length, vectors }, null, 2)}\n`);
+// Revocation hash: same domain as the terms hash, so it is also bound to one chain and one contract.
+const revocations = inputs.map((input) => ({
+  name: input.name,
+  verifyingContract: input.verifyingContract,
+  chainId: input.chainId.toString(),
+  nonce: input.nonce.toString(),
+  digest: hashTypedData({
+    domain: { name: "Pactum", version: "1", chainId: input.chainId, verifyingContract: input.verifyingContract },
+    types: { RevokeNonce: [{ name: "nonce", type: "uint256" }] },
+    primaryType: "RevokeNonce",
+    message: { nonce: input.nonce },
+  }),
+}));
+
+writeFileSync(OUTPUT, `${JSON.stringify({ count: vectors.length, vectors, revocations }, null, 2)}\n`);
 console.log(`wrote ${vectors.length} vectors to ${OUTPUT.pathname}`);

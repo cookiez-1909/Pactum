@@ -4,7 +4,7 @@
 //! These tests do NOT prove real signatures. Real signatures are checked by `make verify`.
 
 use near_workspaces::network::Sandbox;
-use near_workspaces::types::Gas;
+use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract, Worker};
 use serde_json::{json, Value};
 
@@ -17,6 +17,7 @@ const BASE_DESK: &str = "0x5555555555555555555555555555555555555555";
 // Hashes computed with `cast keccak`, which is the EVM's keccak256.
 const EVIDENCE: &str = "Test offer: keep 10 percent";
 const EVIDENCE_HASH: &str = "0x4a73c11c58a2d50f2ace0ba9406cfde1c2331fc5f50e7fbe1c41fa6e354a7420";
+const LONG_EVIDENCE_HASH: &str = "0x010aa279086ab917c15c5de3245f6bdc749a04cdbfe917eb71f10874ec7f1b87";
 
 struct Setup {
     worker: Worker<Sandbox>,
@@ -84,6 +85,7 @@ impl Setup {
             .alice
             .call(self.controller.id(), "propose_offer")
             .args_json(json!({ "cases": [terms(seed)], "evidence": EVIDENCE }))
+            .deposit(NearToken::from_near(1))
             .max_gas()
             .transact()
             .await
@@ -246,6 +248,7 @@ async fn wasm_rejects_unauthorized_calls_for_the_right_reason() {
         .stranger
         .call(s.controller.id(), "propose_offer")
         .args_json(json!({ "cases": [terms(2)], "evidence": EVIDENCE }))
+        .deposit(NearToken::from_near(1))
         .max_gas()
         .transact()
         .await
@@ -324,6 +327,7 @@ impl Setup {
         self.alice
             .call(self.controller.id(), "propose_offer")
             .args_json(json!({ "cases": cases, "evidence": EVIDENCE }))
+            .deposit(NearToken::from_near(1))
             .max_gas()
             .transact()
             .await
@@ -403,6 +407,7 @@ async fn add_third_chain(s: &Setup) -> String {
         .alice
         .call(s.controller.id(), "propose_chain")
         .args_json(json!({ "chain_id": chain, "pactum": "0x6666666666666666666666666666666666666666" }))
+        .deposit(NearToken::from_near(1))
         .max_gas()
         .transact()
         .await
@@ -431,6 +436,7 @@ async fn guardians_vote_in_a_chain_but_strangers_and_replacements_fail() {
         .stranger
         .call(s.controller.id(), "propose_chain")
         .args_json(json!({ "chain_id": "46630", "pactum": BASE_DESK }))
+        .deposit(NearToken::from_near(1))
         .max_gas()
         .transact()
         .await
@@ -441,6 +447,7 @@ async fn guardians_vote_in_a_chain_but_strangers_and_replacements_fail() {
         .alice
         .call(s.controller.id(), "propose_chain")
         .args_json(json!({ "chain_id": SEPOLIA, "pactum": BASE_DESK }))
+        .deposit(NearToken::from_near(1))
         .max_gas()
         .transact()
         .await
@@ -471,6 +478,7 @@ async fn wasm_rejects_text_that_does_not_match_the_hash() {
         .alice
         .call(s.controller.id(), "propose_offer")
         .args_json(json!({ "cases": [terms(1)], "evidence": "A different offer" }))
+        .deposit(NearToken::from_near(1))
         .max_gas()
         .transact()
         .await
@@ -478,4 +486,153 @@ async fn wasm_rejects_text_that_does_not_match_the_hash() {
     assert!(failure_text(&result).contains("evidence does not match evidence_hash"), "{}", failure_text(&result));
     let count: String = s.controller.view("proposal_count").await.unwrap().json().unwrap();
     assert_eq!(count, "0");
+}
+
+async fn vote(who: &Account, s: &Setup, method: &str, id: &str) -> near_workspaces::result::ExecutionFinalResult {
+    who.call(s.controller.id(), method).args_json(json!({ "proposal_id": id })).gas(Gas::from_tgas(300)).transact().await.unwrap()
+}
+
+// The largest offer the contract allows, with the longest text: 12 cases and 4096 bytes.
+// The callback only has CALLBACK_GAS, so it must read and write even a large proposal without running out.
+#[tokio::test]
+async fn largest_offer_signs_and_cancels_with_longest_text() {
+    let s = setup().await;
+    let evidence = "x".repeat(4096);
+    // keccak256 of 4096 "x" characters, computed with `cast keccak`.
+    let evidence_hash = LONG_EVIDENCE_HASH;
+    let cases: Vec<Value> = (1..=12)
+        .map(|seed| {
+            let mut item = terms(seed);
+            item["evidence_hash"] = json!(evidence_hash);
+            item
+        })
+        .collect();
+    let id: String = s
+        .alice
+        .call(s.controller.id(), "propose_offer")
+        .args_json(json!({ "cases": cases, "evidence": evidence }))
+        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap()
+        .into_result()
+        .unwrap()
+        .json()
+        .unwrap();
+    let _ = s.approve(&s.alice, &id).await;
+    let last = s.approve(&s.bob, &id).await;
+    assert!(last.failures().is_empty(), "{:?}", last.failures());
+    assert_eq!(s.signer_calls().await, 3);
+    for _ in 0..3 {
+        let retried = s.retry(&s.stranger, &id).await;
+        assert!(retried.failures().is_empty(), "{:?}", retried.failures());
+    }
+    assert_eq!(s.signer_calls().await, 12);
+    let signed = s.proposal(&id).await;
+    assert_eq!(signed["status"], "Signed");
+    assert!(signed["cases"].as_array().unwrap().iter().all(|item| item["signature"].is_string()));
+
+    // Cancels that whole offer: each case needs a revocation signature, also at most 3 per transaction.
+    assert!(vote(&s.alice, &s, "vote_cancel", &id).await.is_success());
+    let last = vote(&s.bob, &s, "vote_cancel", &id).await;
+    assert!(last.failures().is_empty(), "{:?}", last.failures());
+    assert_eq!(s.signer_calls().await, 15);
+    for _ in 0..3 {
+        let retried = s.retry(&s.stranger, &id).await;
+        assert!(retried.failures().is_empty(), "{:?}", retried.failures());
+    }
+    assert_eq!(s.signer_calls().await, 24);
+    let cancelled = s.proposal(&id).await;
+    assert_eq!(cancelled["status"], "Cancelled");
+    assert!(cancelled["cases"].as_array().unwrap().iter().all(|item| item["status"] == "Revoked" && item["revocation"].is_string()));
+}
+
+// MPC fails during revocation: it can still be retried, and the original signatures are kept.
+#[tokio::test]
+async fn signer_failure_keeps_a_cancellation_recoverable() {
+    let s = setup().await;
+    let id = s.propose(1).await;
+    let _ = s.approve(&s.alice, &id).await;
+    let _ = s.approve(&s.bob, &id).await;
+    assert_eq!(s.proposal(&id).await["status"], "Signed");
+
+    s.set_mode("Panic").await;
+    assert!(vote(&s.alice, &s, "vote_cancel", &id).await.is_success());
+    let _ = vote(&s.bob, &s, "vote_cancel", &id).await;
+    let failed = s.proposal(&id).await;
+    assert_eq!(failed["status"], "Cancelled");
+    assert_eq!(failed["cases"][0]["status"], "RevokePending");
+    assert!(failed["cases"][0]["signature"].is_string());
+
+    s.set_mode("Ok").await;
+    let retried = s.retry(&s.stranger, &id).await;
+    assert!(retried.failures().is_empty(), "{:?}", retried.failures());
+    let done = s.proposal(&id).await;
+    assert_eq!(done["cases"][0]["status"], "Revoked");
+    assert!(done["cases"][0]["revocation"].is_string());
+}
+
+// Too little gas on the deciding cancel vote rolls the vote back, so it never gets stuck cancelled without revocations.
+#[tokio::test]
+async fn too_little_gas_rolls_back_the_cancel_vote() {
+    let s = setup().await;
+    let id = s.propose(1).await;
+    let _ = s.approve(&s.alice, &id).await;
+    let _ = s.approve(&s.bob, &id).await;
+    assert!(vote(&s.alice, &s, "vote_cancel", &id).await.is_success());
+    let short = s.bob.call(s.controller.id(), "vote_cancel").args_json(json!({ "proposal_id": id })).gas(Gas::from_tgas(30)).transact().await.unwrap();
+    assert!(!short.is_success());
+    let proposal = s.proposal(&id).await;
+    assert_eq!(proposal["status"], "Signed");
+    assert_eq!(proposal["cancel_votes"].as_array().unwrap().len(), 1);
+}
+
+// The storage deposit pays exactly what is needed, the excess goes back to the proposer, and the contract balance does not drop.
+#[tokio::test]
+async fn proposer_pays_for_storage_and_gets_the_excess_back() {
+    let s = setup().await;
+    let before = s.controller.view_account().await.unwrap();
+    let alice_before = s.alice.view_account().await.unwrap().balance;
+    let id = s.propose(1).await;
+    let after = s.controller.view_account().await.unwrap();
+    let alice_after = s.alice.view_account().await.unwrap().balance;
+    let paid = alice_before.as_yoctonear() - alice_after.as_yoctonear();
+    assert!(paid < NearToken::from_millinear(200).as_yoctonear(), "kept too much of the deposit: {paid}");
+    let spent_on_storage = u128::from(after.storage_usage - before.storage_usage) * 10u128.pow(19);
+    assert!(after.balance.as_yoctonear() >= before.balance.as_yoctonear() + spent_on_storage, "the contract paid for its own storage");
+
+    let without = s.alice.call(s.controller.id(), "propose_offer").args_json(json!({ "cases": [terms(9)], "evidence": EVIDENCE })).max_gas().transact().await.unwrap();
+    assert!(failure_text(&without).contains("for storage"), "{}", failure_text(&without));
+    assert_eq!(s.proposal(&id).await["status"], "Pending");
+}
+
+// On the real wasm: a guardian is replaced by vote, the old one loses access and the new one gains it.
+#[tokio::test]
+async fn guardians_vote_a_member_out_and_a_new_one_in() {
+    let s = setup().await;
+    let id: String = s
+        .alice
+        .call(s.controller.id(), "propose_guardians")
+        .args_json(json!({ "guardians": [s.alice.id(), s.stranger.id()], "threshold": 2 }))
+        .deposit(NearToken::from_near(1))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap()
+        .into_result()
+        .unwrap()
+        .json()
+        .unwrap();
+    assert!(vote(&s.alice, &s, "approve_guardians", &id).await.is_success());
+    assert!(vote(&s.bob, &s, "approve_guardians", &id).await.is_success());
+    let config: Value = s.controller.view("get_config").await.unwrap().json().unwrap();
+    assert_eq!(config["guardians"], json!([s.alice.id(), s.stranger.id()]));
+
+    let offer = s.propose(1).await;
+    let refused = s.approve(&s.bob, &offer).await;
+    assert!(failure_text(&refused).contains("caller is not a guardian"), "{}", failure_text(&refused));
+    let _ = s.approve(&s.alice, &offer).await;
+    assert!(s.approve(&s.stranger, &offer).await.is_success());
+    assert_eq!(s.proposal(&offer).await["status"], "Signed");
 }

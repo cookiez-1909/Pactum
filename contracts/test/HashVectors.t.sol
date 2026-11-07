@@ -47,4 +47,17 @@ contract HashVectorsTest is Test {
             assertEq(Pactum(target).hashCaseTerms(t), json.readBytes32(string.concat(prefix, ".digest")));
         }
     }
+
+    function test_revokeDigestMatchesSharedVectors() public {
+        string memory json = vm.readFile("test/vectors/case_terms.json");
+        uint256 count = json.readUint(".count");
+        for (uint256 i = 0; i < count; ++i) {
+            string memory prefix = string.concat(".revocations[", vm.toString(i), "]");
+            address target = json.readAddress(string.concat(prefix, ".verifyingContract"));
+            vm.chainId(vm.parseUint(json.readString(string.concat(prefix, ".chainId"))));
+            deployCodeTo("Pactum.sol:Pactum", abi.encode(address(0xc0)), target);
+            uint256 nonce = vm.parseUint(json.readString(string.concat(prefix, ".nonce")));
+            assertEq(Pactum(target).hashRevokeNonce(nonce), json.readBytes32(string.concat(prefix, ".digest")));
+        }
+    }
 }

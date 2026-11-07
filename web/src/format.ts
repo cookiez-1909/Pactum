@@ -8,6 +8,15 @@ export function tokens(value: bigint, decimals: number, maxFraction = 4): string
   return kept ? `${grouped}.${kept}` : grouped;
 }
 
+// A decimal string from an API: adds thousands separators without converting to Number, so no precision is lost.
+export function decimalString(value: string, maxFraction = 8): string {
+  if (!/^\d+(\.\d+)?$/.test(value)) return value;
+  const [whole = "0", fraction = ""] = value.split(".");
+  const grouped = BigInt(whole).toLocaleString("en-US");
+  const kept = fraction.slice(0, maxFraction).replace(/0+$/, "");
+  return kept ? `${grouped}.${kept}` : grouped;
+}
+
 export function toNumber(value: bigint, decimals: number): number {
   return Number(formatUnits(value, decimals));
 }

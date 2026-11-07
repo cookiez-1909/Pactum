@@ -36,21 +36,28 @@ pub struct Deployment {
 }
 
 /// The state of an offer. `Approved` means it has enough votes and is waiting for every signature.
+/// `Cancelled` means the council voted to cancel it.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProposalStatus {
     Pending,
     Approved,
     Signed,
+    Cancelled,
 }
 
-/// A case's signature state. A failed signing request goes back to `Unsigned` so it can be signed again.
+/// Signature state of one case. A failed signing request goes back to waiting so it can be signed again.
+/// When an offer is cancelled, unsigned cases become `Cancelled` and signed ones need a revocation (`RevokePending` to `Revoked`).
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CaseStatus {
     Unsigned,
     Signing,
     Signed,
+    Cancelled,
+    RevokePending,
+    RevokeSigning,
+    Revoked,
 }
 
 /// One case in an offer: its terms, the fixed hash, and the MPC signature once there is one.
@@ -62,6 +69,10 @@ pub struct ProposalCase {
     pub status: CaseStatus,
     /// The 65-byte signature (r || s || v) in hex, ready to pass to `Pactum.openCase`.
     pub signature: Option<String>,
+    /// The revocation hash, only present when the offer is cancelled after this case was signed.
+    pub revoke_digest: Option<String>,
+    /// The signature to pass to `Pactum.revokeNonce`. Anyone can read and submit it.
+    pub revocation: Option<String>,
 }
 
 /// An offer: one text, one approval round, and the cases it covers on one or more chains.
@@ -75,6 +86,7 @@ pub struct Proposal {
     pub proposer: AccountId,
     pub approvals: Vec<AccountId>,
     pub status: ProposalStatus,
+    pub cancel_votes: Vec<AccountId>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -96,7 +108,26 @@ pub struct ChainProposal {
     pub status: ChainProposalStatus,
 }
 
-/// Public configuration. Only the chain list can grow, by a vote of the guardians.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GuardianProposalStatus {
+    Pending,
+    Applied,
+}
+
+/// A proposal to replace the council, for example when someone loses a key. The signing address and reward limit do not change.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct GuardianProposal {
+    pub id: U64,
+    pub guardians: Vec<AccountId>,
+    pub threshold: u32,
+    pub proposer: AccountId,
+    pub approvals: Vec<AccountId>,
+    pub status: GuardianProposalStatus,
+}
+
+/// Public configuration. The council and chain list change only by a vote of the council itself.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct Config {

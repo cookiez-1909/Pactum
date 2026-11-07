@@ -1,8 +1,10 @@
 // Reads and writes on chain. The interface has no server of its own; all data comes from public RPC.
 import {
   createPublicClient,
+  concat,
   createWalletClient,
   custom,
+  encodeAbiParameters,
   http,
   keccak256,
   parseAbi,
@@ -22,11 +24,14 @@ export const deskAbi = parseAbi([
   "function currentTier(bytes32 caseId) view returns (bool open, uint16 rewardBps, uint64 until)",
   "function claimed(bytes32 caseId, address account) view returns (uint256)",
   "function claimable(bytes32 caseId, address account, uint256 allocation) view returns (uint256)",
-  "function returnFunds(bytes32 caseId, uint256 amount, address rewardTo)",
+  "function returnFunds(bytes32 caseId, uint256 amount, address rewardTo, uint256 minReward)",
   "function getTiers(bytes32 caseId) view returns ((uint64 until, uint16 rewardBps)[])",
   "function hashCaseTerms((bytes32 caseId, address token, uint256 totalLoss, uint256 maxReturn, uint256 rewardCap, bytes32 refundRoot, bytes32 evidenceHash, (uint64 until, uint16 rewardBps)[] tiers, uint256 nonce, uint256 chainId) terms) view returns (bytes32)",
   "function openCase((bytes32 caseId, address token, uint256 totalLoss, uint256 maxReturn, uint256 rewardCap, bytes32 refundRoot, bytes32 evidenceHash, (uint64 until, uint16 rewardBps)[] tiers, uint256 nonce, uint256 chainId) terms, bytes controllerSig)",
   "function claimRefund(bytes32 caseId, address account, uint256 allocation, bytes32[] proof)",
+  "function revokeNonce(uint256 nonce, bytes controllerSig)",
+  "function nonceUsed(uint256 nonce) view returns (bool)",
+  "error CaseNotFound()",
   "event CaseOpened(bytes32 indexed caseId, address indexed token, uint256 totalLoss, bytes32 refundRoot, bytes32 evidenceHash)",
   "event FundsReturned(bytes32 indexed caseId, address indexed from, address indexed rewardTo, uint256 received, uint256 reward, uint256 refund, uint16 rewardBps)",
   "event RefundClaimed(bytes32 indexed caseId, address indexed account, uint256 amount)",
@@ -74,7 +79,7 @@ export interface TokenInfo {
 // but the contract does not enforce them.
 export interface Evidence {
   incident?: string;
-  offer?: { conditions: string };
+  offer?: { conditions: string; officialPost?: string };
   [key: string]: unknown;
 }
 
@@ -181,18 +186,42 @@ export function normalizeDeployment(raw: Record<string, unknown>): Deployment {
   };
 }
 
+export interface NearTerms {
+  case_id: Hex;
+  token: Address;
+  total_loss: string;
+  max_return: string;
+  reward_cap: string;
+  refund_root: Hex;
+  evidence_hash: Hex;
+  tiers: { until: string; reward_bps: number }[];
+  nonce: string;
+  chain_id: string;
+}
+
 export interface NearProposalCase {
-  terms: { case_id: Hex; chain_id: string; evidence_hash: Hex; tiers: { until: string; reward_bps: number }[] };
+  terms: NearTerms;
   digest: string;
   status: string;
+  signature: Hex | null;
+  revocation: Hex | null;
 }
 
 export interface NearProposal {
   id: string;
   status: string;
   approvals: string[];
+  cancel_votes: string[];
   evidence: string;
   cases: NearProposalCase[];
+}
+
+export interface NearGuardianVote {
+  id: string;
+  guardians: string[];
+  threshold: number;
+  approvals: string[];
+  status: string;
 }
 
 export interface NearChainVote {
@@ -283,14 +312,122 @@ export async function caseIsOpen(chainId: string, pactum: Address, caseId: Hex):
     const client = createPublicClient({ chain: target.chain, transport: http(target.rpc) }) as PublicClient;
     const info = await client.readContract({ address: pactum, abi: deskAbi, functionName: "getCase", args: [caseId] });
     return info.token !== "0x0000000000000000000000000000000000000000";
+  } catch (reason) {
+    // getCase reverts for a case that is not open. That is an answer, not a read failure.
+    return reason instanceof Error && reason.message.includes("CaseNotFound") ? false : null;
+  }
+}
+
+// Checks the refund list in the browser: the total must equal the loss, and every proof must lead to the signed root.
+export function checkRefundList(allocations: { account: string; allocation: string | bigint; proof: readonly string[] }[], root: string, totalLoss: bigint): { ok: boolean; wallets: number; reason: string } {
+  const wallets = allocations.length;
+  if (wallets === 0) return { ok: false, wallets, reason: "This offer has no refund list." };
+  const total = allocations.reduce((sum, item) => sum + BigInt(item.allocation), 0n);
+  if (total !== totalLoss) return { ok: false, wallets, reason: `The list adds up to a different amount than the total loss, so refunds would be locked or misallocated.` };
+  const valid = allocations.every((item) => {
+    const leaf = keccak256(keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [item.account as Address, BigInt(item.allocation)])));
+    const computed = item.proof.reduce<Hex>((hash, sibling) => {
+      const [low, high] = BigInt(hash) < BigInt(sibling) ? [hash, sibling as Hex] : [sibling as Hex, hash];
+      return keccak256(concat([low, high]));
+    }, leaf);
+    return computed.toLowerCase() === root.toLowerCase();
+  });
+  return valid ? { ok: true, wallets, reason: "" } : { ok: false, wallets, reason: "A proof in this list does not match the signed root." };
+}
+
+// Whether the nonce is spent: true once the case is open or revoked.
+export async function nonceIsUsed(chainId: string, pactum: Address, nonce: string): Promise<boolean | null> {
+  const target = TESTNET_CHAINS[chainId];
+  if (!target) return null;
+  try {
+    const client = createPublicClient({ chain: target.chain, transport: http(target.rpc) }) as PublicClient;
+    return await client.readContract({ address: pactum, abi: deskAbi, functionName: "nonceUsed", args: [BigInt(nonce)] });
   } catch {
     return null;
   }
 }
 
+// Relays a signature from NEAR to its chain. Anyone can send it, because the contract only trusts the controller's signature.
+export async function relayToChain(chainId: string, pactum: Address, persona: Persona | null, action: { open: NearTerms; signature: Hex } | { revokeNonce: string; signature: Hex }): Promise<Hash> {
+  const target = TESTNET_CHAINS[chainId];
+  if (!target) throw new Error(`Chain ${chainId} is not supported here.`);
+  let client;
+  let account: LocalAccount | Address;
+  if (persona) {
+    account = persona.account;
+    client = createWalletClient({ account, chain: target.chain, transport: http(target.rpc) });
+  } else {
+    const provider = injected();
+    if (!provider) throw new Error("No browser wallet found.");
+    account = await connectInjected();
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: `0x${target.chain.id.toString(16)}` }] });
+    client = createWalletClient({ account, chain: target.chain, transport: custom(provider) });
+  }
+  const hash = "open" in action
+    ? await client.writeContract({
+        account,
+        chain: target.chain,
+        address: pactum,
+        abi: deskAbi,
+        functionName: "openCase",
+        args: [
+          {
+            caseId: action.open.case_id,
+            token: action.open.token,
+            totalLoss: BigInt(action.open.total_loss),
+            maxReturn: BigInt(action.open.max_return),
+            rewardCap: BigInt(action.open.reward_cap),
+            refundRoot: action.open.refund_root,
+            evidenceHash: action.open.evidence_hash,
+            tiers: action.open.tiers.map((tier) => ({ until: BigInt(tier.until), rewardBps: tier.reward_bps })),
+            nonce: BigInt(action.open.nonce),
+            chainId: BigInt(action.open.chain_id),
+          },
+          action.signature,
+        ],
+      })
+    : await client.writeContract({ account, chain: target.chain, address: pactum, abi: deskAbi, functionName: "revokeNonce", args: [BigInt(action.revokeNonce), action.signature] });
+  const receipt = await (createPublicClient({ chain: target.chain, transport: http(target.rpc) }) as PublicClient).waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("The transaction reverted.");
+  return hash;
+}
+
+export interface DemoGuardian {
+  accountId: string;
+  secretKey: string;
+}
+
+// NEAR keys of the test guardians, only present on the dev server while recording. A production build holds no keys.
+export function demoGuardians(): DemoGuardian[] {
+  if (!import.meta.env.DEV || !import.meta.env.VITE_DEMO_GUARDIANS) return [];
+  return JSON.parse(import.meta.env.VITE_DEMO_GUARDIANS) as DemoGuardian[];
+}
+
+// Calls a NEAR contract with a test key. The NEAR library is only loaded when needed.
+export async function guardianCall(guardian: DemoGuardian, controller: string, method: string, proposalId: string): Promise<void> {
+  if (!import.meta.env.DEV) throw new Error("Guardians sign with their own NEAR key.");
+  const { Account, JsonRpcProvider } = await import("near-api-js");
+  const provider = new JsonRpcProvider({ url: "https://test.rpc.fastnear.com" });
+  const account = new Account(guardian.accountId, provider, guardian.secretKey as `ed25519:${string}`);
+  const outcome = await account.callFunctionRaw({
+    contractId: controller,
+    methodName: method,
+    args: { proposal_id: proposalId },
+    gas: 300_000_000_000_000n,
+    deposit: 0n,
+    waitUntil: "FINAL",
+  });
+  const failure = (outcome.status as { Failure?: unknown }).Failure;
+  if (failure !== undefined) throw new Error(JSON.stringify(failure));
+}
+
 // The case id is derived from the incident and the token, so a reload still finds an offer that was just created.
 export function offerCaseId(incidentId: string, symbol: string): Hex {
   return keccak256(stringToHex(`offer:${incidentId}:${symbol}`));
+}
+
+export function counterTopic(incidentId: string): Hex {
+  return keccak256(stringToHex(`counter:${incidentId}`));
 }
 
 export function discussionTopic(incidentId: string): Hex {

@@ -30,6 +30,7 @@ if (!response.ok || !body.quote) {
   process.exit(1);
 }
 const { amountInFormatted, amountOutFormatted, amountOutUsd, timeEstimate, depositAddress } = body.quote;
-console.log(`Live NEAR Intents quote: ${amountInFormatted} USDC on Base to ${amountOutFormatted} BTC on Bitcoin`);
-console.log(`Worth about $${Number(amountOutUsd).toFixed(2)}, in about ${Math.round(timeEstimate / 60)} minutes`);
+const grouped = (value: string) => Number(value).toLocaleString("en-US", { maximumFractionDigits: 8 });
+console.log(`Live NEAR Intents quote: ${grouped(amountInFormatted)} USDC on Base to ${grouped(amountOutFormatted)} BTC on Bitcoin`);
+console.log(`Worth about $${Number(amountOutUsd).toLocaleString("en-US", { maximumFractionDigits: 2 })}, in about ${Math.round(timeEstimate / 60)} minutes`);
 console.log(`Deposit address created: ${depositAddress ? "yes" : "no"} (dry quote, nothing was swapped)`);

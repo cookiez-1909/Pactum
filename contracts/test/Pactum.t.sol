@@ -292,7 +292,7 @@ contract ReturnFundsTest is BaseTest {
         vm.warp(tier3Until + 1);
         vm.prank(hacker);
         vm.expectRevert(Pactum.CaseClosed.selector);
-        desk.returnFunds(CASE_ID, 1e18, rewardWallet);
+        desk.returnFunds(CASE_ID, 1e18, rewardWallet, 0);
 
         vm.expectRevert(Pactum.CaseClosed.selector);
         desk.quote(CASE_ID, 1e18);
@@ -322,7 +322,7 @@ contract ReturnFundsTest is BaseTest {
         _open(t);
 
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet); // 15% would be 150k, capped at 50k.
+        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet, 0); // 15% would be 150k, capped at 50k.
 
         Pactum.Case memory c = desk.getCase(t.caseId);
         assertEq(c.totalReward, 50_000e18);
@@ -338,9 +338,9 @@ contract ReturnFundsTest is BaseTest {
         _open(t);
 
         vm.startPrank(hacker);
-        desk.returnFunds(t.caseId, 100_000e18, rewardWallet); // Reward 15k.
-        desk.returnFunds(t.caseId, 100_000e18, rewardWallet); // Only 5k left.
-        desk.returnFunds(t.caseId, 100_000e18, rewardWallet); // Cap used up, reward 0.
+        desk.returnFunds(t.caseId, 100_000e18, rewardWallet, 0); // 15k reward.
+        desk.returnFunds(t.caseId, 100_000e18, rewardWallet, 0); // Only 5k left.
+        desk.returnFunds(t.caseId, 100_000e18, rewardWallet, 0); // Cap reached, reward is 0.
         vm.stopPrank();
 
         Pactum.Case memory c = desk.getCase(t.caseId);
@@ -356,7 +356,7 @@ contract ReturnFundsTest is BaseTest {
         t.rewardCap = 0;
         _open(t);
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, 1000e18, rewardWallet);
+        desk.returnFunds(t.caseId, 1000e18, rewardWallet, 0);
         assertEq(usd.balanceOf(rewardWallet), 0);
         assertEq(desk.getCase(t.caseId).totalRefund, 1000e18);
     }
@@ -369,14 +369,14 @@ contract ReturnFundsTest is BaseTest {
         _open(t);
 
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet);
+        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet, 0);
 
         assertEq(desk.getCase(t.caseId).totalReturned, 400_000e18);
         assertEq(usd.balanceOf(hacker), 600_000e18);
 
         vm.prank(hacker);
         vm.expectRevert(Pactum.NothingToReturn.selector);
-        desk.returnFunds(t.caseId, 1, rewardWallet);
+        desk.returnFunds(t.caseId, 1, rewardWallet, 0);
     }
 
     function test_quoteMatchesActualSplit() public {
@@ -401,7 +401,7 @@ contract ReturnFundsTest is BaseTest {
         assertEq(reward, 60_000e18);
 
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, 300_000e18, rewardWallet);
+        desk.returnFunds(t.caseId, 300_000e18, rewardWallet, 0);
         (reward, refund) = desk.quote(t.caseId, ONE_MILLION);
         assertEq(reward + refund, 100_000e18);
     }
@@ -421,7 +421,7 @@ contract ReturnFundsTest is BaseTest {
 
         vm.startPrank(freshWallet);
         usd.approve(address(desk), 100_000e18);
-        desk.returnFunds(CASE_ID, 100_000e18, otherRewardWallet);
+        desk.returnFunds(CASE_ID, 100_000e18, otherRewardWallet, 0);
         vm.stopPrank();
 
         assertEq(usd.balanceOf(otherRewardWallet), 15_000e18);
@@ -431,19 +431,19 @@ contract ReturnFundsTest is BaseTest {
     function test_revertsOnZeroRewardAddress() public {
         vm.prank(hacker);
         vm.expectRevert(Pactum.ZeroRewardAddress.selector);
-        desk.returnFunds(CASE_ID, 1e18, address(0));
+        desk.returnFunds(CASE_ID, 1e18, address(0), 0);
     }
 
     function test_revertsOnZeroAmount() public {
         vm.prank(hacker);
         vm.expectRevert(Pactum.NothingToReturn.selector);
-        desk.returnFunds(CASE_ID, 0, rewardWallet);
+        desk.returnFunds(CASE_ID, 0, rewardWallet, 0);
     }
 
     function test_revertsOnUnknownCase() public {
         vm.prank(hacker);
         vm.expectRevert(Pactum.CaseNotFound.selector);
-        desk.returnFunds(keccak256("nope"), 1e18, rewardWallet);
+        desk.returnFunds(keccak256("nope"), 1e18, rewardWallet, 0);
         vm.expectRevert(Pactum.CaseNotFound.selector);
         desk.quote(keccak256("nope"), 1e18);
         vm.expectRevert(Pactum.CaseNotFound.selector);
@@ -455,7 +455,7 @@ contract ReturnFundsTest is BaseTest {
         usd.mint(stranger, 1e18);
         vm.prank(stranger);
         vm.expectRevert();
-        desk.returnFunds(CASE_ID, 1e18, rewardWallet);
+        desk.returnFunds(CASE_ID, 1e18, rewardWallet, 0);
     }
 
     // Nobody can use the hacker's approval to change the reward address: the function only takes msg.sender's tokens.
@@ -463,8 +463,73 @@ contract ReturnFundsTest is BaseTest {
         address frontRunner = makeAddr("frontRunner");
         vm.prank(frontRunner);
         vm.expectRevert();
-        desk.returnFunds(CASE_ID, 1e18, frontRunner);
+        desk.returnFunds(CASE_ID, 1e18, frontRunner, 0);
         assertEq(usd.balanceOf(hacker), ONE_MILLION);
+    }
+}
+
+contract RewardFloorTest is BaseTest {
+    function _prepare(uint256 amount) private {
+        usd.mint(hacker, amount);
+        vm.prank(hacker);
+        usd.approve(address(desk), amount);
+    }
+
+    function test_exactFloorPasses() public {
+        _openDefault();
+        _prepare(100_000e18);
+        vm.prank(hacker);
+        desk.returnFunds(CASE_ID, 100_000e18, rewardWallet, 15_000e18);
+        assertEq(usd.balanceOf(rewardWallet), 15_000e18);
+    }
+
+    function test_floorAboveTheRewardReverts() public {
+        _openDefault();
+        _prepare(100_000e18);
+        uint256 before = usd.balanceOf(hacker);
+        vm.prank(hacker);
+        vm.expectRevert(Pactum.RewardTooLow.selector);
+        desk.returnFunds(CASE_ID, 100_000e18, rewardWallet, 15_000e18 + 1);
+        assertEq(usd.balanceOf(hacker), before);
+        assertEq(desk.getCase(CASE_ID).totalReturned, 0);
+    }
+
+    // The transaction lands after a deadline: the reward has dropped, and the caller loses nothing at the lower rate.
+    function test_aTierChangeBeforeInclusionReverts() public {
+        _openDefault();
+        _prepare(100_000e18);
+        (uint256 quoted,) = desk.quote(CASE_ID, 100_000e18);
+        (, , uint64 until) = desk.currentTier(CASE_ID);
+        vm.warp(uint256(until) + 1);
+        vm.prank(hacker);
+        vm.expectRevert(Pactum.RewardTooLow.selector);
+        desk.returnFunds(CASE_ID, 100_000e18, rewardWallet, quoted);
+    }
+
+    // Someone else returns first and uses up the reward cap: the later caller is not paid zero.
+    function test_aFrontRunnerUsingUpTheCapReverts() public {
+        Pactum.CaseTerms memory t = _terms();
+        t.rewardCap = 15_000e18;
+        _open(t);
+        (uint256 quoted,) = desk.quote(t.caseId, 100_000e18);
+        assertEq(quoted, 15_000e18);
+        usd.mint(address(0xf00), 100_000e18);
+        vm.startPrank(address(0xf00));
+        usd.approve(address(desk), 100_000e18);
+        desk.returnFunds(t.caseId, 100_000e18, address(0xf00), 0);
+        vm.stopPrank();
+        _prepare(100_000e18);
+        vm.prank(hacker);
+        vm.expectRevert(Pactum.RewardTooLow.selector);
+        desk.returnFunds(t.caseId, 100_000e18, rewardWallet, quoted);
+    }
+
+    function test_rewardCannotGoToPactum() public {
+        _openDefault();
+        _prepare(1e18);
+        vm.prank(hacker);
+        vm.expectRevert(Pactum.RewardToPactum.selector);
+        desk.returnFunds(CASE_ID, 1e18, address(desk), 0);
     }
 }
 
@@ -567,7 +632,7 @@ contract ClaimRefundTest is BaseTest {
 
         usd.mint(hacker, ONE_MILLION);
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet);
+        desk.returnFunds(t.caseId, ONE_MILLION, rewardWallet, 0);
 
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = _leaf(trent, ONE_MILLION);
@@ -591,7 +656,7 @@ contract ClaimRefundTest is BaseTest {
         _return(ONE_MILLION); // Funds go into CASE_ID.
         usd.mint(hacker, 1000e18);
         vm.prank(hacker);
-        desk.returnFunds(t.caseId, 1000e18, rewardWallet); // Only 900 tokens go to the second case.
+        desk.returnFunds(t.caseId, 1000e18, rewardWallet, 0); // Only 900 tokens go into the second case.
 
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = _leaf(mallory, ONE_MILLION);
@@ -615,10 +680,11 @@ contract NoAdminPathTest is BaseTest {
     function test_contractExposesExactlyTheseFunctions() public view {
         string memory json = vm.readFile("out/Pactum.sol/Pactum.json");
         string[] memory actual = vm.parseJsonKeys(json, ".methodIdentifiers");
-        string[17] memory expected = [
+        string[20] memory expected = [
             "BPS()",
             "CASE_TERMS_TYPEHASH()",
             "MAX_TIERS()",
+            "REVOKE_NONCE_TYPEHASH()",
             "REWARD_TIER_TYPEHASH()",
             "claimRefund(bytes32,address,uint256,bytes32[])",
             "claimable(bytes32,address,uint256)",
@@ -629,10 +695,12 @@ contract NoAdminPathTest is BaseTest {
             "getCase(bytes32)",
             "getTiers(bytes32)",
             "hashCaseTerms((bytes32,address,uint256,uint256,uint256,bytes32,bytes32,(uint64,uint16)[],uint256,uint256))",
+            "hashRevokeNonce(uint256)",
             "nonceUsed(uint256)",
             "openCase((bytes32,address,uint256,uint256,uint256,bytes32,bytes32,(uint64,uint16)[],uint256,uint256),bytes)",
             "quote(bytes32,uint256)",
-            "returnFunds(bytes32,uint256,address)"
+            "returnFunds(bytes32,uint256,address,uint256)",
+            "revokeNonce(uint256,bytes)"
         ];
         assertEq(actual.length, expected.length, "number of external functions");
         for (uint256 i = 0; i < expected.length; ++i) {
@@ -644,8 +712,8 @@ contract NoAdminPathTest is BaseTest {
         }
     }
 
-    // Only three functions change state, and the contract accepts no ETH.
-    function test_onlyThreeFunctionsChangeState() public view {
+    // Only four functions change state, and the contract does not accept ETH.
+    function test_onlyFourFunctionsChangeState() public view {
         string memory json = vm.readFile("out/Pactum.sol/Pactum.json");
         string memory names = "";
         for (uint256 i = 0; vm.keyExistsJson(json, string.concat(".abi[", vm.toString(i), "]")); ++i) {
@@ -658,7 +726,7 @@ contract NoAdminPathTest is BaseTest {
             assertTrue(mutability == keccak256("nonpayable"), "payable function");
             names = string.concat(names, vm.parseJsonString(json, string.concat(entry, ".name")), ",");
         }
-        assertEq(names, "claimRefund,openCase,returnFunds,");
+        assertEq(names, "claimRefund,openCase,returnFunds,revokeNonce,");
     }
 
     function test_controllerHasNoSpecialClaim() public {
@@ -690,6 +758,106 @@ contract NoAdminPathTest is BaseTest {
     }
 }
 
+contract RevokeNonceTest is BaseTest {
+    function _signRevoke(Pactum target, uint256 nonce, uint256 key) internal view returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, target.hashRevokeNonce(nonce));
+        return abi.encodePacked(r, s, v);
+    }
+
+    function test_revokeStopsASignedOfferFromOpening() public {
+        Pactum.CaseTerms memory t = _terms();
+        bytes memory sig = _sign(desk, t, controllerKey);
+        vm.expectEmit(address(desk));
+        emit Pactum.NonceRevoked(t.nonce);
+        // Anyone can submit it, because only the controller's signature takes effect.
+        vm.prank(address(0xbeef));
+        desk.revokeNonce(t.nonce, _signRevoke(desk, t.nonce, controllerKey));
+        assertTrue(desk.nonceUsed(t.nonce));
+        vm.expectRevert(Pactum.NonceUsed.selector);
+        desk.openCase(t, sig);
+        vm.expectRevert(Pactum.CaseNotFound.selector);
+        desk.getCase(t.caseId);
+    }
+
+    function test_revokeOnlyTouchesItsOwnNonce() public {
+        Pactum.CaseTerms memory t = _terms();
+        desk.revokeNonce(t.nonce + 1, _signRevoke(desk, t.nonce + 1, controllerKey));
+        desk.openCase(t, _sign(desk, t, controllerKey));
+        assertEq(desk.getCase(t.caseId).token, t.token);
+    }
+
+    function test_revokeNeedsTheControllerSignature() public {
+        Pactum.CaseTerms memory t = _terms();
+        bytes memory wrongKey = _signRevoke(desk, t.nonce, 0xbad);
+        bytes memory wrongNonce = _signRevoke(desk, t.nonce + 1, controllerKey);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.revokeNonce(t.nonce, wrongKey);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.revokeNonce(t.nonce, wrongNonce);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.revokeNonce(t.nonce, hex"00");
+        assertFalse(desk.nonceUsed(t.nonce));
+    }
+
+    // An open signature cannot revoke, and a revocation signature cannot open a case.
+    function test_revokeAndOpenSignaturesAreNotInterchangeable() public {
+        Pactum.CaseTerms memory t = _terms();
+        bytes memory openSig = _sign(desk, t, controllerKey);
+        bytes memory revokeSig = _signRevoke(desk, t.nonce, controllerKey);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.revokeNonce(t.nonce, openSig);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.openCase(t, revokeSig);
+    }
+
+    function test_revokeSignatureIsBoundToOneContract() public {
+        Pactum other = new Pactum(controller);
+        bytes memory sig = _signRevoke(desk, 7, controllerKey);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        other.revokeNonce(7, sig);
+        assertFalse(other.nonceUsed(7));
+    }
+
+    function test_revokeSignatureIsBoundToOneChain() public {
+        bytes memory sig = _signRevoke(desk, 7, controllerKey);
+        vm.chainId(block.chainid + 1);
+        vm.expectRevert(Pactum.InvalidSignature.selector);
+        desk.revokeNonce(7, sig);
+    }
+
+    // Once a case is open its terms are public and cannot be withdrawn.
+    function test_revokeCannotTouchAnOpenCase() public {
+        _openDefault();
+        Pactum.CaseTerms memory t = _terms();
+        bytes memory sig = _signRevoke(desk, t.nonce, controllerKey);
+        vm.expectRevert(Pactum.NonceUsed.selector);
+        desk.revokeNonce(t.nonce, sig);
+        assertEq(desk.getTiers(CASE_ID)[0].rewardBps, 1500);
+    }
+
+    function test_revokeCannotRunTwice() public {
+        bytes memory sig = _signRevoke(desk, 7, controllerKey);
+        desk.revokeNonce(7, sig);
+        vm.expectRevert(Pactum.NonceUsed.selector);
+        desk.revokeNonce(7, sig);
+    }
+
+    function test_revokeHashCommitsToTheNonce() public view {
+        bytes32 structHash = keccak256(abi.encode(keccak256("RevokeNonce(uint256 nonce)"), uint256(7)));
+        bytes32 domain = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("Pactum"),
+                keccak256("1"),
+                block.chainid,
+                address(desk)
+            )
+        );
+        assertEq(desk.hashRevokeNonce(7), keccak256(abi.encodePacked(hex"1901", domain, structHash)));
+        assertTrue(desk.hashRevokeNonce(7) != desk.hashRevokeNonce(8));
+    }
+}
+
 contract FeeOnTransferTest is BaseTest {
     FeeOnTransferToken private fee;
     bytes32 private feeCase = keccak256("fee case");
@@ -711,7 +879,7 @@ contract FeeOnTransferTest is BaseTest {
 
     function test_accountsOnlyWhatWasReallyReceived() public {
         vm.prank(hacker);
-        desk.returnFunds(feeCase, 100_000e18, rewardWallet);
+        desk.returnFunds(feeCase, 100_000e18, rewardWallet, 0);
 
         Pactum.Case memory c = desk.getCase(feeCase);
         assertEq(c.totalReturned, 99_000e18);
@@ -724,7 +892,7 @@ contract FeeOnTransferTest is BaseTest {
 
     function test_claimsStayFundedWithFeeToken() public {
         vm.prank(hacker);
-        desk.returnFunds(feeCase, ONE_MILLION, rewardWallet);
+        desk.returnFunds(feeCase, ONE_MILLION, rewardWallet, 0);
         desk.claimRefund(feeCase, alice, ALICE_ALLOCATION, _aliceProof());
         desk.claimRefund(feeCase, bob, BOB_ALLOCATION, _bobProof());
         desk.claimRefund(feeCase, carol, CAROL_ALLOCATION, _carolProof());
@@ -745,7 +913,7 @@ contract FeeOnTransferTest is BaseTest {
         _open(t);
         vm.prank(hacker);
         vm.expectRevert(Pactum.NothingToReturn.selector);
-        desk.returnFunds(t.caseId, 100e18, rewardWallet);
+        desk.returnFunds(t.caseId, 100e18, rewardWallet, 0);
     }
 }
 
@@ -779,9 +947,9 @@ contract ReentrancyTest is BaseTest {
     }
 
     function test_blocksReentryIntoReturnFundsWhilePulling() public {
-        evil.arm(address(desk), abi.encodeCall(Pactum.returnFunds, (evilCase, 1e18, hacker)), 0);
+        evil.arm(address(desk), abi.encodeCall(Pactum.returnFunds, (evilCase, 1e18, hacker, 0)), 0);
         vm.prank(hacker);
-        desk.returnFunds(evilCase, 100e18, rewardWallet);
+        desk.returnFunds(evilCase, 100e18, rewardWallet, 0);
         _assertBlocked();
     }
 
@@ -790,14 +958,14 @@ contract ReentrancyTest is BaseTest {
             abi.encodeCall(Pactum.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
         evil.arm(address(desk), attack, 1); // Skip the pull and attack while the reward is paid.
         vm.prank(hacker);
-        desk.returnFunds(evilCase, 100e18, rewardWallet);
+        desk.returnFunds(evilCase, 100e18, rewardWallet, 0);
         _assertBlocked();
         assertEq(evil.balanceOf(alice), 0);
     }
 
     function test_blocksReentryIntoClaimWhileClaiming() public {
         vm.prank(hacker);
-        desk.returnFunds(evilCase, 100e18, rewardWallet);
+        desk.returnFunds(evilCase, 100e18, rewardWallet, 0);
 
         bytes memory attack =
             abi.encodeCall(Pactum.claimRefund, (evilCase, alice, ALICE_ALLOCATION, _aliceProof()));
@@ -814,7 +982,7 @@ contract ReentrancyTest is BaseTest {
         bytes memory attack = abi.encodeCall(Pactum.openCase, (t, _sign(desk, t, controllerKey)));
         evil.arm(address(desk), attack, 0);
         vm.prank(hacker);
-        desk.returnFunds(evilCase, 100e18, rewardWallet);
+        desk.returnFunds(evilCase, 100e18, rewardWallet, 0);
         _assertBlocked();
     }
 }

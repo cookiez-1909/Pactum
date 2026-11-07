@@ -1,0 +1,302 @@
+{
+  "controllerAccount": "ctrl-4944dd8b.rd-guardian-b-90c085b48d.testnet",
+  "proposalId": "1",
+  "guardianProposals": [
+    "0",
+    "1"
+  ],
+  "signSeconds": 53.432,
+  "revokeSeconds": 51.252,
+  "textBytes": 4096,
+  "txs": {
+    "proposeGuardians": "HYTdks8fYeUQVLmG6qwwBYZcZG5tk8QdHFG2ewMoPcLP",
+    "approveGuardians1": "HH9kRSFq43WkhFrUFAdjFZe9YDoVf5WGYWbSTUMbUVWs",
+    "approveGuardians2": "ET8THRznhboYz5Nbe9iUFYkDDPmtEUQW57SXtWGDXomv",
+    "restoreGuardians": "6u7Dcy6wZbZ2FxtBUZoh8WhwYSphLDmx8Ttn4NuMRuvZ",
+    "restoreGuardians1": "Apmt1S4eTiYdYxB7uCJgZEpvdRQMDCMfXXwkzp9fjkpW",
+    "restoreGuardians2": "HFePB2MdhspUSPQv2ob29UYNGYy4syFWd3wVkzBiwyEv",
+    "proposeLarge": "2fGHHYPLGhhEkGtytEh6xETj8aBotyoZLhJdnyXYbJ2p",
+    "approveLarge1": "6NtDekmJz91cRtq1U1Ye7bxWdMV5rMDoLGQ7hFR1UAmo",
+    "approveLarge2": "CDdL3z15DX37XBK9r1WMzGu7cuRxwnYKb6dwxF6BQts",
+    "cancel1": "6JXGHpBsEUTpALnvnJg4vjWhZk1NHUoyQNJMoZ5EtG2b",
+    "cancel2": "GhHsjHZ5f5tQeXhVWTwCejRWf5zSWk2DCXWgPoE7cHPB"
+  },
+  "revocations": [
+    {
+      "network": "sepolia",
+      "caseIndex": 0,
+      "nonce": "1000",
+      "tx": "0x18c26abf99cd17e72490807eec4ed74c095982c5ff9255f580c5c8f96266156f",
+      "terms": {
+        "caseId": "0xefb688fbd80e4fa11fbf8aa776e8ad5e5b35e830068c2b314fc5db9d2f1e953d",
+        "token": "0x13fee36566a3a749e689f10c3240d67628095039",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684804",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1000",
+        "chainId": "11155111"
+      }
+    },
+    {
+      "network": "base-sepolia",
+      "caseIndex": 1,
+      "nonce": "1001",
+      "tx": "0x443f8c71b7fbd99985850e358cb7ffe91ecd4f32fe37f2eb7c961d4cc67c0138",
+      "terms": {
+        "caseId": "0x3296d2ad9221254817ebf3b2f8b37655d0c962967e3cc5f525a8184eb9acf4c0",
+        "token": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1001",
+        "chainId": "84532"
+      }
+    },
+    {
+      "network": "robinhood-testnet",
+      "caseIndex": 2,
+      "nonce": "1002",
+      "tx": "0xea04b1a1be6c5d7bcef27cee4257b00cc69f0e65f9d28983b3d803d4cd38e1a4",
+      "terms": {
+        "caseId": "0xa4126c910fb2fc75398bdd203a699e6655e2b8fd2808bf0aa05e26d3496070f9",
+        "token": "0xbcb4e9a35732911178c230e5173d1f5bb0a8d511",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1002",
+        "chainId": "46630"
+      }
+    },
+    {
+      "network": "sepolia",
+      "caseIndex": 3,
+      "nonce": "1003",
+      "tx": "0x23ea253381e380faaa5440244a9ca0505313b5ba04399629d6f014f9fdd81d9a",
+      "terms": {
+        "caseId": "0x6f6bb62a7d40b85ae7bf1fe237fa468e1ece8eef947f2fa78e8f79ad76962d94",
+        "token": "0x13fee36566a3a749e689f10c3240d67628095039",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684804",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1003",
+        "chainId": "11155111"
+      }
+    },
+    {
+      "network": "base-sepolia",
+      "caseIndex": 4,
+      "nonce": "1004",
+      "tx": "0x9735be7f17b0490069c410dd08ec8e2fdb519b19411798c87d5026fccf26c992",
+      "terms": {
+        "caseId": "0x145e3918407852aee02403ee94f6c54095c5de0e500179fcc9c67f926d67d42f",
+        "token": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1004",
+        "chainId": "84532"
+      }
+    },
+    {
+      "network": "robinhood-testnet",
+      "caseIndex": 5,
+      "nonce": "1005",
+      "tx": "0x5b93efdf9c5c61d4ee35e8a8cbc50958cc10bc600b74c8beb8af463e3950b4a3",
+      "terms": {
+        "caseId": "0xd9f5028afa8680686b63811228e6a53566bfcdbc21b5604846c1b03dead37b9e",
+        "token": "0xbcb4e9a35732911178c230e5173d1f5bb0a8d511",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1005",
+        "chainId": "46630"
+      }
+    },
+    {
+      "network": "sepolia",
+      "caseIndex": 6,
+      "nonce": "1006",
+      "tx": "0x46bee4336146f590f273b9eb966333e5496de6ddbcc3afee98e60d1f106d55ed",
+      "terms": {
+        "caseId": "0x96f4f43f49426715d22619adfee8145c123666088e6cea4fba02309b2c61e0dd",
+        "token": "0x13fee36566a3a749e689f10c3240d67628095039",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684804",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1006",
+        "chainId": "11155111"
+      }
+    },
+    {
+      "network": "base-sepolia",
+      "caseIndex": 7,
+      "nonce": "1007",
+      "tx": "0x695a8875b61c9f189a1bb06d9530bfc5cc6401c725ed6f59fc6fbbb231aada14",
+      "terms": {
+        "caseId": "0x9224cf3d67f71ec7f5c6801e5b0214be0f4c168d8c41fc80a5c33043183abeba",
+        "token": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1007",
+        "chainId": "84532"
+      }
+    },
+    {
+      "network": "robinhood-testnet",
+      "caseIndex": 8,
+      "nonce": "1008",
+      "tx": "0x65cad3e2a7d5284f09412b551828802ee8f21049d9ae846c6e2250d15f97281b",
+      "terms": {
+        "caseId": "0x75b00fd8a7e9b1a0b137cba1071a78fae9c77a9d386ebace71ce361c38b71873",
+        "token": "0xbcb4e9a35732911178c230e5173d1f5bb0a8d511",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1008",
+        "chainId": "46630"
+      }
+    },
+    {
+      "network": "sepolia",
+      "caseIndex": 9,
+      "nonce": "1009",
+      "tx": "0x3220617896b6b07a81aad36571831fce661d1caf35c196d2717e97477c05899d",
+      "terms": {
+        "caseId": "0x5ca62a99ac6bd077321c4fb09002f958eb901495a3e12264006f271ad3ae18ae",
+        "token": "0x13fee36566a3a749e689f10c3240d67628095039",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684804",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1009",
+        "chainId": "11155111"
+      }
+    },
+    {
+      "network": "base-sepolia",
+      "caseIndex": 10,
+      "nonce": "1010",
+      "tx": "0x1caf2dbf7a4e87f6fefdda8ea89a2e2b568ea6b5dfdbdbf245c352e360d529b3",
+      "terms": {
+        "caseId": "0x38e40117ad9cf3c18b248214bd16e9485db1e5fc850b22a5a320c4d6c0f96ae0",
+        "token": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1010",
+        "chainId": "84532"
+      }
+    },
+    {
+      "network": "robinhood-testnet",
+      "caseIndex": 11,
+      "nonce": "1011",
+      "tx": "0x1311ee1d9a5040c6304b502d3abc383ffacd12c56792c3515ecac6fdd4eebd0b",
+      "terms": {
+        "caseId": "0x0dc55b664bc2f2159c5a33a3f9f553aa8a743d1655896234935fe7e7001f90a6",
+        "token": "0xbcb4e9a35732911178c230e5173d1f5bb0a8d511",
+        "totalLoss": "1000000000000000000000000",
+        "maxReturn": "1000000000000000000000000",
+        "rewardCap": "150000000000000000000000",
+        "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
+        "evidenceHash": "0x161daddb37cdcdbbce81d188c0d8dd14aae8767e1e78cdf4df4a71554c8faeaf",
+        "tiers": [
+          {
+            "until": "1794684810",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1011",
+        "chainId": "46630"
+      }
+    }
+  ]
+}

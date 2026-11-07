@@ -55,7 +55,7 @@ export const REPORTED_INCIDENTS: ReportedIncident[] = [
     outcome: "All recoverable funds were returned after negotiating with the exploiter.",
     attribution: "Unnamed exploiter.",
     fit: "Close match",
-    fitReason: "An individual holder negotiating a return is the case Pactum is built for, without the negotiation.",
+    fitReason: "An individual holder negotiating a return is the case Pactum is built for, with the deal enforced by a contract.",
     sources: [{ label: "CoinDesk", url: "https://www.coindesk.com/business/2023/04/03/euler-says-all-recoverable-funds-stolen-in-200m-hack-have-been-returned" }],
   },
   {

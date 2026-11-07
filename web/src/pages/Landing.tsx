@@ -2,8 +2,10 @@
 import proof from "../../../deployments/sepolia.json";
 import baseProof from "../../../deployments/base-sepolia.json";
 import robinhoodProof from "../../../deployments/robinhood-testnet.json";
-import { Arrow, Clock, ExternalLink, Lock, Logo, Shield, Split } from "../components/icons";
+import { useEffect } from "react";
+import { Arrow, Clock, ExternalLink, Lock, Shield, Split } from "../components/icons";
 import { CountUp, Reveal } from "../components/motion";
+import { Faq } from "./Faq";
 
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -14,9 +16,9 @@ const FEARS = [
 ];
 
 const STEPS = [
-  { title: "The protocol makes an offer", body: "The owner sets how much the holder keeps, the deadlines and any special conditions. Guardians on NEAR must approve it, and the contract hashes exactly what they approved." },
-  { title: "Chain Signatures signs them", body: "The MPC network signs that hash and nothing else. Anyone can carry the signature to the EVM chain to open the case." },
-  { title: "Funds return, and split at once", body: "One transaction pays the published reward to an address the holder chooses, and books the rest for users." },
+  { title: "The protocol makes an offer", body: "The team registers with the guardians off chain and shows it controls the protocol. It then sets how much the holder keeps, the deadlines and any special conditions. Guardians on NEAR must approve it, and the contract hashes exactly what they approved." },
+  { title: "Chain Signatures signs the terms", body: "The MPC network signs that hash and nothing else. Anyone can carry the signature to the EVM chain to open the case." },
+  { title: "Funds return, and split at once", body: "The holder can accept the published terms or answer with a counter-offer on chain. When funds return, one transaction pays the reward to an address the holder chooses, and books the rest for users." },
   { title: "Users claim their share", body: "Each user proves their allocation with a Merkle proof. If more funds come back later, they can claim again." },
 ];
 
@@ -25,13 +27,6 @@ const GUARANTEES = [
   { icon: Lock, title: "No team withdrawal", body: "No owner, no upgrade, no withdraw function. Tokens leave only as a reward or a refund." },
   { icon: Shield, title: "Terms cannot change", body: "Once a case opens, no function can lower the reward or edit the terms." },
   { icon: Clock, title: "A real deadline", body: "The reward falls over time. After the last deadline the case stops accepting funds." },
-];
-
-const QUESTIONS = [
-  { q: "How does a hacker prove they are the hacker after mixers and many wallets?", a: "They do not have to. The contract never asks who took the funds. Tokens are interchangeable, so it only counts what arrives. A brand new wallet works, and the reward can go to any other wallet." },
-  { q: "So can anyone collect the reward?", a: "Only by returning tokens of their own. Someone who sends in 100 gets back 10 at a 10% reward, so they lose 90. There is nothing to gain unless the tokens were never theirs." },
-  { q: "What if the funds were bridged or swapped?", a: "This is the real limit. A case accepts one token on one chain. The same guardians can open a case on any chain where Pactum runs, which here means Sepolia, Base Sepolia and Robinhood testnet. Funds that went anywhere else must be swapped or bridged back first." },
-  { q: "Do I need an account or to verify myself?", a: "No. There is no sign-up and no identity check. Entering a wallet is optional, and only used to show what that wallet can do." },
 ];
 
 const COMPARISON = [
@@ -43,6 +38,8 @@ const COMPARISON = [
 ];
 
 const LIMITS = [
+  { title: "The team writes the refund list", body: "A dishonest team could add its own wallets. The list is fixed and public before any money arrives, so guardians and users can check it, but the contract cannot tell who really lost funds." },
+  { title: "An offer can be fake", body: "Anyone can deploy their own copy of Pactum and call it official. Check that the protocol itself published the contract address. Nothing on chain can do this for you." },
   { title: "A team could hack itself", body: "It could drain its own protocol and collect the reward. A reward cap, several guardians and public evidence reduce this but do not remove it. This is the biggest weakness." },
   { title: "No immunity", body: "The contract commits to a payment and nothing more. Prosecution is still possible." },
   { title: "Sanctions are unsolved", body: "Paying a sanctioned party can be illegal. Real use needs legal advice and screening, and this prototype has neither." },
@@ -109,19 +106,23 @@ function RewardDecay() {
   );
 }
 
-export function Landing() {
+export function Landing({ anchor }: { anchor?: string }) {
   const year = 2026;
+  // Coming from inside the app through #/faq jumps straight to that section instead of scrolling the whole page.
+  useEffect(() => {
+    if (anchor) document.getElementById(anchor)?.scrollIntoView({ behavior: "instant" });
+  }, [anchor]);
   return (
     <div className="landing">
       <div className="landing-note" role="note">Testnet demo. Do not send real or stolen funds.</div>
       <header className="landing-header">
-        <a className="brand" href="#/" aria-label="Pactum home"><Logo /><span className="brand-name">Pactum</span></a>
+        <a className="brand" href="#/" aria-label="Pactum home"><span className="brand-name">Pactum</span></a>
         <nav className="landing-nav" aria-label="Page sections">
           <button type="button" onClick={() => scrollTo("how")}>How it works</button>
           <button type="button" onClick={() => scrollTo("guarantees")}>Guarantees</button>
           <button type="button" onClick={() => scrollTo("limits")}>Limits</button>
           <a href="#/tracker">Hack tracker</a>
-          <a href="#/faq">FAQ</a>
+          <button type="button" onClick={() => scrollTo("faq")}>FAQ</button>
         </nav>
         <a className="button button-primary" href="#/cases">Open app <Arrow /></a>
       </header>
@@ -129,9 +130,9 @@ export function Landing() {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Testnet prototype, built at NEAR HACKATHON</p>
-          <h1>Get stolen funds back without a negotiation.</h1>
+          <h1>Get stolen funds back without having to trust each other.</h1>
           <p className="hero-lead">
-            After a hack, a protocol publishes its reward terms. Whoever holds the funds returns them and collects the reward in a single transaction. The rest goes to the people who lost money, not to the team&rsquo;s wallet.
+            After a hack, a protocol publishes its reward terms. Whoever holds the funds returns them and collects the reward in a single transaction. The rest goes to a public refund list fixed before the money arrives, not to the team&rsquo;s wallet.
           </p>
           <div className="hero-actions">
             <a className="button button-primary button-lg" href="#/cases">Try a simulated case <Arrow /></a>
@@ -217,7 +218,7 @@ export function Landing() {
             NEAR Intents adds the last step for users: a refund can be swapped for another asset on another chain, without a bridge. The app shows live quotes for this. No swap runs here, because NEAR Intents has no testnet.
           </p>
           <p className="section-lead muted">
-            A multisig on each chain could do something similar, but each would be a separate copy of the rules, needing its own round of signatures, and it would sign whatever enough signers approve. Here the contract rejects terms that break the rules, even if enough guardians approve them. Guardians still hold their own NEAR keys, and someone must still relay each signature to its chain. This covers EVM chains only. It cannot open a case on Bitcoin, because the split needs a smart contract on the same chain as the funds.
+            A multisig on each chain could do something similar, but each would be a separate copy of the rules, and it would sign whatever enough signers approve. It usually needs a round of signatures per chain too, though Safe modules such as Safe Unified Account are starting to offer one signature across chains. Here the contract rejects terms that break the rules, even if enough guardians approve them. Guardians still hold their own NEAR keys, and someone must still relay each signature to its chain. This covers EVM chains only. It cannot open a case on Bitcoin, because the split needs a smart contract on the same chain as the funds.
           </p>
         </Reveal>
       </section>
@@ -254,10 +255,10 @@ export function Landing() {
           <p className="section-lead">The full flow has run on Sepolia, Base Sepolia and Robinhood testnet, signed by one contract on NEAR testnet. <code>make verify</code> re-checks it from public data, with no wallet.</p>
         </Reveal>
         <div className="metrics">
-          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={63} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
-          <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={45} format={(v) => `${Math.round(v)}/45`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
+          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={81} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
+          <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={53} format={(v) => `${Math.round(v)}/53`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
           <Reveal delay={160}><div className="metric"><span className="metric-value"><CountUp value={100} format={(v) => `${Math.round(v)}%`} /></span><span>of lines and branches in the contract covered</span></div></Reveal>
-          <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across 14 signatures on testnet</span></div></Reveal>
+          <Reveal delay={240}><div className="metric"><span className="metric-value">9.1s</span><span>for the MPC network to sign for three chains, from one approval on testnet</span></div></Reveal>
         </div>
         <Reveal>
           <ul className="proof-links">
@@ -265,28 +266,10 @@ export function Landing() {
             <li><a href={`https://sepolia.etherscan.io/address/${proof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Sepolia <ExternalLink /></a></li>
             <li><a href={`https://sepolia.basescan.org/address/${baseProof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Base Sepolia <ExternalLink /></a></li>
             <li><a href={`https://explorer.testnet.chain.robinhood.com/address/${robinhoodProof.contracts.Pactum}`} target="_blank" rel="noreferrer">Pactum on Robinhood testnet <ExternalLink /></a></li>
-            <li><a href="#/guardians">Every offer the guardians approved, read live from NEAR</a></li>
+            <li><a href="#/guardians">Every offer the guardians approved or cancelled, read live from NEAR</a></li>
             <li><a href={`https://testnet.nearblocks.io/address/${proof.near.controllerAccount}`} target="_blank" rel="noreferrer">The controller on NEAR testnet <ExternalLink /></a></li>
           </ul>
         </Reveal>
-      </section>
-
-      <section className="band" id="questions">
-        <Reveal>
-          <p className="eyebrow">Common questions</p>
-          <h2>Nobody has to prove who they are.</h2>
-        </Reveal>
-        <div className="grid-2 faq-preview">
-          {QUESTIONS.map((item, index) => (
-            <Reveal key={item.q} delay={index * 70}>
-              <article className="card">
-                <h3>{item.q}</h3>
-                <p>{item.a}</p>
-              </article>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal><p className="faq-more"><a className="button button-ghost" href="#/faq">All questions for holders, users and protocols <Arrow /></a></p></Reveal>
       </section>
 
       <section className="band" id="limits">
@@ -314,6 +297,8 @@ export function Landing() {
           <a className="button button-primary button-lg" href="#/cases">Open app <Arrow /></a>
         </Reveal>
       </section>
+
+      <Faq />
 
       <footer className="landing-footer">
         <span>&copy; {year} Pactum contributors. MIT License.</span>

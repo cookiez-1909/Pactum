@@ -107,6 +107,6 @@ abstract contract BaseTest is Test {
 
     function _return(uint256 amount) internal {
         vm.prank(hacker);
-        desk.returnFunds(CASE_ID, amount, rewardWallet);
+        desk.returnFunds(CASE_ID, amount, rewardWallet, 0);
     }
 }

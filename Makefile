@@ -1,12 +1,12 @@
 # Main project commands. See README.md for details.
-.PHONY: setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
+.PHONY: refund-list test-refund-list setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
 
 setup:
 	git submodule update --init
 	cd scripts && npm ci
 	cd web && npm ci
 
-test: test-evm test-near
+test: test-evm test-near test-refund-list
 
 test-evm:
 	cd contracts && forge test
@@ -62,6 +62,13 @@ demo-stage:
 # Requests 5 testnet NEAR for an account, the same way as the NEAR faucet page. Example: make faucet ACCOUNT=abc.testnet
 faucet:
 	cd scripts && npx tsx faucet.ts $(ACCOUNT)
+
+# Builds a refund list from a CSV or from token transfer history. See the top of scripts/refund-list.ts for arguments.
+refund-list:
+	cd scripts && npx tsx refund-list.ts $(ARGS)
+
+test-refund-list:
+	cd scripts && npx tsx --test refund-list.test.ts
 
 # Re-reads the existing testnet transactions. No wallet needed.
 verify:

@@ -14,6 +14,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 ///         and books the rest for users to claim against a Merkle allocation.
 /// @dev Testnet prototype, not audited. No owner, not upgradeable, no withdraw function.
 ///      Tokens leave the contract only through `returnFunds` (reward) and `claimRefund` (refund).
+///      A signed offer that is not yet open can be revoked by the controller with `revokeNonce`. Once a case is open, nobody can change it.
 ///      Tokens sent straight to the contract without `returnFunds` are not recorded and stay locked forever.
 contract Pactum is EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -60,6 +61,9 @@ contract Pactum is EIP712, ReentrancyGuard {
         "RewardTier(uint64 until,uint16 rewardBps)"
     );
 
+    /// @dev The EIP-712 domain binds the chain id and contract address, so a revocation signature cannot be reused elsewhere.
+    bytes32 public constant REVOKE_NONCE_TYPEHASH = keccak256("RevokeNonce(uint256 nonce)");
+
     /// @notice Address derived from the NEAR account through Chain Signatures, fixed at deployment.
     address public immutable controller;
 
@@ -81,6 +85,7 @@ contract Pactum is EIP712, ReentrancyGuard {
         uint16 rewardBps
     );
     event RefundClaimed(bytes32 indexed caseId, address indexed account, uint256 amount);
+    event NonceRevoked(uint256 indexed nonce);
 
     error ZeroController();
     error WrongChain();
@@ -91,6 +96,8 @@ contract Pactum is EIP712, ReentrancyGuard {
     error InvalidSignature();
     error CaseClosed();
     error ZeroRewardAddress();
+    error RewardToPactum();
+    error RewardTooLow();
     error NothingToReturn();
     error InvalidProof();
     error NothingToClaim();
@@ -107,8 +114,7 @@ contract Pactum is EIP712, ReentrancyGuard {
         if (_cases[terms.caseId].token != address(0)) revert CaseExists();
         _validateTerms(terms);
 
-        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecoverCalldata(hashCaseTerms(terms), controllerSig);
-        if (err != ECDSA.RecoverError.NoError || signer != controller) revert InvalidSignature();
+        _requireControllerSig(hashCaseTerms(terms), controllerSig);
 
         nonceUsed[terms.nonce] = true;
         Case storage c = _cases[terms.caseId];
@@ -126,11 +132,25 @@ contract Pactum is EIP712, ReentrancyGuard {
         emit CaseOpened(terms.caseId, terms.token, terms.totalLoss, terms.refundRoot, terms.evidenceHash);
     }
 
+    /// @notice Revokes a signed offer that is not yet open by burning its nonce, so the old signature can no longer open a case.
+    /// @dev Anyone can submit the revocation signature, but the controller only signs one after the council votes to cancel on NEAR.
+    ///      Once a case is open its nonce is spent, so this reverts: published terms cannot be withdrawn.
+    function revokeNonce(uint256 nonce, bytes calldata controllerSig) external {
+        if (nonceUsed[nonce]) revert NonceUsed();
+        _requireControllerSig(hashRevokeNonce(nonce), controllerSig);
+        nonceUsed[nonce] = true;
+        emit NonceRevoked(nonce);
+    }
+
     /// @notice Takes up to `amount` from the caller, pays the reward to `rewardTo` and books the rest for users.
     /// @dev Takes only what the case still accepts, so an oversized `amount` never takes too much.
     ///      The caller must approve the token for this contract first.
-    function returnFunds(bytes32 caseId, uint256 amount, address rewardTo) external nonReentrant {
+    ///      `minReward` guards against a reward lower than the caller saw: the transaction landing after a deadline,
+    ///      or someone else returning first and using up the reward cap. If it is lower, no token leaves the caller's wallet.
+    function returnFunds(bytes32 caseId, uint256 amount, address rewardTo, uint256 minReward) external nonReentrant {
         if (rewardTo == address(0)) revert ZeroRewardAddress();
+        // A reward sent to this contract itself would belong to no ledger and stay locked forever.
+        if (rewardTo == address(this)) revert RewardToPactum();
         Case storage c = _getCase(caseId);
         uint16 bps = _currentBps(caseId);
 
@@ -145,6 +165,7 @@ contract Pactum is EIP712, ReentrancyGuard {
         if (received == 0) revert NothingToReturn();
 
         (uint256 reward, uint256 refund) = _split(c, received, bps);
+        if (reward < minReward) revert RewardTooLow();
         c.totalReturned += received;
         c.totalReward += reward;
         c.totalRefund += refund;
@@ -231,6 +252,16 @@ contract Pactum is EIP712, ReentrancyGuard {
                 )
             )
         );
+    }
+
+    /// @notice The EIP-712 hash the controller signs to revoke a nonce.
+    function hashRevokeNonce(uint256 nonce) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(REVOKE_NONCE_TYPEHASH, nonce)));
+    }
+
+    function _requireControllerSig(bytes32 digest, bytes calldata controllerSig) private view {
+        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecoverCalldata(digest, controllerSig);
+        if (err != ECDSA.RecoverError.NoError || signer != controller) revert InvalidSignature();
     }
 
     function _validateTerms(CaseTerms calldata terms) private view {

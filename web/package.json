@@ -5,11 +5,12 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "prebuild": "cp ../deployments/sepolia.json public/deployment.json",
+    "prebuild": "mkdir -p public && cp ../deployments/sepolia.json public/deployment.json",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "near-api-js": "7.4.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "viem": "2.57.16"

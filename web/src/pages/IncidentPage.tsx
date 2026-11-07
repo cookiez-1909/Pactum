@@ -11,6 +11,7 @@ import { nearName } from "../labels";
 import { currentOffer, incidentStatus, incidentTotals, statusOf, usdOf, type Incident } from "../useDesk";
 import { useNotes } from "../useNotes";
 import { useWallet } from "../wallet";
+import { Negotiation } from "./Negotiation";
 import { Ledger, Refund, ReturnFunds, RewardSchedule, TxLink, type SessionTx } from "./CasePage";
 import { Discussion } from "./Discussion";
 
@@ -279,8 +280,13 @@ function OfferTab({ incident, onTx }: { incident: Incident; onTx: (label: string
   if (!desk.loaded) return <div className="skeleton skeleton-block" />;
   // Each asset is one transaction. Keep the form until the last asset is open, otherwise
   // a reload halfway would leave the incident half open with no way to finish.
-  if (incident.cases.length === 0 || (isOwner && incident.pending.length > 0)) return <OfferForm incident={incident} onTx={onTx} />;
-  return <OfferView incident={incident} />;
+  const writing = incident.cases.length === 0 || ((isOwner || registrations.get(incident.id) === "verified") && incident.pending.length > 0);
+  return (
+    <div className="tab-stack">
+      {writing ? <OfferForm incident={incident} onTx={onTx} /> : <OfferView incident={incident} />}
+      <Negotiation incident={incident} />
+    </div>
+  );
 }
 
 function OfferView({ incident }: { incident: Incident }) {
@@ -303,7 +309,7 @@ function OfferView({ incident }: { incident: Incident }) {
             <div className="bar-refund split-grow" />
           </div>
           <p className="offer-headline">Hacker keeps <strong>{keep}%</strong>, users get back <strong>{100 - keep}%</strong></p>
-          <p className="muted">The holder sends everything to the contract, and the reward comes back in the same transaction. Nobody has to go first.</p>
+          <p className="muted">The holder sends everything to the contract, and the reward comes back in the same transaction. Nobody has to go first. Percentages are of what comes back.</p>
         </section>
 
         <section className="card">
@@ -421,6 +427,96 @@ function DurationPicker({ label, hours, onChange, invalid }: { label: string; ho
   );
 }
 
+// The post-hack registration step, simulated only: nothing is sent or saved, and a reload loses it.
+// In real life this happens off chain. The contract still enforces elsewhere: only guardians can call `propose_offer`.
+// Nothing on chain says who owns a protocol, so any wallet can apply, and the guardians decide whether to trust it.
+type RegistrationStage = "idle" | "form" | "review" | "verified" | "rejected";
+const registrations = new Map<string, RegistrationStage>();
+const registrationCodes = new Map<string, string>();
+const registrationProofs = new Map<string, string>();
+
+function RegisterProtocol({ incident, stage, onStage }: { incident: Incident; stage: RegistrationStage; onStage(next: RegistrationStage, proof?: string): void }) {
+  const { deployment } = useApp();
+  const [website, setWebsite] = useState("");
+  const [contact, setContact] = useState("");
+  const [proof, setProof] = useState("");
+  const complete = website.trim() && contact.trim() && proof.trim();
+  // A new code for every registration. An existing post cannot contain it, so copying an old link does not work.
+  const [code] = useState(() => {
+    const existing = registrationCodes.get(incident.id);
+    if (existing) return existing;
+    const fresh = `PACTUM-${[...crypto.getRandomValues(new Uint8Array(3))].map((byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+    registrationCodes.set(incident.id, fresh);
+    return fresh;
+  });
+  const statement = `Our only Pactum offer for ${incident.name} is on contract ${deployment.contracts.Pactum}. Code ${code}`;
+
+  if (stage === "idle") {
+    return (
+      <section className="card register-card">
+        <h2>No offer yet</h2>
+        <p className="muted">This protocol has not published terms. Nothing can be returned or claimed until a case opens. Nothing on chain says who runs a protocol, so anyone can ask, and the guardians decide who to believe. The team writes the terms, and only guardians can propose them on NEAR.</p>
+        <button type="button" className="button button-primary register-start" onClick={() => onStage("form")}>Are you the team behind this protocol?</button>
+      </section>
+    );
+  }
+
+  if (stage === "rejected") {
+    return (
+      <section className="card register-card">
+        <h2>The guardians did not confirm this team</h2>
+        <p className="muted">They will not propose an offer for {incident.name} on this evidence. Nothing has been published, and the team can try again with better proof.</p>
+        <button type="button" className="button button-ghost" onClick={() => onStage("form")}>Start again</button>
+      </section>
+    );
+  }
+
+  if (stage === "review") {
+    return (
+      <section className="card register-card">
+        <h2>Waiting for the guardians</h2>
+        <p className="muted">Guardians look for code <code>{code}</code> and need at least two of these, all from before the hack:</p>
+        <ul className="register-sources">
+          <li><strong>Admin on chain:</strong> the code is signed by the owner or multisig of the hacked contract.</li>
+          <li><strong>Public channels:</strong> the code is posted from the website or account already known for {incident.name}.</li>
+          <li><strong>Known contacts:</strong> an auditor, a bug bounty platform or a security group confirms they know this team.</li>
+        </ul>
+        <div className="register-actions">
+          <button type="button" className="button button-primary" onClick={() => onStage("verified")}>Guardians confirm</button>
+          <button type="button" className="button button-ghost" onClick={() => onStage("rejected")}>Guardians reject</button>
+        </div>
+        <p className="fine-print"><strong>Simulated.</strong> In this demo nobody reviews the request, and these buttons stand in for the guardians&rsquo; decision. In real use it is human judgment, and the contract cannot check it.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="card register-card">
+      <h2>Register with the guardians</h2>
+      <p className="muted">Anyone can claim to run a protocol, so guardians only propose an offer for a team they have verified. After a hack, contact them off chain and show that you control {incident.name}.</p>
+      <div className="register-statement">
+        <p className="conditions-label">Publish exactly this from your official account, or sign it with the protocol&rsquo;s admin wallet</p>
+        <p><code>{statement}</code> <CopyButton value={statement} label="statement" /></p>
+        <p className="fine-print">A link on its own proves nothing, because anyone can copy one. The code is new, so only someone who controls that account or wallet can publish it. The same post lets a holder check that this offer is real.</p>
+      </div>
+      <label className="field">
+        <span>Official website</span>
+        <input value={website} placeholder="https://" onChange={(event) => setWebsite(event.target.value)} />
+      </label>
+      <label className="field">
+        <span>How guardians can reach you</span>
+        <input value={contact} placeholder="Telegram, Signal or email" onChange={(event) => setContact(event.target.value)} />
+      </label>
+      <label className="field">
+        <span>Link to that post, or the signature</span>
+        <textarea rows={2} value={proof} placeholder={`It must contain ${code}`} onChange={(event) => setProof(event.target.value)} />
+      </label>
+      <button type="button" className="button button-primary button-block register-send" disabled={!complete} onClick={() => onStage("review", proof.trim())}>Send to the guardians</button>
+      <p className="fine-print"><strong>Simulated.</strong> Nothing you type here is sent or saved. In real use this happens by direct contact, off chain.</p>
+    </section>
+  );
+}
+
 function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: string, hash: Hash) => void }) {
   const { deployment, desk } = useApp();
   const toast = useToast();
@@ -434,8 +530,16 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
   const [conditions, setConditions] = useState("");
   const [progress, setProgress] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [registration, setRegistration] = useState<RegistrationStage>(() => registrations.get(incident.id) ?? "idle");
+  const moveRegistration = (next: RegistrationStage, proof?: string) => {
+    registrations.set(incident.id, next);
+    if (proof) registrationProofs.set(incident.id, proof);
+    setRegistration(next);
+  };
 
   const isOwner = !readOnly && !!address && address.toLowerCase() === deployment.actors.owner?.toLowerCase();
+  // The Protocol owner role is only a shortcut for trying things: it also has to pass verification before writing a new offer.
+  const canWrite = !readOnly && !!address && (registration === "verified" || (isOwner && !!incident.cases[0]));
   const keep = parsePercent(keepText) ?? 0;
   const later = parsePercent(laterText);
   const keepValid = keep > 0 && keep <= MAX_KEEP_PERCENT;
@@ -448,7 +552,7 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
   const started = incident.cases[0];
 
   const publish = async () => {
-    if ((!started && !valid) || !isOwner || deployment.network !== "local") return;
+    if ((!started && !valid) || !canWrite || deployment.network !== "local") return;
     setFailure(null);
     try {
       const { client: wallet, account } = await walletFor(deployment, persona);
@@ -462,7 +566,7 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
       // The contract counts one case per token, so each asset needs its own opening transaction.
       for (const [index, asset] of incident.pending.entries()) {
         setProgress(`Opening ${asset.token.symbol} (${index + 1} of ${incident.pending.length})`);
-        const evidence: Evidence = { incident: incident.name, protocol: asset.vault as string, token: asset.token.address, drainTx: asset.txs.drain, totalLoss: asset.totalLoss, offer: { conditions: finalConditions } };
+        const evidence: Evidence = { incident: incident.name, protocol: asset.vault as string, token: asset.token.address, drainTx: asset.txs.drain, totalLoss: asset.totalLoss, offer: { conditions: finalConditions, ...(registrationProofs.has(incident.id) ? { officialPost: registrationProofs.get(incident.id) } : {}) } };
         const terms = buildTerms(incident, asset, tiers, evidence, finalBps, deployment.chainId, index);
         const args = termsForContract(terms);
         // Publishes the text before opening the case, so an offer is never open without readable conditions.
@@ -491,18 +595,20 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
   return (
     <div className="two-col">
       <div className="col-main">
-        {!isOwner && (
+        {!address && (
           <section className="card">
             <h2>No offer yet</h2>
-            <p className="muted">This protocol has not published its terms. Nothing can be returned or claimed until it does.</p>
-            {address ? (
-              <p className="block-reason" role="status">Only the protocol owner can write an offer. {onLocal && "Switch to the Protocol owner test account to try it."}</p>
-            ) : (
-              <button type="button" className="button button-primary" onClick={connect}>Connect wallet</button>
-            )}
+            <p className="muted">This protocol has not published its terms. Nothing can be returned or claimed until a case opens.</p>
+            <button type="button" className="button button-primary" onClick={connect}>Connect wallet</button>
           </section>
         )}
-        {isOwner && started && (
+        {address && readOnly && (
+          <section className="card">
+            <h2>No offer yet</h2>
+            <p className="block-reason" role="status">This is a view of a wallet you typed in. It can read, but it cannot register or send anything.</p>
+          </section>
+        )}
+        {canWrite && started && (
           <section className="card">
             <h2>Finish publishing your offer</h2>
             <p className="muted">Publishing stopped before every asset was opened. {incident.pending.map((asset) => asset.token.symbol).join(", ")} still {incident.pending.length === 1 ? "needs" : "need"} a case, using the same terms: the holder keeps {started.terms.tiers[0]!.rewardBps / 100}%.</p>
@@ -511,8 +617,10 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
             {failure && <p className="field-error" role="alert">{failure}</p>}
           </section>
         )}
-        {isOwner && !started && (
+        {address && !readOnly && !started && registration !== "verified" && <RegisterProtocol incident={incident} stage={registration} onStage={moveRegistration} />}
+        {canWrite && !started && (
           <section className="card">
+            <span className="tag register-tag">Verified by the guardians, simulated</span>
             <h2>Write your offer</h2>
             <p className="muted">Offer a deal the holder can accept without talking to you. Once published, you cannot lower it.</p>
 
@@ -556,7 +664,7 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
       </div>
 
       <div className="col-side">
-        <section className="card">
+        {canWrite && !started && <section className="card">
           <h2>What this offer means</h2>
           {keepValid ? (
             <>
@@ -582,7 +690,8 @@ function OfferForm({ incident, onTx }: { incident: Incident; onTx: (label: strin
               );
             })}
           </ul>
-        </section>
+          <p className="fine-print">Percentages are of what comes back. If nothing comes back, nobody gets anything.</p>
+        </section>}
         <section className="card card-quiet">
           <h2>Why can&rsquo;t I change it later?</h2>
           <p>A holder only trusts an offer that cannot be pulled back. That is why the reward and deadlines are fixed when a case opens, even for you.</p>

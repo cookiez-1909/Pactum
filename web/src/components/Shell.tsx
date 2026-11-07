@@ -1,4 +1,4 @@
-// The app frame: a left sidebar with the logo and stacked sections, and a top bar with the wallet and the testnet notice.
+// The app frame: a left sidebar with the product name and stacked sections, and a top bar with the wallet and the testnet notice.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../appdata";
 import { timeLeft } from "../format";
@@ -7,7 +7,7 @@ import { identify, roleHint } from "../labels";
 import { useWallet, WalletMenu } from "../wallet";
 import { AssetIcon } from "./case-bits";
 import { Party } from "./Party";
-import { Book, Cases, Close, Help, Logo, Menu, Panel, Pulse, Radar, Search, Shield, Wallet } from "./icons";
+import { Book, Cases, Close, Help, Menu, Panel, Pulse, Radar, Search, Shield, Wallet } from "./icons";
 
 const NAV = [
   { href: "#/cases", label: "Cases", icon: Cases, match: ["cases", "case"] },
@@ -44,8 +44,8 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
       <aside className={drawer ? "sidebar is-open" : "sidebar"} aria-label="Main">
         <div className="sidebar-top">
           <a className="brand" href="#/" aria-label="Pactum home">
-            <Logo />
             <span className="brand-name">Pactum</span>
+            <span className="brand-initial" aria-hidden="true">P</span>
           </a>
           <button type="button" className="icon-button sidebar-toggle" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed((value) => !value)}>
             <Panel />
@@ -94,7 +94,7 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
 
         <div className="sidebar-bottom">
           <a href="#/how" className={page === "how" ? "side-link is-active" : "side-link"}><Book /><span className="side-label">How it works</span></a>
-          <a href="#/faq" className={page === "faq" ? "side-link is-active" : "side-link"}><Help /><span className="side-label">FAQ</span></a>
+          <a href="#/faq" className="side-link"><Help /><span className="side-label">FAQ</span></a>
           <p className="side-network"><span className="live-dot" aria-hidden="true" /><span className="side-label">{network}</span></p>
         </div>
       </aside>
@@ -144,7 +144,7 @@ function Palette({ onClose }: { onClose(): void }) {
       { label: "My wallet", hint: "Page", href: "#/wallet" },
       { label: "Guardians", hint: "Page", href: "#/guardians" },
       { label: "How it works", hint: "Page", href: "#/how" },
-      { label: "FAQ", hint: "Page", href: "#/faq" },
+      { label: "FAQ", hint: "Home", href: "#/faq" },
       { label: "Pactum home", hint: "Page", href: "#/" },
     ];
     const cases = desk.incidents.map((incident) => ({

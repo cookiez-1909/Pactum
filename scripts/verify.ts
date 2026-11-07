@@ -21,7 +21,9 @@ import {
 } from "viem";
 import { baseSepolia, robinhoodTestnet, sepolia } from "viem/chains";
 import { ROOT, artifact, formatTokens, ONE_TOKEN, type CaseTerms } from "./lib/common.ts";
-import { accessKeyCount, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearChainProposal, type NearProposal } from "./lib/near.ts";
+import { accessKeyCount, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearChainProposal, type NearGuardianProposal, type NearProposal } from "./lib/near.ts";
+import { netDeposits, readTransfers, sumAllocations } from "./lib/refund.ts";
+import { buildRefundTree } from "./lib/common.ts";
 
 const ERC20 = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"]);
 
@@ -141,6 +143,12 @@ async function checkChain({ label, client, d, terms }: Target): Promise<void> {
   check("Attacker returned 1,000,000 mUSD", toDesk?.args.value === 1_000_000n * ONE_TOKEN);
   check("Same transaction paid the 100,000 mUSD reward", toReward?.args.value === 100_000n * ONE_TOKEN, d.txs.returnFunds);
 
+  // The refund list can be rebuilt from on-chain token transfer history alone, with no file from this project.
+  const vaultDeploy = await client.getTransactionReceipt({ hash: d.txs.deployVulnerableVault as Hash });
+  const transfers2 = await readTransfers(client, usd, vault, vaultDeploy.blockNumber, drainReceipt.blockNumber - 1n, 5000n);
+  const rebuilt = netDeposits(transfers2, vault);
+  check("Refund list rebuilt from Transfer events matches refundRoot", buildRefundTree(rebuilt).root === terms.refundRoot && sumAllocations(rebuilt) === terms.totalLoss, `${rebuilt.length} wallets`);
+
   // Actual refunds.
   const state = (await client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [terms.caseId] })) as {
     totalReturned: bigint;
@@ -175,7 +183,7 @@ async function checkChain({ label, client, d, terms }: Target): Promise<void> {
     .filter((item) => item.type === "function" && item.stateMutability !== "view" && item.stateMutability !== "pure")
     .map((item) => item.name)
     .sort();
-  check("Only openCase, returnFunds and claimRefund change state", changing.join() === "claimRefund,openCase,returnFunds", `${external} external functions`);
+  check("Only openCase, returnFunds, claimRefund and revokeNonce change state", changing.join() === "claimRefund,openCase,returnFunds,revokeNonce", `${external} external functions`);
 
   // No withdrawal path: try it with eth_call from the controller address itself.
   const { abi: mockAbi } = artifact("MockUSD", "MockUSD.sol");
@@ -193,6 +201,63 @@ async function checkChain({ label, client, d, terms }: Target): Promise<void> {
     .then(() => false)
     .catch(() => true);
   check("Controller cannot call withdraw", withdrawReverted);
+}
+
+// What is only needed in an incident, already run on testnet: replacing a guardian and cancelling a large signed offer.
+async function checkDrill(targets: Target[]): Promise<void> {
+  const path = new URL("deployments/drill.json", ROOT);
+  if (!existsSync(path)) throw new Error("deployments/drill.json not found. It is created by: make demo-testnet");
+  const drill = JSON.parse(readFileSync(path, "utf8"));
+  const account = drill.controllerAccount as string;
+  console.log(`\nDrill: proposal ${drill.proposalId} on ${account}\n`);
+  check("The drill ran on the same controller", account === targets[0]!.d.near.controllerAccount);
+
+  const votes = await view<NearGuardianProposal[]>(account, "list_guardian_proposals", { from: "0", limit: 50 });
+  const config = await view<{ guardians: string[]; threshold: number }>(account, "get_config");
+  const [out, back] = (drill.guardianProposals as string[]).map((id) => votes.find((item) => item.id === id));
+  check("Guardians voted a member out by the threshold", out?.status === "Applied" && out.approvals.length >= config.threshold && !out.guardians.every((name) => config.guardians.includes(name)));
+  check("Guardians voted that member back in", back?.status === "Applied" && back.guardians.join() === config.guardians.join(), `${config.threshold} of ${config.guardians.length}`);
+
+  const proposal = await view<NearProposal>(account, "get_proposal", { proposal_id: drill.proposalId });
+  check("The largest allowed offer was signed by the MPC network", proposal.cases.length === 12 && proposal.evidence.length === 4096 && proposal.cases.every((item) => item.signature), `${proposal.cases.length} signatures, ${proposal.evidence.length} bytes`);
+  check("Guardians cancelled it after it was signed", proposal.status === "Cancelled" && proposal.cancel_votes.length >= config.threshold, `${proposal.cancel_votes.length} votes`);
+  check("Every case got a revocation signature", proposal.cases.every((item) => item.status === "Revoked" && item.revocation));
+
+  for (const target of targets) {
+    const desk = target.d.contracts.Pactum as Address;
+    const entries = (drill.revocations as { network: string; caseIndex: number; nonce: string; tx: Hash; terms: CaseTerms & { tiers: { until: string; rewardBps: number }[] } }[]).filter((item) => item.network === target.d.network);
+    let signaturesOk = true;
+    let burned = true;
+    let rejected = true;
+    let eventsOk = true;
+    for (const entry of entries) {
+      const item = proposal.cases[entry.caseIndex]!;
+      const nonce = BigInt(entry.nonce);
+      const openDigest = (await target.client.readContract({ address: desk, abi: deskAbi, functionName: "hashRevokeNonce", args: [nonce] })) as Hex;
+      if (openDigest !== item.revoke_digest) signaturesOk = false;
+      if (!isAddressEqual(await recoverAddress({ hash: openDigest, signature: item.revocation as Hex }), target.d.controllerAddress)) signaturesOk = false;
+      if (!(await target.client.readContract({ address: desk, abi: deskAbi, functionName: "nonceUsed", args: [nonce] }))) burned = false;
+      const receipt = await target.client.getTransactionReceipt({ hash: entry.tx });
+      if (receipt.status !== "success" || parseEventLogs({ abi: deskAbi, logs: receipt.logs, eventName: "NonceRevoked" }).length !== 1) eventsOk = false;
+      const terms = {
+        ...entry.terms,
+        totalLoss: BigInt(entry.terms.totalLoss),
+        maxReturn: BigInt(entry.terms.maxReturn),
+        rewardCap: BigInt(entry.terms.rewardCap),
+        nonce,
+        chainId: BigInt(entry.terms.chainId),
+        tiers: entry.terms.tiers.map((tier) => ({ until: BigInt(tier.until), rewardBps: tier.rewardBps })),
+      };
+      const error = await target.client
+        .simulateContract({ address: desk, abi: deskAbi as Abi, functionName: "openCase", args: [terms, item.signature] })
+        .then(() => "")
+        .catch((reason: Error) => reason.message);
+      if (!error.includes("NonceUsed")) rejected = false;
+    }
+    check(`${target.label}: revocation signatures match Pactum and recover to the controller`, entries.length > 0 && signaturesOk, `${entries.length} offers`);
+    check(`${target.label}: revokeNonce succeeded and burned each nonce`, burned && eventsOk);
+    check(`${target.label}: the original signatures can no longer open a case`, rejected);
+  }
 }
 
 // One council signing for several chains is only safe if a signature for one chain is useless on another.
@@ -226,6 +291,7 @@ async function main() {
   await checkController(targets);
   for (const target of targets) await checkChain(target);
   for (const other of targets.slice(1)) await checkCrossChain(targets[0]!, other);
+  await checkDrill(targets);
 
   console.log(failures === 0 ? "\nPASS: every check matched public on-chain data" : `\nFAIL: ${failures} checks failed`);
   process.exit(failures === 0 ? 0 : 1);

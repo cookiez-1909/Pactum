@@ -18,6 +18,10 @@ export const NEAR_RPC = process.env.NEAR_RPC ?? "https://test.rpc.fastnear.com";
 const FAUCET_URL = "https://helper.nearprotocol.com/account";
 const SECP256K1_DOMAIN_ID = 0;
 const TGAS = 1_000_000_000_000n;
+// Storage deposit attached to each proposal; the excess is refunded at once. 1 byte costs 10^19 yoctoNEAR.
+const YOCTO_PER_BYTE = 10n ** 19n;
+const STORAGE_DEPOSIT = 5_000n * YOCTO_PER_BYTE;
+const offerDeposit = (cases: number, evidence: string) => BigInt(cases * 3_000 + evidence.length + 1_000) * YOCTO_PER_BYTE;
 
 export const provider = new JsonRpcProvider({ url: NEAR_RPC });
 
@@ -27,18 +31,29 @@ export interface NearCredentials {
 }
 
 export interface NearProposalCase {
-  terms: { chain_id: string };
+  terms: { chain_id: string; nonce: string };
   digest: Hex;
-  status: "Unsigned" | "Signing" | "Signed";
+  status: "Unsigned" | "Signing" | "Signed" | "Cancelled" | "RevokePending" | "RevokeSigning" | "Revoked";
   signature: Hex | null;
+  revoke_digest: Hex | null;
+  revocation: Hex | null;
 }
 
 export interface NearProposal {
   id: string;
   cases: NearProposalCase[];
-  status: "Pending" | "Approved" | "Signed";
+  status: "Pending" | "Approved" | "Signed" | "Cancelled";
   approvals: string[];
+  cancel_votes: string[];
   evidence: string;
+}
+
+export interface NearGuardianProposal {
+  id: string;
+  guardians: string[];
+  threshold: number;
+  approvals: string[];
+  status: "Pending" | "Applied";
 }
 
 export interface NearChainProposal {
@@ -99,6 +114,17 @@ export async function richestAccount(accounts: NearCredentials[]): Promise<NearC
   );
   const index = balances.reduce((best, balance, position) => (balance > balances[best]! ? position : best), 0);
   return accounts[index]!;
+}
+
+// Test guardians pay storage for their own proposals, so top them up from the account with the most NEAR when they run low.
+export async function topUpAccounts(accounts: NearCredentials[], minimum: bigint, amount: bigint): Promise<void> {
+  const donor = await richestAccount(accounts);
+  for (const account of accounts) {
+    if (account.accountId === donor.accountId) continue;
+    const balance = BigInt((await provider.viewAccount({ accountId: account.accountId })).amount);
+    if (balance >= minimum) continue;
+    await accountOf(donor).signAndSendTransaction({ receiverId: account.accountId, actions: [actions.transfer(amount)], waitUntil: "FINAL" });
+  }
 }
 
 export function accountOf(credentials: NearCredentials): Account {
@@ -203,8 +229,8 @@ export async function accessKeyCount(accountId: string): Promise<number> {
   return keys.length;
 }
 
-async function callOk(guardian: NearCredentials, controller: string, methodName: string, args: Record<string, unknown>, tgas: bigint) {
-  const outcome = await accountOf(guardian).callFunctionRaw({ contractId: controller, methodName, args, gas: tgas * TGAS, waitUntil: "FINAL" });
+async function callOk(guardian: NearCredentials, controller: string, methodName: string, args: Record<string, unknown>, tgas: bigint, deposit = 0n) {
+  const outcome = await accountOf(guardian).callFunctionRaw({ contractId: controller, methodName, args, gas: tgas * TGAS, deposit, waitUntil: "FINAL" });
   const status = outcome.status as { SuccessValue?: string };
   if (typeof status.SuccessValue !== "string") throw new Error(`${methodName} failed: ${JSON.stringify(outcome.status)}`);
   return { value: status.SuccessValue, txHash: outcome.transaction.hash };
@@ -214,7 +240,7 @@ const decodeId = (value: string) => JSON.parse(Buffer.from(value, "base64").toSt
 
 // An offer is one text and the cases it applies to, possibly on several chains.
 export async function proposeOffer(guardian: NearCredentials, controller: string, cases: CaseTerms[], evidence: string): Promise<{ id: string; txHash: string }> {
-  const { value, txHash } = await callOk(guardian, controller, "propose_offer", { cases: cases.map(toNearTerms), evidence }, 100n);
+  const { value, txHash } = await callOk(guardian, controller, "propose_offer", { cases: cases.map(toNearTerms), evidence }, 100n, offerDeposit(cases.length, evidence));
   return { id: decodeId(value), txHash };
 }
 
@@ -228,12 +254,26 @@ export async function retrySignature(caller: NearCredentials, controller: string
 }
 
 export async function proposeChain(guardian: NearCredentials, controller: string, chainId: bigint, pactum: Address): Promise<{ id: string; txHash: string }> {
-  const { value, txHash } = await callOk(guardian, controller, "propose_chain", { chain_id: chainId.toString(), pactum }, 50n);
+  const { value, txHash } = await callOk(guardian, controller, "propose_chain", { chain_id: chainId.toString(), pactum }, 50n, STORAGE_DEPOSIT);
   return { id: decodeId(value), txHash };
 }
 
 export async function approveChain(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
   return (await callOk(guardian, controller, "approve_chain", { proposal_id: proposalId }, 50n)).txHash;
+}
+
+// At the threshold this transaction also creates the revocation sign requests, so it uses the full 300 Tgas like an approval.
+export async function voteCancel(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
+  return (await callOk(guardian, controller, "vote_cancel", { proposal_id: proposalId }, 300n)).txHash;
+}
+
+export async function proposeGuardians(guardian: NearCredentials, controller: string, guardians: string[], threshold: number): Promise<{ id: string; txHash: string }> {
+  const { value, txHash } = await callOk(guardian, controller, "propose_guardians", { guardians, threshold }, 50n, STORAGE_DEPOSIT);
+  return { id: decodeId(value), txHash };
+}
+
+export async function approveGuardians(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
+  return (await callOk(guardian, controller, "approve_guardians", { proposal_id: proposalId }, 50n)).txHash;
 }
 
 export async function getProposal(controller: string, proposalId: string): Promise<NearProposal> {

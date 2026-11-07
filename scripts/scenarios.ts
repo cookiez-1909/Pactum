@@ -199,7 +199,7 @@ async function main(): Promise<void> {
     eq(await balance(usd, attacker.address), M, "attacker balance");
     const { terms, allocations } = await openCase();
     await approve(attacker, usd);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet, 0n]);
     eq(await balance(usd, rewardWallet), 150_000n * ONE_TOKEN, "reward");
     for (const entry of allocations) await claim(terms, entry);
     eq(await balance(usd, alice.address), 510_000n * ONE_TOKEN, "alice refund");
@@ -213,15 +213,15 @@ async function main(): Promise<void> {
     const { terms } = await openCase({ rewardCap: M });
     await fundAttacker(300_000n * ONE_TOKEN);
     const start = terms.tiers[0]!.until;
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet, 0n]);
     let state = await getCase(terms.caseId);
     eq(state.totalReward, 15_000n * ONE_TOKEN, "reward at 15%");
     await warpTo(start + 1n);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet, 0n]);
     state = await getCase(terms.caseId);
     eq(state.totalReward, 25_000n * ONE_TOKEN, "reward after 10% tier");
     await warpTo(terms.tiers[1]!.until + 1n);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet, 0n]);
     state = await getCase(terms.caseId);
     eq(state.totalReward, 30_000n * ONE_TOKEN, "reward after 5% tier");
     eq(state.totalRefund, 270_000n * ONE_TOKEN, "refund");
@@ -231,10 +231,10 @@ async function main(): Promise<void> {
   await scenario("After the last tier: return reverts, funds stay with the caller, refunds stay claimable", async () => {
     const { terms, allocations } = await openCase();
     await fundAttacker(1000n * ONE_TOKEN);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 500n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 500n * ONE_TOKEN, rewardWallet, 0n]);
     await warpTo(terms.tiers[2]!.until + 1n);
     const held = await balance(usd, attacker.address);
-    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 500n * ONE_TOKEN, rewardWallet]), "CaseClosed", "late return");
+    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 500n * ONE_TOKEN, rewardWallet, 0n]), "CaseClosed", "late return");
     eq(await balance(usd, attacker.address), held, "attacker funds untouched");
     const open = await read<[boolean, number, bigint]>(desk, deskAbi, "currentTier", [terms.caseId]);
     eq(open[0], false, "tier open");
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
     const paid: bigint[] = [];
     for (let index = 0; index < 3; index += 1) {
       const before = await balance(usd, rewardWallet);
-      await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet]);
+      await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet, 0n]);
       paid.push((await balance(usd, rewardWallet)) - before);
     }
     eq(paid.join(), [15_000n, 5_000n, 0n].map((value) => value * ONE_TOKEN).join(), "rewards per return");
@@ -265,7 +265,7 @@ async function main(): Promise<void> {
     const { terms, allocations } = await openCase({ rewardCap: 50_000n * ONE_TOKEN });
     await mint(usd, team.address, M);
     await approve(team, usd);
-    await send(team, desk, deskAbi, "returnFunds", [terms.caseId, M, team.address]);
+    await send(team, desk, deskAbi, "returnFunds", [terms.caseId, M, team.address, 0n]);
     eq(await balance(usd, team.address), 50_000n * ONE_TOKEN, "team take");
     for (const entry of allocations) await claim(terms, entry);
     eq(await balance(usd, alice.address), 570_000n * ONE_TOKEN, "alice");
@@ -280,11 +280,11 @@ async function main(): Promise<void> {
     await approve(stranger, usd);
     const rewardA = account(10).address;
     const rewardB = account(11).address;
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardA]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardA, 0n]);
     await claim(terms, allocations[0]!);
     const first = await balance(usd, alice.address);
     eq(first, 51_000n * ONE_TOKEN, "first claim");
-    await send(stranger, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardB]);
+    await send(stranger, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardB, 0n]);
     await claim(terms, allocations[0]!);
     eq(await balance(usd, alice.address), 102_000n * ONE_TOKEN, "second claim");
     eq(await balance(usd, rewardA), 15_000n * ONE_TOKEN, "reward A");
@@ -297,9 +297,9 @@ async function main(): Promise<void> {
     const { terms } = await openCase({ maxReturn: 400_000n * ONE_TOKEN });
     await fundAttacker(M);
     const before = await balance(usd, attacker.address);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet, 0n]);
     eq(before - (await balance(usd, attacker.address)), 400_000n * ONE_TOKEN, "pulled");
-    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1n, rewardWallet]), "NothingToReturn", "after full");
+    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1n, rewardWallet, 0n]), "NothingToReturn", "after full");
     return "asked 1,000,000, pulled 400,000; another return reverts with NothingToReturn";
   });
 
@@ -332,7 +332,7 @@ async function main(): Promise<void> {
   await scenario("Refund proofs: wrong, inflated, someone else's, and double claims are rejected", async () => {
     const { terms, allocations } = await openCase();
     await fundAttacker(M);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet, 0n]);
     const [first, second] = allocations as [Allocation, Allocation];
     const args = (entry: Allocation) => [terms.caseId, entry.account, entry.allocation, entry.proof];
     eq(await revertReason(stranger, desk, deskAbi, "claimRefund", [terms.caseId, first.account, first.allocation, second.proof]), "InvalidProof", "wrong proof");
@@ -348,7 +348,7 @@ async function main(): Promise<void> {
   await scenario("No team path: withdraw calls fail, and the pool does not move", async () => {
     const { terms } = await openCase();
     await fundAttacker(M);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet, 0n]);
     const before = await balance(usd, desk);
     // Looks for the selector in the bytecode: a call can revert for other reasons even when the function exists.
     const code = (await client.getCode({ address: desk }))!.toLowerCase();
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
       const selector = keccak256(stringToHex(signature)).slice(2, 10);
       eq(code.includes(`63${selector}`), false, `${signature} is in the bytecode`);
     }
-    const known = keccak256(stringToHex("returnFunds(bytes32,uint256,address)")).slice(2, 10);
+    const known = keccak256(stringToHex("returnFunds(bytes32,uint256,address,uint256)")).slice(2, 10);
     eq(code.includes(`63${known}`), true, "the check can find a real function");
     const data = encodeFunctionData({
       abi: [{ type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [] }] as const,
@@ -375,7 +375,7 @@ async function main(): Promise<void> {
     const { terms, allocations } = await openCase({ token: fee, rewardCap: M });
     await mint(fee, attacker.address, M, feeAbi);
     await approve(attacker, fee);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, M, rewardWallet, 0n]);
     const state = await getCase(terms.caseId);
     eq(state.totalReturned, 990_000n * ONE_TOKEN, "received");
     eq(state.totalReward + state.totalRefund, state.totalReturned, "split");
@@ -403,8 +403,8 @@ async function main(): Promise<void> {
     });
     await fundAttacker(btcLoss, btc);
     await fundAttacker(adaLoss, ada);
-    await send(attacker, desk, deskAbi, "returnFunds", [btcCase.terms.caseId, btcLoss, rewardWallet]);
-    await send(attacker, desk, deskAbi, "returnFunds", [adaCase.terms.caseId, adaLoss / 2n, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [btcCase.terms.caseId, btcLoss, rewardWallet, 0n]);
+    await send(attacker, desk, deskAbi, "returnFunds", [adaCase.terms.caseId, adaLoss / 2n, rewardWallet, 0n]);
     eq(await balance(btc, rewardWallet), 10n * 10n ** 8n, "BTC reward capped at 10");
     eq(await balance(ada, rewardWallet), 1_050_000n * 10n ** 6n, "ADA reward at 15% of half");
     await claim(btcCase.terms, btcCase.allocations[0]!);
@@ -424,7 +424,7 @@ async function main(): Promise<void> {
     await send(hopA, usd, usdAbi, "transfer", [hopB.address, 500_000n * ONE_TOKEN]);
     await send(hopB, usd, usdAbi, "transfer", [fresh.address, 500_000n * ONE_TOKEN]);
     await approve(fresh, usd);
-    await send(fresh, desk, deskAbi, "returnFunds", [terms.caseId, 500_000n * ONE_TOKEN, payout]);
+    await send(fresh, desk, deskAbi, "returnFunds", [terms.caseId, 500_000n * ONE_TOKEN, payout, 0n]);
     eq(await balance(usd, payout), 75_000n * ONE_TOKEN, "reward at 15%");
     await claim(terms, allocations[0]!);
     eq(await balance(usd, alice.address), 255_000n * ONE_TOKEN, "user refund");
@@ -437,9 +437,9 @@ async function main(): Promise<void> {
     const { terms } = await openCase({ token: evil });
     await mint(evil, attacker.address, 1000n * ONE_TOKEN, evilAbi);
     await approve(attacker, evil);
-    const payload = encodeFunctionData({ abi: deskAbi, functionName: "returnFunds", args: [terms.caseId, ONE_TOKEN, attacker.address] });
+    const payload = encodeFunctionData({ abi: deskAbi, functionName: "returnFunds", args: [terms.caseId, ONE_TOKEN, attacker.address, 0n] });
     await send(deployer, evil, evilAbi, "arm", [desk, payload, 0n]);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100n * ONE_TOKEN, rewardWallet, 0n]);
     eq(await read<boolean>(evil, evilAbi, "attacked"), true, "attack ran");
     eq(await read<boolean>(evil, evilAbi, "attackSucceeded"), false, "attack blocked");
     eq((await getCase(terms.caseId)).totalReturned, 100n * ONE_TOKEN, "accounting");
@@ -452,8 +452,8 @@ async function main(): Promise<void> {
     const trent = account(13);
     const bad = await openCase({ entries: [{ account: mallory.address, allocation: M }, { account: trent.address, allocation: M }] });
     await fundAttacker(M + 1000n * ONE_TOKEN);
-    await send(attacker, desk, deskAbi, "returnFunds", [healthy.terms.caseId, M, rewardWallet]);
-    await send(attacker, desk, deskAbi, "returnFunds", [bad.terms.caseId, 1000n * ONE_TOKEN, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [healthy.terms.caseId, M, rewardWallet, 0n]);
+    await send(attacker, desk, deskAbi, "returnFunds", [bad.terms.caseId, 1000n * ONE_TOKEN, rewardWallet, 0n]);
     await claim(bad.terms, bad.allocations[0]!);
     eq(await balance(usd, mallory.address), 850n * ONE_TOKEN, "bad case pays its pool");
     eq(await revertReason(stranger, desk, deskAbi, "claimRefund", [bad.terms.caseId, trent.address, M, bad.allocations[1]!.proof]), "NothingToClaim", "pool empty");
@@ -471,12 +471,12 @@ async function main(): Promise<void> {
     ];
     const { terms, allocations } = await openCase({ totalLoss: 3n, entries, rewardCap: 1n });
     await fundAttacker(3n);
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1n, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1n, rewardWallet, 0n]);
     let state = await getCase(terms.caseId);
     eq(state.totalReward, 0n, "reward rounds down");
     eq(state.totalRefund, 1n, "refund");
     eq(await revertReason(stranger, desk, deskAbi, "claimRefund", [terms.caseId, entries[0]!.account, 1n, allocations[0]!.proof]), "NothingToClaim", "1/3 wei rounds to 0");
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 2n, rewardWallet]);
+    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 2n, rewardWallet, 0n]);
     state = await getCase(terms.caseId);
     eq(state.totalReturned, 3n, "returned");
     for (const entry of allocations) await claim(terms, entry);
@@ -493,19 +493,50 @@ async function main(): Promise<void> {
     await send(attacker, usd, usdAbi, "transfer", [desk, 1000n * ONE_TOKEN]);
     const untouched = await getCase(terms.caseId);
     eq(untouched.totalReturned, 0n, "direct transfer is not accounted");
-    await send(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1000n * ONE_TOKEN, desk]);
-    const state = await getCase(terms.caseId);
-    eq(state.totalReward + state.totalRefund, 1000n * ONE_TOKEN, "split");
-    eq((await balance(usd, desk)) - before, 2000n * ONE_TOKEN, "locked");
-    return "1,000 sent directly plus a 150 reward to the desk cannot be recovered. Listed in the README";
+    eq((await balance(usd, desk)) - before, 1000n * ONE_TOKEN, "locked");
+    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 1000n * ONE_TOKEN, desk, 0n]), "RewardToPactum", "reward to the contract");
+    return "1,000 sent directly cannot be recovered, as the README says. A reward sent to the contract itself is refused";
   });
 
   await scenario("Anyone's approval is safe: a front-runner cannot return with the attacker's tokens", async () => {
     const { terms } = await openCase();
     await fundAttacker(1000n * ONE_TOKEN);
-    const reason = await revertReason(stranger, desk, deskAbi, "returnFunds", [terms.caseId, 1000n * ONE_TOKEN, stranger.address]);
+    const reason = await revertReason(stranger, desk, deskAbi, "returnFunds", [terms.caseId, 1000n * ONE_TOKEN, stranger.address, 0n]);
     eq(reason === "NO_REVERT", false, "front-run must revert");
     return `reverted with ${reason}, because returnFunds only pulls from msg.sender`;
+  });
+
+  await scenario("The holder's reward floor: a lower reward reverts and no token leaves the wallet", async () => {
+    const { terms } = await openCase({ rewardCap: 15_000n * ONE_TOKEN });
+    await fundAttacker(100_000n * ONE_TOKEN);
+    await send(attacker, usd, usdAbi, "approve", [desk, 100_000n * ONE_TOKEN]);
+    const [quoted] = await read<[bigint, bigint]>(desk, deskAbi, "quote", [terms.caseId, 100_000n * ONE_TOKEN]);
+    // Someone else returns first and uses up the reward cap.
+    await send(deployer, usd, usdAbi, "mint", [stranger.address, 100_000n * ONE_TOKEN]);
+    await send(stranger, usd, usdAbi, "approve", [desk, 100_000n * ONE_TOKEN]);
+    await send(stranger, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, stranger.address, 0n]);
+    const before = await balance(usd, attacker.address);
+    eq(await revertReason(attacker, desk, deskAbi, "returnFunds", [terms.caseId, 100_000n * ONE_TOKEN, rewardWallet, quoted]), "RewardTooLow", "front-run");
+    eq(await balance(usd, attacker.address), before, "tokens stay");
+    return `quoted ${quoted / ONE_TOKEN}, a front-runner used up the cap, and the holder's return reverted with RewardTooLow`;
+  });
+
+  await scenario("A signed offer is revoked before it opens: the old signature stops working", async () => {
+    const { terms } = await buildTerms();
+    const signature = await sign(terms);
+    const digest = await client.readContract({ address: desk, abi: deskAbi, functionName: "hashRevokeNonce", args: [terms.nonce] }) as Hex;
+    await send(stranger, desk, deskAbi, "revokeNonce", [terms.nonce, await controller.sign!({ hash: digest })]);
+    const reason = await revertReason(stranger, desk, deskAbi, "openCase", [terms, signature]);
+    if (reason !== "NonceUsed") throw new Error(`expected NonceUsed, got ${reason}`);
+    return "openCase reverted with NonceUsed, and a stranger relayed the revocation";
+  });
+
+  await scenario("A case that is already open cannot be revoked", async () => {
+    const { terms } = await openCase();
+    const digest = await client.readContract({ address: desk, abi: deskAbi, functionName: "hashRevokeNonce", args: [terms.nonce] }) as Hex;
+    const reason = await revertReason(stranger, desk, deskAbi, "revokeNonce", [terms.nonce, await controller.sign!({ hash: digest })]);
+    if (reason !== "NonceUsed") throw new Error(`expected NonceUsed, got ${reason}`);
+    return "revokeNonce reverted with NonceUsed, so a published offer stays published";
   });
 
   console.log(`\n${passed} passed, ${failures.length} failed`);

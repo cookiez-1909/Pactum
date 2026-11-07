@@ -238,11 +238,11 @@ export function MyWallet() {
 }
 
 const PERMISSIONS: { who: string; role: Role; can: string; cannot: string }[] = [
-  { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, and return in parts.", cannot: "Get more than the published reward, or return after the last deadline." },
-  { who: "A user who lost funds", role: "user", can: "Claim their share with a proof, again whenever more funds come back.", cannot: "Add themselves to the list or raise their amount." },
+  { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, return in parts, or send a counter-offer to the team.", cannot: "Get more than the published reward, or return after the last deadline." },
+  { who: "A user who lost funds", role: "user", can: "Claim their share with a proof, again whenever more funds come back.", cannot: "Add themselves to the list or raise their amount after the case opens." },
   { who: "Anyone else", role: "unknown", can: "Relay a signature, or send a claim on someone's behalf. The tokens go only to the listed wallet.", cannot: "Spend anyone's tokens, or receive someone else's refund." },
-  { who: "Guardians", role: "guardian", can: "Read an offer on NEAR and approve it once for every chain it covers. Vote to add a new chain.", cannot: "Change a case once it is open, sign anything but approved terms, go above the reward limit, or replace a chain already served." },
-  { who: "The protocol owner", role: "protocol", can: "Write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change an offer once published, or withdraw anything. No such function exists." },
+  { who: "Guardians", role: "guardian", can: "Check who is asking, read an offer on NEAR and approve it once for every chain it covers. Vote to cancel an offer before it opens, replace a guardian, or add a chain.", cannot: "Change a case once it is open, sign anything but approved terms or a revocation, go above the reward limit, or replace a chain already served." },
+  { who: "The team behind the protocol", role: "protocol", can: "Show the guardians off chain that it runs the protocol, reply to counter-offers, then write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change a case once it is open, or withdraw anything. No such function exists. The team does write the refund list, so that list is what to check." },
 ];
 
 export function HowItWorks() {
@@ -271,7 +271,7 @@ export function HowItWorks() {
       <section className="card">
         <h2>Does a hacker have to prove who they are?</h2>
         <p>No. Stolen funds usually move through many wallets and mixers, so any proof would fail anyway. The contract only asks one thing: did this token arrive? A wallet with no link to the hack can return the funds, and the reward can go to any other wallet.</p>
-        <p>Nobody can abuse this, because the caller gives up their own tokens and at most the published reward comes back.</p>
+        <p>Nobody can use this to take money from the case, because the caller gives up their own tokens and at most the published reward comes back.</p>
         <p><strong>The real limit is the chain.</strong> A case accepts one token on one chain. The same guardians can open a case on any chain where Pactum runs, which here means Sepolia, Base Sepolia and Robinhood testnet. Funds that went anywhere else must come back first.</p>
       </section>
 
@@ -286,7 +286,9 @@ export function HowItWorks() {
       <section className="card">
         <h2>What you still have to trust</h2>
         <ul className="plain-list">
-          <li>The refund list must be correct. A wrong list can misallocate that case&rsquo;s refunds, though it cannot pay more than the case&rsquo;s pool or reach another case&rsquo;s tokens.</li>
+          <li>The refund list must be correct, and the team writes it. A dishonest team could add its own wallets. A wrong list can misallocate that case&rsquo;s refunds, though it cannot pay more than the case&rsquo;s pool or reach another case&rsquo;s tokens. It is fixed and public before funds arrive, so it can be checked, and the file must stay available.</li>
+          <li>Guardians must really check who is asking. The contract cannot tell, and who chooses the guardians in real use is not decided yet.</li>
+          <li>An offer can be fake. Anyone can deploy their own copy of Pactum, so check that the protocol itself published the contract address.</li>
           <li>The Chain Signatures MPC network must behave correctly.</li>
           <li>Guardians must not approve a case for a hack their own team staged. A reward cap and public evidence reduce this risk, but do not remove it.</li>
         </ul>

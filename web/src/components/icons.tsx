@@ -30,15 +30,3 @@ export const Shield = (p: P) => <Icon {...p}><path d="M12 3.5 5 6v5.5c0 4.5 3 7.
 export const Clock = (p: P) => <Icon {...p}><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></Icon>;
 export const Split = (p: P) => <Icon {...p}><path d="M3 12h7" /><path d="M10 12c3 0 3-6 7-6h4" /><path d="M10 12c3 0 3 6 7 6h4" /></Icon>;
 export const Lock = (p: P) => <Icon {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></Icon>;
-
-// Logo: an arrow returning to a desk, which is what this product does.
-export function Logo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="1" y="1" width="30" height="30" rx="9" fill="var(--brand)" />
-      <path d="M21.5 11.5h-8a4.5 4.5 0 0 0 0 9h3" stroke="#0a0b0d" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="m18 8 3.6 3.5L18 15" stroke="#0a0b0d" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19.8 20.5h2.7" stroke="#0a0b0d" strokeWidth="2.6" strokeLinecap="round" />
-    </svg>
-  );
-}

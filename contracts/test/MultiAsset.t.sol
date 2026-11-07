@@ -41,7 +41,7 @@ contract MultiAssetTest is BaseTest {
         token.mint(hacker, loss);
         vm.startPrank(hacker);
         token.approve(address(desk), loss);
-        desk.returnFunds(t.caseId, loss, rewardWallet);
+        desk.returnFunds(t.caseId, loss, rewardWallet, 0);
         vm.stopPrank();
 
         assertEq(token.balanceOf(rewardWallet), loss / 10, "reward is 10% in token units");
@@ -106,7 +106,7 @@ contract MultiAssetTest is BaseTest {
         token.mint(hacker, loss);
         vm.startPrank(hacker);
         token.approve(address(desk), loss);
-        desk.returnFunds(CASE_ID, loss, rewardWallet);
+        desk.returnFunds(CASE_ID, loss, rewardWallet, 0);
         vm.stopPrank();
 
         Pactum.Case memory c = desk.getCase(CASE_ID);
