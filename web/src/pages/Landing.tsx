@@ -18,7 +18,7 @@ const FEARS = [
 const STEPS = [
   { title: "The protocol makes an offer", body: "The team registers with the guardians off chain and shows it controls the protocol. It then sets how much the holder keeps, the deadlines and any special conditions. Guardians on NEAR must approve it, and the contract hashes exactly what they approved." },
   { title: "Chain Signatures signs the terms", body: "The MPC network signs that hash and nothing else. Anyone can carry the signature to the EVM chain to open the case." },
-  { title: "Funds return, and split at once", body: "The holder can accept the published terms or answer with a counter-offer on chain. When funds return, one transaction pays the reward to an address the holder chooses, and books the rest for users." },
+  { title: "Funds return, and split at once", body: "One transaction pays the published reward to an address the holder chooses, and books the rest for users." },
   { title: "Users claim their share", body: "Each user proves their allocation with a Merkle proof. If more funds come back later, they can claim again." },
 ];
 
@@ -130,7 +130,7 @@ export function Landing({ anchor }: { anchor?: string }) {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Testnet prototype, built at NEAR HACKATHON</p>
-          <h1>Get stolen funds back without having to trust each other.</h1>
+          <h1>Get stolen funds back without a negotiation.</h1>
           <p className="hero-lead">
             After a hack, a protocol publishes its reward terms. Whoever holds the funds returns them and collects the reward in a single transaction. The rest goes to a public refund list fixed before the money arrives, not to the team&rsquo;s wallet.
           </p>

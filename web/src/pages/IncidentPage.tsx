@@ -11,7 +11,6 @@ import { nearName } from "../labels";
 import { currentOffer, incidentStatus, incidentTotals, statusOf, usdOf, type Incident } from "../useDesk";
 import { useNotes } from "../useNotes";
 import { useWallet } from "../wallet";
-import { Negotiation } from "./Negotiation";
 import { Ledger, Refund, ReturnFunds, RewardSchedule, TxLink, type SessionTx } from "./CasePage";
 import { Discussion } from "./Discussion";
 
@@ -281,12 +280,7 @@ function OfferTab({ incident, onTx }: { incident: Incident; onTx: (label: string
   // Each asset is one transaction. Keep the form until the last asset is open, otherwise
   // a reload halfway would leave the incident half open with no way to finish.
   const writing = incident.cases.length === 0 || ((isOwner || registrations.get(incident.id) === "verified") && incident.pending.length > 0);
-  return (
-    <div className="tab-stack">
-      {writing ? <OfferForm incident={incident} onTx={onTx} /> : <OfferView incident={incident} />}
-      <Negotiation incident={incident} />
-    </div>
-  );
+  return writing ? <OfferForm incident={incident} onTx={onTx} /> : <OfferView incident={incident} />;
 }
 
 function OfferView({ incident }: { incident: Incident }) {

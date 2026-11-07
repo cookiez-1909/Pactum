@@ -238,11 +238,11 @@ export function MyWallet() {
 }
 
 const PERMISSIONS: { who: string; role: Role; can: string; cannot: string }[] = [
-  { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, return in parts, or send a counter-offer to the team.", cannot: "Get more than the published reward, or return after the last deadline." },
+  { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, and return in parts.", cannot: "Get more than the published reward, or return after the last deadline." },
   { who: "A user who lost funds", role: "user", can: "Claim their share with a proof, again whenever more funds come back.", cannot: "Add themselves to the list or raise their amount after the case opens." },
   { who: "Anyone else", role: "unknown", can: "Relay a signature, or send a claim on someone's behalf. The tokens go only to the listed wallet.", cannot: "Spend anyone's tokens, or receive someone else's refund." },
   { who: "Guardians", role: "guardian", can: "Check who is asking, read an offer on NEAR and approve it once for every chain it covers. Vote to cancel an offer before it opens, replace a guardian, or add a chain.", cannot: "Change a case once it is open, sign anything but approved terms or a revocation, go above the reward limit, or replace a chain already served." },
-  { who: "The team behind the protocol", role: "protocol", can: "Show the guardians off chain that it runs the protocol, reply to counter-offers, then write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change a case once it is open, or withdraw anything. No such function exists. The team does write the refund list, so that list is what to check." },
+  { who: "The team behind the protocol", role: "protocol", can: "Show the guardians off chain that it runs the protocol, then write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change a case once it is open, or withdraw anything. No such function exists. The team does write the refund list, so that list is what to check." },
 ];
 
 export function HowItWorks() {

@@ -348,11 +348,6 @@ async function main() {
     },
   });
 
-  // Sample talks on the case with no offer yet. The fund holder and the protocol team are both test accounts.
-  const counterTopic = keccak256(stringToHex("counter:marlin"));
-  await send(hacker3, notes, notesAbi, "post", [counterTopic, JSON.stringify({ keepBps: 1500, message: "I still hold all of it. Offer 15% and I will send everything back this week." })]);
-  await send(owner, notes, notesAbi, "post", [counterTopic, JSON.stringify({ message: "We are registering with the guardians now. If they confirm us, 15% is acceptable." })]);
-
   const output = {
     network: "local",
     chainId: foundry.id,

@@ -426,10 +426,6 @@ export function offerCaseId(incidentId: string, symbol: string): Hex {
   return keccak256(stringToHex(`offer:${incidentId}:${symbol}`));
 }
 
-export function counterTopic(incidentId: string): Hex {
-  return keccak256(stringToHex(`counter:${incidentId}`));
-}
-
 export function discussionTopic(incidentId: string): Hex {
   return keccak256(stringToHex(`discussion:${incidentId}`));
 }

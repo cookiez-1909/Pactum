@@ -35,7 +35,7 @@ const page = await fresh();
 await page.goto(base);
 await page.waitForSelector(".hero h1");
 let text = await page.innerText("body");
-check("landing opens with the product, not hack numbers", text.includes("Get stolen funds back without having to trust each other") && !text.includes("Total lost"));
+check("landing opens with the product, not hack numbers", text.includes("Get stolen funds back without a negotiation") && !text.includes("Total lost"));
 check("the new name is used everywhere on the landing", text.includes("Pactum") && !/return desk/i.test(text));
 check("landing answers the proof question", text.includes("Do I have to prove I am the hacker?"));
 check("landing shows the testnet warning", text.includes("Do not send real or stolen funds"));
@@ -139,40 +139,6 @@ await page.getByLabel("Send my reward to").fill("");
 await page.waitForTimeout(100);
 check("the holder is told a lower reward reverts", (await panel(page)).includes("it reverts and your tokens stay with you"));
 
-// Two-way talks between the fund holder and the protocol team
-await go(page, "#/case/northgate/offer");
-await as(page, "Stranger");
-text = await panel(page);
-check("a stranger can read messages but not write them", text.includes("Talk to the other side") && text.includes("Only a wallet holding these tokens") && (await page.locator(".negotiation-send").count()) === 0);
-await go(page, "#/case/kestrel/offer");
-await as(page, "Hacker");
-await page.waitForSelector(".negotiation-send", { timeout: 20000 });
-text = await panel(page);
-check("a message is said to move no money", text.includes("A message moves no money and changes no offer"));
-check("a counter-offer warns it links the wallet", text.includes("It links this wallet to the funds in public"));
-check("a counter-offer needs a percent and a message", await page.locator(".negotiation-send").isDisabled());
-await page.getByLabel("Percent you would keep").fill("30");
-await page.getByLabel("Your message").fill("<b>I will send it all back</b> for 30%.");
-await page.waitForTimeout(100);
-check("asking above the limit is allowed but flagged", (await panel(page)).includes("guardians could not sign this"));
-const messagesBefore = await page.locator(".negotiation-message").count();
-await page.locator(".negotiation-send").click();
-await page.waitForFunction((n) => document.querySelectorAll(".negotiation-message").length === n, messagesBefore + 1, { timeout: 30000 });
-const sent = page.locator(".negotiation-message").last();
-await sent.locator(".holds-funds").waitFor({ timeout: 15000 });
-check("the counter-offer appears with the percent and the limit", /Asks to keep\s*30%/.test((await sent.innerText()).replace(/\n/g, " ")) && (await sent.innerText()).includes("Above the 20% limit"));
-check("the holder label comes from the wallet's balance", (await sent.locator(".holds-funds").innerText()).startsWith("Holds "));
-check("HTML in a message is shown as text", (await sent.locator("b").count()) === 0);
-check("the open offer did not change", /Hacker keeps\s*20%/.test((await panel(page)).replace(/\n/g, " ")));
-await as(page, "Protocol owner");
-await page.waitForSelector(".negotiation-send", { timeout: 20000 });
-check("the team has no percent field", (await page.getByLabel("Percent you would keep").count()) === 0);
-await page.getByLabel("Your reply").fill("We can go to 20%, not more.");
-await page.waitForTimeout(100);
-await page.locator(".negotiation-send").click();
-await page.waitForFunction((n) => document.querySelectorAll(".negotiation-message").length === n, messagesBefore + 2, { timeout: 30000 });
-check("the reply shows in the thread as the team", (await page.locator(".negotiation-message").last().innerText()).includes("Team, simulated"));
-
 // The protocol owner creates an offer
 await go(page, "#/case/marlin/offer");
 await as(page, "Hacker");
@@ -213,10 +179,10 @@ await page.waitForTimeout(80);
 check("after registering, the owner waits for the guardians", (await panel(page)).includes("Waiting for the guardians") && (await page.locator(".tab-panel .button-block", { hasText: "Publish" }).count()) === 0);
 await page.getByRole("button", { name: "Guardians confirm" }).click();
 await page.waitForTimeout(80);
-check("once verified, the owner sees the offer form", (await page.locator(".tab-panel .two-col textarea").count()) === 1 && (await panel(page)).includes("Verified by the guardians, simulated"));
+check("once verified, the owner sees the offer form", (await page.locator(".tab-panel textarea").count()) === 1 && (await panel(page)).includes("Verified by the guardians, simulated"));
 await go(page, "#/case/marlin/incident");
 await go(page, "#/case/marlin/offer");
-check("the verification survives moving between tabs", (await page.locator(".tab-panel .two-col textarea").count()) === 1);
+check("the verification survives moving between tabs", (await page.locator(".tab-panel textarea").count()) === 1);
 const publishButton = page.locator(".tab-panel .button-block");
 const keepGroup = page.getByRole("group", { name: "The hacker keeps" });
 await keepGroup.getByRole("button", { name: "Custom" }).click();
@@ -260,7 +226,7 @@ check("a later reward above the first is refused", await publishButton.isDisable
 await laterGroup.locator("input").fill("7.5");
 await page.waitForTimeout(100);
 check("custom values make the form valid", !(await publishButton.isDisabled()));
-await page.locator(".tab-panel .two-col textarea").fill("Keep 20% and we will not pursue contact. Test conditions from the owner.");
+await page.locator(".tab-panel textarea").fill("Keep 20% and we will not pursue contact. Test conditions from the owner.");
 await page.waitForTimeout(150);
 text = await panel(page);
 check("the preview shows what the hacker keeps per asset", /mBTC\s+keeps 1\.6\s+returns 6\.4/.test(text), text.match(/mBTC[^\n]*\n?[^\n]*\n?[^\n]*/)?.[0]?.replace(/\n/g, " "));
@@ -273,7 +239,7 @@ await page.waitForFunction(() => /Finish publishing|Evidence hash/.test(document
 const interrupted = (await panel(page)).includes("Finish publishing your offer");
 console.log("      interrupted after the first asset:", interrupted);
 if (interrupted) {
-  check("an interrupted publish can be finished with the same terms", (await panel(page)).includes("the holder keeps 20%") && (await page.locator(".tab-panel .two-col textarea").count()) === 0);
+  check("an interrupted publish can be finished with the same terms", (await panel(page)).includes("the holder keeps 20%") && (await page.locator(".tab-panel textarea").count()) === 0);
   await page.locator(".tab-panel .button-block").click();
 }
 await page.waitForFunction(() => document.querySelector(".tab-panel")?.innerText.includes("Evidence hash"), null, { timeout: 30000 });
@@ -448,7 +414,7 @@ check("a stranger's composer has no Lost funds label", (await page.locator(".com
 await as(page, "User 1");
 check("a victim's composer has the Lost funds label", (await page.locator(".composer-author .lost-funds").count()) === 1);
 check("an empty comment cannot be posted", await page.locator(".composer-foot .button").isDisabled());
-await page.locator(".tab-panel .two-col textarea").fill("<b>Will I get my ETH back?</b>");
+await page.locator(".tab-panel textarea").fill("<b>Will I get my ETH back?</b>");
 await page.locator(".composer-foot .button").click();
 await page.waitForFunction((n) => document.querySelectorAll(".comment").length === n, before + 1, { timeout: 30000 });
 check("the comment appears first", (await page.locator(".comment-text").first().innerText()).includes("<b>Will I get my ETH back?</b>"));
@@ -464,7 +430,7 @@ await page.locator(".wallet-button").click();
 await page.locator("#custom-wallet").fill("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
 await page.locator(".wallet-custom .button").click();
 await page.waitForTimeout(250);
-await page.locator(".tab-panel .two-col textarea").fill("from a typed-in wallet");
+await page.locator(".tab-panel textarea").fill("from a typed-in wallet");
 check("a typed-in wallet cannot post", await page.locator(".composer-foot .button").isDisabled());
 await as(page, "User 1");
 await page.screenshot({ path: `${out}/p9-discussion.png`, fullPage: true });

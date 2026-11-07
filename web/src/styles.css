@@ -520,15 +520,6 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .quote-amount strong { font-family: var(--mono); font-weight: 500; overflow-wrap: anywhere; }
 .quote-result .fine-print strong { color: var(--ink-2); }
 
-/* Two-way talks */
-.tab-stack { display: grid; gap: 16px; }
-.negotiation .notice { margin-top: 10px; }
-.negotiation-thread { margin-top: 14px; }
-.negotiation-composer { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
-.negotiation-send { margin-top: 12px; }
-.holds-funds { padding: 1px 7px; border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 12px; }
-.counter-ask { margin: 6px 0 2px; color: var(--ink); }
-.counter-limit { color: var(--warn); font-size: 13px; }
 .register-sources { margin: 10px 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
 .register-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
