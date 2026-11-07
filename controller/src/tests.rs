@@ -6,8 +6,8 @@ use near_sdk::test_utils::{get_created_receipts, VMContextBuilder};
 use near_sdk::{env, test_vm_config, testing_env, AccountId, PromiseResult, RuntimeFeesConfig};
 
 use crate::types::{
-    evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseTerms, Deployment,
-    ProposalStatus, RewardTier, Scalar, SignResponse,
+    evm_signature, parse_hex_fixed, parse_uint256, to_hex, BigR, CaseStatus, CaseTerms, ChainProposalStatus,
+    Deployment, ProposalStatus, RewardTier, Scalar, SignResponse,
 };
 use crate::PactumController;
 
@@ -35,6 +35,10 @@ fn set_caller(name: &str) {
 
 // Calls on_signed the way the contract calls itself back, with a given result from the MPC contract.
 fn deliver(c: &mut PactumController, id: U64, result: PromiseResult) -> Option<String> {
+    deliver_case(c, id, 0, result)
+}
+
+fn deliver_case(c: &mut PactumController, id: U64, index: u32, result: PromiseResult) -> Option<String> {
     let mut context = VMContextBuilder::new();
     context
         .current_account_id(account("controller.testnet"))
@@ -48,7 +52,7 @@ fn deliver(c: &mut PactumController, id: U64, result: PromiseResult) -> Option<S
         Default::default(),
         vec![result]
     );
-    c.on_signed(id)
+    c.on_signed(id, index)
 }
 
 fn response_bytes() -> Vec<u8> {
@@ -95,7 +99,7 @@ fn terms() -> CaseTerms {
 
 fn propose(c: &mut PactumController) -> U64 {
     set_caller("alice.testnet");
-    c.propose_case(terms(), EVIDENCE.to_string())
+    c.propose_offer(vec![terms()], EVIDENCE.to_string())
 }
 
 fn status(c: &PactumController, id: U64) -> ProposalStatus {
@@ -114,13 +118,17 @@ fn signature_response() -> SignResponse {
     }
 }
 
+fn sign_receipts() -> Vec<near_sdk::mock::Receipt> {
+    get_created_receipts().into_iter().filter(|receipt| receipt.receiver_id == account("v1.signer-prod.testnet")).collect()
+}
+
 // Moves the proposal into signing with a threshold of 2.
 fn approved_and_signing(c: &mut PactumController) -> U64 {
     let id = propose(c);
     set_caller("alice.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
     set_caller("bob.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
     id
 }
 
@@ -163,7 +171,7 @@ fn init_rejects_duplicate_guardians() {
 fn stranger_cannot_propose() {
     let mut c = contract(2);
     set_caller("mallory.testnet");
-    c.propose_case(terms(), EVIDENCE.to_string());
+    c.propose_offer(vec![terms()], EVIDENCE.to_string());
 }
 
 #[test]
@@ -172,7 +180,7 @@ fn stranger_cannot_approve() {
     let mut c = contract(2);
     let id = propose(&mut c);
     set_caller("mallory.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
 }
 
 #[test]
@@ -180,7 +188,7 @@ fn below_threshold_does_not_request_a_signature() {
     let mut c = contract(2);
     let id = propose(&mut c);
     set_caller("alice.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
     assert_eq!(status(&c, id), ProposalStatus::Pending);
     assert!(get_created_receipts().is_empty());
 }
@@ -191,9 +199,9 @@ fn same_guardian_cannot_approve_twice() {
     let mut c = contract(2);
     let id = propose(&mut c);
     set_caller("alice.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
     set_caller("alice.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
 }
 
 #[test]
@@ -201,16 +209,14 @@ fn threshold_requests_a_signature_for_the_exact_digest() {
     let mut c = contract(2);
     let id = approved_and_signing(&mut c);
     let proposal = c.get_proposal(id).unwrap();
-    assert_eq!(proposal.status, ProposalStatus::Signing);
-    assert_eq!(proposal.digest, c.case_digest(terms()));
+    assert_eq!(proposal.status, ProposalStatus::Approved);
+    assert_eq!(proposal.cases[0].status, CaseStatus::Signing);
+    assert_eq!(proposal.cases[0].digest, c.case_digest(terms()));
 
-    let receipts = get_created_receipts();
-    let sign_receipt = receipts
-        .iter()
-        .find(|receipt| receipt.receiver_id == account("v1.signer-prod.testnet"))
-        .expect("no receipt to the signer");
-    let payload = proposal.digest.trim_start_matches("0x");
-    let args = sign_args(sign_receipt);
+    let receipts = sign_receipts();
+    assert_eq!(receipts.len(), 1);
+    let payload = proposal.cases[0].digest.trim_start_matches("0x");
+    let args = sign_args(&receipts[0]);
     assert_eq!(args["request"]["payload_v2"]["Ecdsa"], Value::String(payload.to_string()));
     assert_eq!(args["request"]["path"], "pactum-1");
     assert_eq!(args["request"]["domain_id"], 0);
@@ -233,7 +239,7 @@ fn cannot_approve_after_threshold() {
     let mut c = contract(2);
     let id = approved_and_signing(&mut c);
     set_caller("carol.testnet");
-    let _ = c.approve_case(id);
+    c.approve_offer(id);
 }
 
 #[test]
@@ -243,9 +249,10 @@ fn stores_signature_for_anyone_to_read() {
     let signature = deliver(&mut c, id, PromiseResult::Successful(response_bytes()));
     let proposal = c.get_proposal(id).unwrap();
     assert_eq!(proposal.status, ProposalStatus::Signed);
-    assert_eq!(proposal.signature, signature);
+    assert_eq!(proposal.cases[0].status, CaseStatus::Signed);
+    assert_eq!(proposal.cases[0].signature, signature);
     let expected = "0x4e3cb210ca4197413b2066175a8a81a78e497e499f44116407e9371ce8a8dd997cf8899358fe262a83ce4b1e4a98d157450203adab4a212847e48ef0c20c34f71b";
-    assert_eq!(proposal.signature.as_deref(), Some(expected));
+    assert_eq!(proposal.cases[0].signature.as_deref(), Some(expected));
 }
 
 #[test]
@@ -254,11 +261,13 @@ fn failed_signature_can_be_retried_by_anyone() {
     let id = approved_and_signing(&mut c);
     assert_eq!(deliver(&mut c, id, PromiseResult::Failed), None);
     assert_eq!(status(&c, id), ProposalStatus::Approved);
+    assert_eq!(c.get_proposal(id).unwrap().cases[0].status, CaseStatus::Unsigned);
 
     set_caller("mallory.testnet");
-    let _ = c.retry_signature(id);
-    assert_eq!(status(&c, id), ProposalStatus::Signing);
-    assert_eq!(c.get_proposal(id).unwrap().digest, c.case_digest(terms()));
+    c.retry_signature(id);
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(proposal.cases[0].status, CaseStatus::Signing);
+    assert_eq!(proposal.cases[0].digest, c.case_digest(terms()));
 }
 
 // A bad response must not leave the proposal stuck: it must return to Approved so it can be signed again.
@@ -277,14 +286,15 @@ fn malformed_responses_return_to_approved() {
         distinct.case_id = format!("0x{:064x}", index + 100);
         distinct.nonce = U64(index as u64 + 100);
         set_caller("alice.testnet");
-        let id = c.propose_case(distinct, EVIDENCE.to_string());
-        let _ = c.approve_case(id);
+        let id = c.propose_offer(vec![distinct], EVIDENCE.to_string());
+        c.approve_offer(id);
         set_caller("bob.testnet");
-        let _ = c.approve_case(id);
+        c.approve_offer(id);
         assert_eq!(deliver(&mut c, id, PromiseResult::Successful(bytes)), None);
         let proposal = c.get_proposal(id).unwrap();
         assert_eq!(proposal.status, ProposalStatus::Approved);
-        assert_eq!(proposal.signature, None);
+        assert_eq!(proposal.cases[0].status, CaseStatus::Unsigned);
+        assert_eq!(proposal.cases[0].signature, None);
     }
 }
 
@@ -294,7 +304,7 @@ fn cannot_retry_before_approval() {
     let mut c = contract(2);
     let id = propose(&mut c);
     set_caller("mallory.testnet");
-    let _ = c.retry_signature(id);
+    c.retry_signature(id);
 }
 
 #[test]
@@ -304,7 +314,7 @@ fn cannot_sign_again_once_signed() {
     let id = approved_and_signing(&mut c);
     deliver(&mut c, id, PromiseResult::Successful(response_bytes()));
     set_caller("mallory.testnet");
-    let _ = c.retry_signature(id);
+    c.retry_signature(id);
 }
 
 // `#[private]` on on_signed only applies in wasm, so it is checked on testnet in scripts/demo.ts.
@@ -314,7 +324,7 @@ fn cannot_sign_again_once_signed() {
 fn cannot_approve_unknown_proposal() {
     let mut c = contract(2);
     set_caller("alice.testnet");
-    let _ = c.approve_case(U64(9));
+    c.approve_offer(U64(9));
 }
 
 #[test]
@@ -324,7 +334,7 @@ fn rejects_duplicate_case_id() {
     propose(&mut c);
     let mut again = terms();
     again.nonce = U64(2);
-    c.propose_case(again, EVIDENCE.to_string());
+    c.propose_offer(vec![again], EVIDENCE.to_string());
 }
 
 #[test]
@@ -334,7 +344,7 @@ fn rejects_duplicate_nonce() {
     propose(&mut c);
     let mut again = terms();
     again.case_id = format!("0x{}", "02".repeat(32));
-    c.propose_case(again, EVIDENCE.to_string());
+    c.propose_offer(vec![again], EVIDENCE.to_string());
 }
 
 // Checks that bad terms are rejected with exactly the expected message.
@@ -344,7 +354,7 @@ fn assert_rejected(change: impl Fn(&mut CaseTerms), expected: &str) {
         let mut bad = terms();
         change(&mut bad);
         set_caller("alice.testnet");
-        c.propose_case(bad, EVIDENCE.to_string());
+        c.propose_offer(vec![bad], EVIDENCE.to_string());
     }));
     let message = result.expect_err("terms should be rejected");
     let text = message
@@ -530,31 +540,276 @@ fn each_chain_has_its_own_digest() {
 }
 
 #[test]
-fn same_guardians_sign_for_both_chains() {
+fn separate_offers_can_reuse_a_case_id_on_another_chain() {
     let mut c = contract(2);
     set_caller("alice.testnet");
-    let first = c.propose_case(terms(), EVIDENCE.to_string());
-    // The same case id and nonce are still valid, because this is a different chain.
-    let second = c.propose_case(on_base(), EVIDENCE.to_string());
+    let first = c.propose_offer(vec![terms()], EVIDENCE.to_string());
+    let second = c.propose_offer(vec![on_base()], EVIDENCE.to_string());
     assert_ne!(first, second);
+}
 
-    for id in [first, second] {
-        set_caller("alice.testnet");
-        let _ = c.approve_case(id);
-        set_caller("bob.testnet");
-        let _ = c.approve_case(id);
-        let proposal = c.get_proposal(id).unwrap();
-        assert_eq!(proposal.status, ProposalStatus::Signing);
-        let receipts = get_created_receipts();
-        let sign_receipt = receipts
-            .iter()
-            .find(|receipt| receipt.receiver_id == account("v1.signer-prod.testnet"))
-            .expect("no receipt to the signer");
-        let args = sign_args(sign_receipt);
-        assert_eq!(args["request"]["payload_v2"]["Ecdsa"], Value::String(proposal.digest.trim_start_matches("0x").to_string()));
+// The main upgrade: one text, one approval round, and a separate signature for each chain.
+#[test]
+fn one_approval_round_signs_every_chain() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_offer(vec![terms(), on_base()], EVIDENCE.to_string());
+    c.approve_offer(id);
+    assert!(sign_receipts().is_empty(), "signed below threshold");
+    set_caller("bob.testnet");
+    c.approve_offer(id);
+
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(proposal.approvals.len(), 2);
+    assert_eq!(proposal.status, ProposalStatus::Approved);
+    let receipts = sign_receipts();
+    assert_eq!(receipts.len(), 2);
+    for (receipt, item) in receipts.iter().zip(&proposal.cases) {
+        assert_eq!(item.status, CaseStatus::Signing);
+        let args = sign_args(receipt);
+        assert_eq!(args["request"]["payload_v2"]["Ecdsa"], Value::String(item.digest.trim_start_matches("0x").to_string()));
         // The same derivation path means the same signing address on every chain.
         assert_eq!(args["request"]["path"], "pactum-1");
     }
+    assert_ne!(proposal.cases[0].digest, proposal.cases[1].digest);
+}
+
+#[test]
+fn offer_is_signed_only_when_every_case_is_signed() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_offer(vec![terms(), on_base()], EVIDENCE.to_string());
+    c.approve_offer(id);
+    set_caller("bob.testnet");
+    c.approve_offer(id);
+
+    deliver_case(&mut c, id, 1, PromiseResult::Successful(response_bytes()));
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(proposal.status, ProposalStatus::Approved);
+    assert_eq!(proposal.cases[0].status, CaseStatus::Signing);
+    assert_eq!(proposal.cases[1].status, CaseStatus::Signed);
+
+    deliver_case(&mut c, id, 0, PromiseResult::Successful(response_bytes()));
+    assert_eq!(status(&c, id), ProposalStatus::Signed);
+}
+
+// One chain failing to sign must not lose another chain's signature, and signing again only signs what is missing.
+#[test]
+fn a_failed_case_retries_alone() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_offer(vec![terms(), on_base()], EVIDENCE.to_string());
+    c.approve_offer(id);
+    set_caller("bob.testnet");
+    c.approve_offer(id);
+    let signed = deliver_case(&mut c, id, 0, PromiseResult::Successful(response_bytes()));
+    assert!(signed.is_some());
+    assert_eq!(deliver_case(&mut c, id, 1, PromiseResult::Failed), None);
+
+    set_caller("mallory.testnet");
+    c.retry_signature(id);
+    let receipts = sign_receipts();
+    assert_eq!(receipts.len(), 1);
+    let proposal = c.get_proposal(id).unwrap();
+    assert_eq!(sign_args(&receipts[0])["request"]["payload_v2"]["Ecdsa"], Value::String(proposal.cases[1].digest.trim_start_matches("0x").to_string()));
+    assert_eq!(proposal.cases[0].signature, signed);
+}
+
+fn numbered(index: u64) -> CaseTerms {
+    let mut item = terms();
+    item.case_id = format!("0x{:064x}", index + 1);
+    item.nonce = U64(index);
+    item
+}
+
+// One transaction only has gas for 3 signatures, so larger offers keep signing through retry_signature.
+#[test]
+fn large_offer_signs_in_batches() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    let id = c.propose_offer((0..5).map(numbered).collect(), EVIDENCE.to_string());
+    c.approve_offer(id);
+    set_caller("bob.testnet");
+    c.approve_offer(id);
+    assert_eq!(sign_receipts().len(), 3);
+
+    set_caller("mallory.testnet");
+    c.retry_signature(id);
+    assert_eq!(sign_receipts().len(), 2);
+    let proposal = c.get_proposal(id).unwrap();
+    assert!(proposal.cases.iter().all(|item| item.status == CaseStatus::Signing));
+}
+
+#[test]
+#[should_panic(expected = "proposal is not awaiting a signature")]
+fn cannot_retry_while_every_case_is_signing() {
+    let mut c = contract(2);
+    let id = approved_and_signing(&mut c);
+    set_caller("mallory.testnet");
+    c.retry_signature(id);
+}
+
+#[test]
+#[should_panic(expected = "case count must be between 1 and 12")]
+fn rejects_an_empty_offer() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_offer(vec![], EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "case count must be between 1 and 12")]
+fn rejects_too_many_cases() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_offer((0..13).map(numbered).collect(), EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "evidence does not match evidence_hash")]
+fn every_case_must_carry_the_same_text() {
+    let mut c = contract(2);
+    let mut other = on_base();
+    other.evidence_hash = evidence_hash("A softer offer on another chain");
+    set_caller("alice.testnet");
+    c.propose_offer(vec![terms(), other], EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "reward exceeds the global maximum")]
+fn one_bad_case_rejects_the_whole_offer() {
+    let mut c = contract(2);
+    let mut high = on_base();
+    high.tiers[0].reward_bps = 2001;
+    set_caller("alice.testnet");
+    c.propose_offer(vec![terms(), high], EVIDENCE.to_string());
+}
+
+#[test]
+#[should_panic(expected = "case_id already proposed")]
+fn rejects_the_same_case_twice_in_one_offer() {
+    let mut c = contract(2);
+    let mut again = terms();
+    again.nonce = U64(2);
+    set_caller("alice.testnet");
+    c.propose_offer(vec![terms(), again], EVIDENCE.to_string());
+}
+
+const NEW_CHAIN: u64 = 46_630;
+const NEW_DESK: &str = "0x6666666666666666666666666666666666666666";
+
+fn vote_chain(c: &mut PactumController) -> U64 {
+    set_caller("alice.testnet");
+    c.propose_chain(U64(NEW_CHAIN), NEW_DESK.to_string())
+}
+
+#[test]
+fn guardians_can_vote_in_a_new_chain() {
+    let mut c = contract(2);
+    let id = vote_chain(&mut c);
+    let mut new_terms = terms();
+    new_terms.chain_id = U64(NEW_CHAIN);
+
+    c.approve_chain(id);
+    assert_eq!(c.get_config().deployments.len(), 2, "added below threshold");
+    assert_eq!(c.list_chain_proposals(U64(0), 10)[0].status, ChainProposalStatus::Pending);
+
+    set_caller("bob.testnet");
+    c.approve_chain(id);
+    assert_eq!(c.get_config().deployments.last(), Some(&deployment(NEW_CHAIN, NEW_DESK)));
+    assert_eq!(c.list_chain_proposals(U64(0), 10)[0].status, ChainProposalStatus::Added);
+
+    // A new chain works at once, and the hash is bound to the right contract on that chain.
+    let id = c.propose_offer(vec![new_terms.clone()], EVIDENCE.to_string());
+    assert_eq!(c.get_proposal(id).unwrap().cases[0].digest, c.case_digest(new_terms));
+}
+
+// Adding a chain must not change the derivation path, because the path decides the signing address on every chain.
+#[test]
+fn adding_a_chain_keeps_the_signing_path() {
+    let mut c = contract(2);
+    let before = c.get_config().derivation_path;
+    let id = vote_chain(&mut c);
+    c.approve_chain(id);
+    set_caller("bob.testnet");
+    c.approve_chain(id);
+    assert_eq!(c.get_config().derivation_path, before);
+}
+
+#[test]
+#[should_panic(expected = "caller is not a guardian")]
+fn stranger_cannot_propose_a_chain() {
+    let mut c = contract(2);
+    set_caller("mallory.testnet");
+    c.propose_chain(U64(NEW_CHAIN), NEW_DESK.to_string());
+}
+
+#[test]
+#[should_panic(expected = "caller is not a guardian")]
+fn stranger_cannot_approve_a_chain() {
+    let mut c = contract(2);
+    let id = vote_chain(&mut c);
+    set_caller("mallory.testnet");
+    c.approve_chain(id);
+}
+
+#[test]
+#[should_panic(expected = "already approved")]
+fn same_guardian_cannot_add_a_chain_alone() {
+    let mut c = contract(2);
+    let id = vote_chain(&mut c);
+    c.approve_chain(id);
+    c.approve_chain(id);
+}
+
+// Most important: a vote must not replace the contract of a chain already in use.
+#[test]
+#[should_panic(expected = "chain_id is already served")]
+fn cannot_replace_a_served_chain() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_chain(U64(SEPOLIA), NEW_DESK.to_string());
+}
+
+#[test]
+#[should_panic(expected = "chain_id is already served")]
+fn second_proposal_for_a_chain_cannot_overwrite_the_first() {
+    let mut c = contract(2);
+    let first = vote_chain(&mut c);
+    let second = c.propose_chain(U64(NEW_CHAIN), "0x7777777777777777777777777777777777777777".to_string());
+    c.approve_chain(first);
+    c.approve_chain(second);
+    set_caller("bob.testnet");
+    c.approve_chain(first);
+    c.approve_chain(second);
+}
+
+#[test]
+#[should_panic(expected = "chain proposal is not pending")]
+fn cannot_approve_an_added_chain_again() {
+    let mut c = contract(2);
+    let id = vote_chain(&mut c);
+    c.approve_chain(id);
+    set_caller("bob.testnet");
+    c.approve_chain(id);
+    set_caller("carol.testnet");
+    c.approve_chain(id);
+}
+
+#[test]
+#[should_panic(expected = "pactum must be 20-byte hex")]
+fn rejects_a_bad_address_for_a_new_chain() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.propose_chain(U64(NEW_CHAIN), "0x1234".to_string());
+}
+
+#[test]
+#[should_panic(expected = "chain proposal not found")]
+fn cannot_approve_an_unknown_chain_proposal() {
+    let mut c = contract(2);
+    set_caller("alice.testnet");
+    c.approve_chain(U64(9));
 }
 
 #[test]
@@ -564,7 +819,7 @@ fn the_reward_limit_applies_on_every_chain() {
     let mut high = on_base();
     high.tiers[0].reward_bps = 2001;
     set_caller("alice.testnet");
-    c.propose_case(high, EVIDENCE.to_string());
+    c.propose_offer(vec![high], EVIDENCE.to_string());
 }
 
 #[test]
@@ -572,10 +827,10 @@ fn the_reward_limit_applies_on_every_chain() {
 fn duplicate_case_id_is_still_rejected_on_the_second_chain() {
     let mut c = contract(2);
     set_caller("alice.testnet");
-    c.propose_case(on_base(), EVIDENCE.to_string());
+    c.propose_offer(vec![on_base()], EVIDENCE.to_string());
     let mut again = on_base();
     again.nonce = U64(2);
-    c.propose_case(again, EVIDENCE.to_string());
+    c.propose_offer(vec![again], EVIDENCE.to_string());
 }
 
 #[test]
@@ -583,10 +838,10 @@ fn duplicate_case_id_is_still_rejected_on_the_second_chain() {
 fn duplicate_nonce_is_still_rejected_on_the_second_chain() {
     let mut c = contract(2);
     set_caller("alice.testnet");
-    c.propose_case(on_base(), EVIDENCE.to_string());
+    c.propose_offer(vec![on_base()], EVIDENCE.to_string());
     let mut again = on_base();
     again.case_id = format!("0x{}", "02".repeat(32));
-    c.propose_case(again, EVIDENCE.to_string());
+    c.propose_offer(vec![again], EVIDENCE.to_string());
 }
 
 #[test]
@@ -610,7 +865,7 @@ fn proposal_stores_the_exact_offer_text() {
 fn guardians_cannot_propose_text_that_differs_from_the_hash() {
     let mut c = contract(2);
     set_caller("alice.testnet");
-    c.propose_case(terms(), format!("{EVIDENCE} Actually keep nothing."));
+    c.propose_offer(vec![terms()], format!("{EVIDENCE} Actually keep nothing."));
 }
 
 #[test]
@@ -621,7 +876,7 @@ fn rejects_evidence_over_the_limit() {
     let mut bad = terms();
     bad.evidence_hash = evidence_hash(&long);
     set_caller("alice.testnet");
-    c.propose_case(bad, long);
+    c.propose_offer(vec![bad], long);
 }
 
 #[test]
@@ -631,7 +886,7 @@ fn accepts_evidence_at_the_limit() {
     let mut ok = terms();
     ok.evidence_hash = evidence_hash(&long);
     set_caller("alice.testnet");
-    let id = c.propose_case(ok, long.clone());
+    let id = c.propose_offer(vec![ok], long.clone());
     assert_eq!(c.get_proposal(id).unwrap().evidence, long);
 }
 
@@ -643,7 +898,7 @@ fn lists_proposals_in_order_with_paging() {
         let mut item = terms();
         item.case_id = format!("0x{:064x}", index + 1);
         item.nonce = U64(u64::from(index));
-        c.propose_case(item, EVIDENCE.to_string());
+        c.propose_offer(vec![item], EVIDENCE.to_string());
     }
     let ids = |list: Vec<crate::types::Proposal>| list.iter().map(|p| p.id.0).collect::<Vec<_>>();
     assert_eq!(ids(c.list_proposals(U64(0), 10)), vec![0, 1, 2]);
@@ -662,7 +917,7 @@ fn list_limit_is_capped() {
         let mut item = terms();
         item.case_id = format!("0x{:064x}", index + 1);
         item.nonce = U64(index);
-        c.propose_case(item, EVIDENCE.to_string());
+        c.propose_offer(vec![item], EVIDENCE.to_string());
     }
     assert_eq!(c.list_proposals(U64(0), 1000).len(), 50);
     assert_eq!(c.list_proposals(U64(50), 1000).len(), 10);

@@ -181,13 +181,26 @@ export function normalizeDeployment(raw: Record<string, unknown>): Deployment {
   };
 }
 
+export interface NearProposalCase {
+  terms: { case_id: Hex; chain_id: string; evidence_hash: Hex; tiers: { until: string; reward_bps: number }[] };
+  digest: string;
+  status: string;
+}
+
 export interface NearProposal {
   id: string;
   status: string;
   approvals: string[];
-  digest: string;
   evidence: string;
-  terms: { case_id: Hex; chain_id: string; evidence_hash: Hex; tiers: { until: string; reward_bps: number }[] };
+  cases: NearProposalCase[];
+}
+
+export interface NearChainVote {
+  id: string;
+  chain_id: string;
+  pactum: Address;
+  approvals: string[];
+  status: string;
 }
 
 export interface NearConfig {

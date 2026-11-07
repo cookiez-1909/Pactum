@@ -211,13 +211,13 @@ export function Landing() {
             The address that opens cases is derived from a NEAR contract through Chain Signatures. Nobody on the team holds its key, and the contract account has none left at all. It can only sign the exact terms its guardians approved, and they read the full offer on NEAR before approving.
           </p>
           <p className="section-lead">
-            Stolen funds move between chains, so the same contract signs for all of them. It runs on Sepolia, Base Sepolia and Robinhood testnet today, with one approval rule, one reward limit and the same signing address on all three. A signature made for one chain is rejected on the others.
+            Stolen funds move between chains, so one offer can cover them all. Guardians approve once on NEAR and the contract gets a signature for each chain, with the same signing address on every one. If the funds move to a new chain, guardians vote it in. This has run on Sepolia, Base Sepolia and Robinhood testnet, and a signature made for one chain is rejected on the others.
           </p>
           <p className="section-lead">
             NEAR Intents adds the last step for users: a refund can be swapped for another asset on another chain, without a bridge. The app shows live quotes for this. No swap runs here, because NEAR Intents has no testnet.
           </p>
           <p className="section-lead muted">
-            A multisig on each chain could do something similar, but each would be a separate copy of the rules, and it would sign whatever enough signers approve. Here the contract rejects terms that break the rules, even if enough guardians approve them. Guardians still hold their own NEAR keys, and each chain still needs its own approval. Adding a chain needs a new controller. This covers EVM chains only. It cannot open a case on Bitcoin, because the split needs a smart contract on the same chain as the funds.
+            A multisig on each chain could do something similar, but each would be a separate copy of the rules, needing its own round of signatures, and it would sign whatever enough signers approve. Here the contract rejects terms that break the rules, even if enough guardians approve them. Guardians still hold their own NEAR keys, and someone must still relay each signature to its chain. This covers EVM chains only. It cannot open a case on Bitcoin, because the split needs a smart contract on the same chain as the funds.
           </p>
         </Reveal>
       </section>
@@ -254,7 +254,7 @@ export function Landing() {
           <p className="section-lead">The full flow has run on Sepolia, Base Sepolia and Robinhood testnet, signed by one contract on NEAR testnet. <code>make verify</code> re-checks it from public data, with no wallet.</p>
         </Reveal>
         <div className="metrics">
-          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={67} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
+          <Reveal delay={0}><div className="metric"><span className="metric-value"><CountUp value={63} format={(v) => Math.round(v).toString()} /></span><span>on-chain checks in <code>make verify</code></span></div></Reveal>
           <Reveal delay={80}><div className="metric"><span className="metric-value"><CountUp value={45} format={(v) => `${Math.round(v)}/45`} /></span><span>bugs injected into the contract and caught by its tests</span></div></Reveal>
           <Reveal delay={160}><div className="metric"><span className="metric-value"><CountUp value={100} format={(v) => `${Math.round(v)}%`} /></span><span>of lines and branches in the contract covered</span></div></Reveal>
           <Reveal delay={240}><div className="metric"><span className="metric-value">8.7 to 11.7s</span><span>for the MPC network to sign, across 14 signatures on testnet</span></div></Reveal>

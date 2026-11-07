@@ -1,10 +1,10 @@
 // Guardians page: reads the NEAR contract directly, with no server. This is where an offer is read and approved
-// before any signature exists, for every chain the controller serves.
+// once before any signature exists, for every chain it covers.
 import { useEffect, useState } from "react";
 import { keccak256, stringToHex, type Address } from "viem";
 import proof from "../../../deployments/sepolia.json";
 import { useApp } from "../appdata";
-import { caseIsOpen, nearAccessKeyCount, nearAccountUrl, nearView, TESTNET_CHAINS, type NearConfig, type NearProposal } from "../chain";
+import { caseIsOpen, nearAccessKeyCount, nearAccountUrl, nearView, TESTNET_CHAINS, type NearChainVote, type NearConfig, type NearProposal, type NearProposalCase } from "../chain";
 import { ExternalLink } from "../components/icons";
 import { shortAddress } from "../format";
 import { nearName } from "../labels";
@@ -14,14 +14,20 @@ const PAGE_SIZE = 50;
 interface Snapshot {
   config: NearConfig;
   proposals: NearProposal[];
+  votes: NearChainVote[];
   keys: number | null;
 }
 
 const STATUS_NOTE: Record<string, string> = {
   Pending: "Waiting for guardians",
-  Approved: "Approved, waiting for a signature",
-  Signing: "The MPC network is signing",
-  Signed: "Signed by Chain Signatures",
+  Approved: "Approved, waiting for signatures",
+  Signed: "Signed for every chain",
+};
+
+const CASE_STATUS_NOTE: Record<string, string> = {
+  Unsigned: "Not signed yet",
+  Signing: "Signing",
+  Signed: "Signed",
 };
 
 // The record is any string a guardian submitted. If it is JSON with an offer, show the text; otherwise show it as is.
@@ -58,14 +64,15 @@ export function Guardians() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [config, proposals, keys] = await Promise.all([
+        const [config, proposals, votes, keys] = await Promise.all([
           nearView<NearConfig>(account, "get_config", {}),
           nearView<NearProposal[]>(account, "list_proposals", { from: "0", limit: PAGE_SIZE }),
+          nearView<NearChainVote[]>(account, "list_chain_proposals", { from: "0", limit: PAGE_SIZE }),
           nearAccessKeyCount(account),
         ]);
         if (cancelled) return;
-        if (!config || !proposals) throw new Error("empty");
-        setData({ config, proposals, keys });
+        if (!config || !proposals || !votes) throw new Error("empty");
+        setData({ config, proposals, votes, keys });
         setFailed(false);
       } catch {
         if (!cancelled) setFailed(true);
@@ -84,7 +91,7 @@ export function Guardians() {
       <header className="page-head">
         <div>
           <h1>Guardians</h1>
-          <p>Every offer is read and approved here, on NEAR, before anything can be signed. One contract serves every chain. This page reads it directly, with no server.</p>
+          <p>Guardians read an offer here, on NEAR, and approve it once for every chain it covers. Nothing can be signed before that. This page reads the contract directly, with no server.</p>
         </div>
       </header>
 
@@ -123,15 +130,17 @@ export function Guardians() {
               <ul className="chain-list">
                 {data.config.deployments.map((item) => {
                   const target = TESTNET_CHAINS[item.chain_id];
+                  const vote = data.votes.find((entry) => entry.chain_id === item.chain_id && entry.status === "Added");
                   return (
                     <li key={item.chain_id}>
                       <span className="party-name">{target?.label ?? `Chain ${item.chain_id}`}</span>
                       {target ? <a href={`${target.explorer}/address/${item.pactum}`} target="_blank" rel="noreferrer"><code>{shortAddress(item.pactum)}</code> <ExternalLink /></a> : <code>{shortAddress(item.pactum)}</code>}
+                      {vote && <span className="chain-vote">Added by a guardian vote: {vote.approvals.map(nearName).join(", ")}</span>}
                     </li>
                   );
                 })}
               </ul>
-              <p className="fine-print">The same address signs on all of them, and it is derived from the NEAR contract. A signature made for one chain is rejected on another.</p>
+              <p className="fine-print">The same address signs on all of them, and it is derived from the NEAR contract. A signature made for one chain is rejected on another. A vote can add a chain, but cannot replace one already served.</p>
             </section>
           </div>
         </div>
@@ -141,12 +150,43 @@ export function Guardians() {
 }
 
 function ProposalCard({ proposal, config }: { proposal: NearProposal; config: NearConfig }) {
-  const { terms } = proposal;
-  const target = TESTNET_CHAINS[terms.chain_id];
-  const pactum = config.deployments.find((item) => item.chain_id === terms.chain_id)?.pactum as Address | undefined;
-  const [opened, setOpened] = useState<boolean | null>(null);
   // Recomputed in the browser; no value reported by a page or server is trusted.
-  const matches = keccak256(stringToHex(proposal.evidence)) === terms.evidence_hash;
+  const textHash = keccak256(stringToHex(proposal.evidence));
+  const matches = proposal.cases.every((item) => item.terms.evidence_hash === textHash);
+
+  return (
+    <li className="proposal">
+      <div className="proposal-head">
+        <span className="proposal-chain">{proposal.cases.length === 1 ? "One case" : `${proposal.cases.length} cases, one offer`}</span>
+        <span className={proposal.status === "Signed" ? "badge badge-open" : "badge badge-loading"}>{STATUS_NOTE[proposal.status] ?? proposal.status}</span>
+        <span className="muted small">Proposal {proposal.id}</span>
+      </div>
+      <blockquote className="proposal-offer">{offerText(proposal.evidence)}</blockquote>
+      <p className={matches ? "proposal-hash is-good" : "proposal-hash is-bad"}>
+        {matches ? "Matches the hash in the signed terms of every case. Checked in your browser." : "Does not match the hash in the signed terms."}
+      </p>
+      <p className="proposal-approvals">{proposal.approvals.length ? `Approved once by ${proposal.approvals.map(nearName).join(", ")}` : "Nobody has approved this yet"}</p>
+      <div className="table-wrap">
+        <table className="data-table offer-table">
+          <thead><tr><th scope="col">Chain</th><th scope="col">Reward</th><th scope="col">Signature</th><th scope="col">Signed hash</th><th scope="col">Case</th></tr></thead>
+          <tbody>
+            {proposal.cases.map((item) => <CaseRow key={item.digest} item={item} config={config} />)}
+          </tbody>
+        </table>
+      </div>
+      <details className="proposal-record">
+        <summary>Full public record</summary>
+        <pre>{prettyRecord(proposal.evidence)}</pre>
+      </details>
+    </li>
+  );
+}
+
+function CaseRow({ item, config }: { item: NearProposalCase; config: NearConfig }) {
+  const { terms } = item;
+  const target = TESTNET_CHAINS[terms.chain_id];
+  const pactum = config.deployments.find((entry) => entry.chain_id === terms.chain_id)?.pactum as Address | undefined;
+  const [opened, setOpened] = useState<boolean | null | undefined>(undefined);
 
   useEffect(() => {
     if (!pactum) return;
@@ -160,26 +200,12 @@ function ProposalCard({ proposal, config }: { proposal: NearProposal; config: Ne
   }, [pactum, terms.chain_id, terms.case_id]);
 
   return (
-    <li className="proposal">
-      <div className="proposal-head">
-        <span className="proposal-chain">{target?.label ?? `Chain ${terms.chain_id}`}</span>
-        <span className={proposal.status === "Signed" ? "badge badge-open" : "badge badge-loading"}>{STATUS_NOTE[proposal.status] ?? proposal.status}</span>
-        <span className="muted small">Proposal {proposal.id}</span>
-      </div>
-      <blockquote className="proposal-offer">{offerText(proposal.evidence)}</blockquote>
-      <p className={matches ? "proposal-hash is-good" : "proposal-hash is-bad"}>
-        {matches ? "Matches the hash in the signed terms. Checked in your browser." : "Does not match the hash in the signed terms."}
-      </p>
-      <dl className="facts">
-        <div><dt>Reward</dt><dd>{terms.tiers.map((tier) => `${tier.reward_bps / 100}% until ${date(tier.until)}`).join(", then ")}</dd></div>
-        <div><dt>Approved by</dt><dd>{proposal.approvals.length ? proposal.approvals.map(nearName).join(", ") : "Nobody yet"}</dd></div>
-        <div><dt>Case</dt><dd>{opened === null ? "Reading the chain…" : opened ? `Open on ${target?.label}` : `Not opened on ${target?.label} yet`}</dd></div>
-        <div><dt>Signed hash</dt><dd><code>{shortAddress(proposal.digest)}</code></dd></div>
-      </dl>
-      <details className="proposal-record">
-        <summary>Full public record</summary>
-        <pre>{prettyRecord(proposal.evidence)}</pre>
-      </details>
-    </li>
+    <tr className="offer-chain">
+      <td className="offer-chain-name">{target?.label ?? `Chain ${terms.chain_id}`}</td>
+      <td>{terms.tiers.map((tier) => `${tier.reward_bps / 100}% until ${date(tier.until)}`).join(", then ")}</td>
+      <td>{CASE_STATUS_NOTE[item.status] ?? item.status}</td>
+      <td><code>{shortAddress(item.digest)}</code></td>
+      <td>{opened === undefined ? "Reading…" : opened === null ? "Could not read" : opened ? "Open" : "Not opened yet"}</td>
+    </tr>
   );
 }

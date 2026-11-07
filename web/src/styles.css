@@ -796,3 +796,7 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .chain-list { display: grid; gap: 8px; margin: 0 0 10px; padding: 0; list-style: none; }
 .chain-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .page > .notice { margin-bottom: 16px; }
+.proposal-approvals { margin: 0 0 12px; font-size: 14px; color: var(--ink); }
+.offer-chain-name { font-weight: 600; white-space: nowrap; }
+.chain-vote { flex-basis: 100%; font-size: 12px; color: var(--ink-2); }
+.offer-table code { white-space: nowrap; }

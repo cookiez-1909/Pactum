@@ -21,7 +21,7 @@ import {
 } from "viem";
 import { baseSepolia, robinhoodTestnet, sepolia } from "viem/chains";
 import { ROOT, artifact, formatTokens, ONE_TOKEN, type CaseTerms } from "./lib/common.ts";
-import { accessKeyCount, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearProposal } from "./lib/near.ts";
+import { accessKeyCount, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearChainProposal, type NearProposal } from "./lib/near.ts";
 
 const ERC20 = parseAbi(["event Transfer(address indexed from, address indexed to, uint256 value)"]);
 
@@ -80,7 +80,26 @@ async function checkController(targets: Target[]): Promise<void> {
     targets.map((target) => target.label).join(", "),
   );
   const listed = await view<NearProposal[]>(controllerAccount, "list_proposals", { from: "0", limit: 50 });
-  check("Anyone can list the proposals from NEAR", targets.every((target) => listed.some((item) => item.id === target.d.near.proposalId)), `${listed.length} proposals`);
+  const proposalId = targets[0]!.d.near.proposalId as string;
+  check("Anyone can list the proposals from NEAR", listed.some((item) => item.id === proposalId), `${listed.length} proposals`);
+
+  // One offer, one approval round: every chain points to the same proposal, and the vote count equals the threshold.
+  const proposal = await view<NearProposal>(controllerAccount, "get_proposal", { proposal_id: proposalId });
+  check("One offer covers every chain", targets.every((target) => target.d.near.proposalId === proposalId && proposal.cases[target.d.near.caseIndex]?.terms.chain_id === String(target.chain.id)) && proposal.cases.length === targets.length, `${proposal.cases.length} cases`);
+  check("One approval round signed them all", proposal.status === "Signed" && proposal.approvals.length === config.threshold && proposal.cases.every((item) => item.status === "Signed"), `${proposal.approvals.length} approvals`);
+  check("Offer text stored on NEAR hashes to evidenceHash on every chain", targets.every((target) => keccak256(stringToHex(proposal.evidence)) === target.terms.evidenceHash && proposal.evidence === JSON.stringify(target.d.evidence)), `${proposal.evidence.length} bytes`);
+  const approve = await provider.viewTransactionStatus({ txHash: targets[0]!.d.near.txs.approve2, accountId: proposal.approvals[1] as string, waitUntil: "FINAL" });
+  check("Final approval transaction succeeded on NEAR", typeof (approve.status as { SuccessValue?: string }).SuccessValue === "string", targets[0]!.d.near.txs.approve2);
+
+  // The last chain was added by vote after the contract lost every key, so nobody could have edited it by hand.
+  const late = targets[targets.length - 1]!;
+  const votes = await view<NearChainProposal[]>(controllerAccount, "list_chain_proposals", { from: "0", limit: 50 });
+  const vote = votes.find((item) => item.chain_id === String(late.chain.id));
+  check(
+    `${late.label} was added by a guardian vote`,
+    vote?.status === "Added" && vote.approvals.length >= config.threshold && vote.pactum.toLowerCase() === late.d.contracts.Pactum.toLowerCase(),
+    vote ? `${vote.approvals.length} approvals` : "no vote found",
+  );
 }
 
 async function checkChain({ label, client, d, terms }: Target): Promise<void> {
@@ -97,19 +116,13 @@ async function checkChain({ label, client, d, terms }: Target): Promise<void> {
 
   // Terms: NEAR and the EVM produce the same hash, and the signature recovers the controller.
   const proposal = await view<NearProposal>(controllerAccount, "get_proposal", { proposal_id: d.near.proposalId });
-  const config = await view<{ threshold: number }>(controllerAccount, "get_config");
+  const nearCase = proposal.cases[d.near.caseIndex]!;
   const evmDigest = (await client.readContract({ address: desk, abi: deskAbi, functionName: "hashCaseTerms", args: [terms] })) as Hex;
   const nearDigest = await view<Hex>(controllerAccount, "case_digest", { terms: toNearTerms(terms) });
-  check("EIP-712 digest matches on NEAR and EVM", evmDigest === proposal.digest && evmDigest === nearDigest, evmDigest);
-  check("Proposal was signed after enough approvals", proposal.status === "Signed" && proposal.approvals.length >= config.threshold, `${proposal.approvals.length} approvals`);
-  check("Offer text stored on NEAR hashes to evidenceHash", keccak256(stringToHex(proposal.evidence)) === terms.evidenceHash && proposal.evidence === JSON.stringify(d.evidence), `${proposal.evidence.length} bytes`);
-  check("Signature was stored on NEAR", typeof proposal.signature === "string");
-  const recovered = await recoverAddress({ hash: evmDigest, signature: proposal.signature as Hex });
+  check("EIP-712 digest matches on NEAR and EVM", evmDigest === nearCase.digest && evmDigest === nearDigest, evmDigest);
+  check("Signature was stored on NEAR", typeof nearCase.signature === "string" && nearCase.signature === d.signature);
+  const recovered = await recoverAddress({ hash: evmDigest, signature: nearCase.signature as Hex });
   check("Signature recovers to the controller", isAddressEqual(recovered, onChainController), recovered);
-
-  // The final NEAR approval transaction must have succeeded on chain.
-  const approve = await provider.viewTransactionStatus({ txHash: d.near.txs.approve2, accountId: proposal.approvals[1] as string, waitUntil: "FINAL" });
-  check("Final approval transaction succeeded on NEAR", typeof (approve.status as { SuccessValue?: string }).SuccessValue === "string", d.near.txs.approve2);
 
   // The case was opened with that exact signature.
   const openReceipt = await client.getTransactionReceipt({ hash: d.txs.openCase as Hash });

@@ -452,11 +452,13 @@ check("guardians page shows all three chains", servedChains.join() === "Sepolia,
 check("guardians page shows the rule and the limit", guardiansText.includes("2 of 3 guardians") && guardiansText.includes("20% on every chain"));
 check("guardians page reports no access keys", guardiansText.includes("0. Nobody can change this contract"));
 const proposalCount = await guardians.locator(".proposal").count();
-const proposalChains = await guardians.locator(".proposal-chain").allInnerTexts();
-check("a proposal is listed for each chain", servedChains.every((name) => proposalChains.includes(name)), proposalChains.join());
+check("one offer has one approval round for three chains", (await guardians.locator(".proposal").last().innerText()).includes("Approved once by Guardian A, Guardian B") && (await guardians.locator(".proposal").last().locator(".offer-chain").count()) === 3);
+check("the vote that added a chain is shown", guardiansText.includes("Added by a guardian vote") && guardiansText.includes("Robinhood testnet"));
+const proposalChains = await guardians.locator(".offer-chain-name").allInnerTexts();
+check("the offer lists a case on each chain", servedChains.every((name) => proposalChains.includes(name)), proposalChains.join());
 check("the guardians can read the offer", guardiansText.includes("Keep 10% if the funds come back within 72 hours"));
 check("every offer text matches its hash", (await guardians.locator(".proposal-hash.is-good").count()) === proposalCount);
-await guardians.waitForFunction(() => [...document.querySelectorAll(".proposal")].every((el) => /Open on /.test(el.textContent ?? "")), null, { timeout: 30000 });
+await guardians.waitForFunction(() => [...document.querySelectorAll(".offer-chain")].every((el) => /Open/.test(el.textContent ?? "")), null, { timeout: 30000 });
 check("each case is read back from its own chain", true);
 await guardians.locator(".proposal-record summary").first().click();
 check("the full record opens", (await guardians.locator(".proposal-record pre").first().innerText()).includes("drainTx"));

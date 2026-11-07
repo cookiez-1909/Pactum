@@ -1,6 +1,7 @@
 // Runs the full demo scenario from section 9 with one command.
 //   tsx demo.ts --mode local    : Anvil with a SIMULATED controller using a test key. No NEAR needed.
-//   tsx demo.ts --mode testnet  : Sepolia, Base Sepolia, Robinhood testnet and NEAR testnet. One controller on NEAR signs for all three chains.
+//   tsx demo.ts --mode testnet  : Sepolia, Base Sepolia, Robinhood testnet and NEAR testnet. The hack happens on all three chains,
+//                                 the council on NEAR votes in the third chain, then one approval opens the offer on all three.
 //   Add --stage: on the main chain, stop right after openCase so the viewer returns funds and claims refunds in the interface.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -37,7 +38,8 @@ import {
 } from "./lib/common.ts";
 import {
   accessKeyCount,
-  approveCase,
+  approveChain,
+  approveOffer,
   createFaucetAccount,
   createSubAccount,
   richestAccount,
@@ -45,8 +47,10 @@ import {
   deriveEvmAddress,
   expectNearFailure,
   getProposal,
-  proposeCase,
+  proposeChain,
+  proposeOffer,
   removeAllAccessKeys,
+  retrySignature,
   toNearTerms,
   view,
   type NearCredentials,
@@ -84,8 +88,9 @@ interface ControllerSide {
   label: string;
   address: Address;
   deploy(deployments: { chainId: bigint; pactum: Address }[]): Promise<void>;
-  // Also returns this chain's own record: the proposal id and its NEAR transactions.
-  sign(terms: CaseTerms, digest: Hex, evidence: string): Promise<{ signature: Hex; record: Record<string, unknown> }>;
+  addChain(chainId: bigint, pactum: Address, label: string): Promise<void>;
+  // One approval for the whole offer, returning one signature per case in order.
+  signOffer(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<{ signatures: Hex[]; record: Record<string, unknown> }>;
 }
 
 // An EVM chain the demo runs on, with its deployed contracts and the name of its results file.
@@ -174,9 +179,10 @@ function simulatedController(): ControllerSide {
     label: "SIMULATED (local test key, no Chain Signatures)",
     address: account.address,
     async deploy() {},
-    async sign(_terms, digest) {
+    async addChain() {},
+    async signOffer(cases) {
       detail("controller", "SIMULATED: signing with a local test key, not NEAR");
-      return { signature: await account.sign!({ hash: digest }), record: { simulated: true } };
+      return { signatures: await Promise.all(cases.map(({ digest }) => account.sign!({ hash: digest }))), record: { simulated: true } };
     },
   };
 }
@@ -212,42 +218,63 @@ async function nearController(): Promise<ControllerSide> {
       if (keys !== 0) throw new Error(`Controller still has ${keys} access keys`);
       detail("near contract", `${controller.accountId} (0 access keys left)`);
     },
-    async sign(terms, digest, evidence) {
-      const nearTxs: Record<string, string> = { ...sharedTxs };
+    // The controller was created without this chain. The council votes it in, and the signing address does not change.
+    async addChain(chainId, pactum, label) {
       const [first, second] = guardians as [NearCredentials, NearCredentials, NearCredentials];
-      const onChainDigest = await view<Hex>(controller.accountId, "case_digest", { terms: toNearTerms(terms) });
-      if (onChainDigest !== digest) throw new Error(`Digest mismatch: NEAR ${onChainDigest}, EVM ${digest}`);
-      detail("digest", `${digest} (same on NEAR and EVM)`);
+      if (!(await expectNearFailure(stranger, controller.accountId, "propose_chain", { chain_id: chainId.toString(), pactum }, "caller is not a guardian"))) {
+        throw new Error("A stranger was able to propose a chain");
+      }
+      detail("stranger's chain", "rejected on NEAR");
+      const { id, txHash } = await proposeChain(first, controller.accountId, chainId, pactum);
+      sharedTxs.proposeChain = txHash;
+      sharedTxs.approveChain1 = await approveChain(first, controller.accountId, id);
+      sharedTxs.approveChain2 = await approveChain(second, controller.accountId, id);
+      const again = await deriveEvmAddress(controller.accountId, DERIVATION_PATH);
+      if (again !== address) throw new Error(`Signing address changed: ${again}`);
+      detail("chain vote", `2 guardians added ${label}, signing address unchanged`);
+    },
+    async signOffer(cases, evidence) {
+      const [first, second] = guardians as [NearCredentials, NearCredentials, NearCredentials];
+      const allTerms = cases.map((item) => item.terms);
+      for (const { terms, digest } of cases) {
+        const onChainDigest = await view<Hex>(controller.accountId, "case_digest", { terms: toNearTerms(terms) });
+        if (onChainDigest !== digest) throw new Error(`Digest mismatch: NEAR ${onChainDigest}, EVM ${digest}`);
+      }
+      detail("digests", `${cases.length} chains, the same on NEAR and EVM`);
 
-      if (!(await expectNearFailure(stranger, controller.accountId, "propose_case", { terms: toNearTerms(terms), evidence }, "caller is not a guardian"))) {
-        throw new Error("A stranger was able to propose a case");
+      if (!(await expectNearFailure(stranger, controller.accountId, "propose_offer", { cases: allTerms.map(toNearTerms), evidence }, "caller is not a guardian"))) {
+        throw new Error("A stranger was able to propose an offer");
       }
       detail("stranger proposal", "rejected on NEAR");
 
-      const { id, txHash } = await proposeCase(first, controller.accountId, terms, evidence);
-      nearTxs.propose = txHash;
-      nearTxs.approve1 = await approveCase(first, controller.accountId, id);
+      const { id, txHash } = await proposeOffer(first, controller.accountId, allTerms, evidence);
+      const offerTxs: Record<string, string> = { propose: txHash };
+      offerTxs.approve1 = await approveOffer(first, controller.accountId, id);
       const pending = await getProposal(controller.accountId, id);
       if (pending.status !== "Pending") throw new Error(`Expected Pending, got ${pending.status}`);
       detail("guardian 1 of 2", `${first.accountId} approved, still ${pending.status}`);
 
-      if (
-        !(await expectNearFailure(stranger, controller.accountId, "on_signed", { proposal_id: id }, "is private"))
-      ) {
+      if (!(await expectNearFailure(stranger, controller.accountId, "on_signed", { proposal_id: id, index: 0 }, "is private"))) {
         throw new Error("A stranger was able to call on_signed");
       }
       detail("forged callback", "rejected on NEAR (#[private])");
 
       const started = Date.now();
-      nearTxs.approve2 = await approveCase(second, controller.accountId, id);
-      const proposal = await getProposal(controller.accountId, id);
-      if (proposal.status !== "Signed" || !proposal.signature) {
-        throw new Error(`Signing failed, status ${proposal.status}. Retry with retry_signature.`);
-      }
+      offerTxs.approve2 = await approveOffer(second, controller.accountId, id);
       detail("guardian 2 of 2", `${second.accountId} approved`);
-      detail("chain signatures", `signed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+      let proposal = await getProposal(controller.accountId, id);
+      // Signatures arrive after the approval transaction. A failed case is signed again; only approved hashes can be signed.
+      for (let attempt = 0; attempt < 40 && proposal.status !== "Signed"; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        proposal = await getProposal(controller.accountId, id);
+        if (proposal.status === "Approved" && proposal.cases.every((item) => item.status !== "Signing")) {
+          offerTxs.retry = await retrySignature(first, controller.accountId, id);
+        }
+      }
+      if (proposal.status !== "Signed") throw new Error(`Signing failed, status ${proposal.status}. Retry with retry_signature.`);
+      detail("chain signatures", `${cases.length} signatures in ${((Date.now() - started) / 1000).toFixed(1)}s, from one approval round`);
       return {
-        signature: proposal.signature,
+        signatures: proposal.cases.map((item) => item.signature as Hex),
         record: {
           simulated: false,
           controllerAccount: controller.accountId,
@@ -255,7 +282,7 @@ async function nearController(): Promise<ControllerSide> {
           guardians: guardians.map((guardian) => guardian.accountId),
           threshold: THRESHOLD,
           proposalId: id,
-          txs: nearTxs,
+          txs: { ...sharedTxs, ...offerTxs },
         },
       };
     },
@@ -381,6 +408,9 @@ async function run(mode: Mode, stage: boolean) {
 
   loadRootEnv();
   const actors = mode === "local" ? anvilActors() : loadOrCreateSepoliaActors();
+  const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
+  const vaultAbi = artifact("VulnerableVault", "VulnerableVault.sol").abi;
+  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
 
   step(1, TOTAL_STEPS, "Deploy contracts");
   const controller = mode === "local" ? simulatedController() : await nearController();
@@ -399,77 +429,106 @@ async function run(mode: Mode, stage: boolean) {
     chains.push(await deployChain("base-sepolia", "Base Sepolia", baseEvm, actors, controller.address));
     chains.push(await deployChain("robinhood-testnet", "Robinhood testnet", robinhoodEvm, actors, controller.address));
   }
-  await controller.deploy(chains.map((chain) => ({ chainId: BigInt(chain.evm.chain.id), pactum: chain.contracts.Pactum })));
+  const toDeployment = (chain: ChainRun) => ({ chainId: BigInt(chain.evm.chain.id), pactum: chain.contracts.Pactum });
+  // The last chain is not there at creation: when funds move to a new chain, the council votes it in.
+  const lateChain = chains.length > 1 ? chains[chains.length - 1]! : undefined;
+  await controller.deploy(chains.filter((chain) => chain !== lateChain).map(toDeployment));
+  if (lateChain) await controller.addChain(BigInt(lateChain.evm.chain.id), lateChain.contracts.Pactum, lateChain.label);
   detail("controller address", `${controller.address} (the same on every chain)`);
   detail("controlled by", controller.label);
 
-  // The main chain runs last: with --stage it stops so the viewer continues in the interface.
-  for (const chain of [...chains].reverse()) {
-    console.log(`\n=== ${chain.label} ===`);
-    await runStory(mode, stage && chain === chains[0], chain, controller, actors, chains);
-  }
-}
-
-// The whole story on one chain: deposit, hack, guardians approve, funds returned, refunds claimed.
-async function runStory(mode: Mode, stage: boolean, chain: ChainRun, controller: ControllerSide, actors: Actors, chains: ChainRun[]) {
-  const { evm } = chain;
-  const { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes } = chain.contracts;
-  const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
-  const vaultAbi = artifact("VulnerableVault", "VulnerableVault.sol").abi;
-  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
-  const chainId = BigInt(evm.chain.id);
-  detail("MockUSD", usd);
-  detail("VulnerableVault", vault);
-  detail("Pactum", desk);
-  detail("PublicNotes", publicNotes);
-
-  step(2, TOTAL_STEPS, "Users deposit into the demo protocol");
   const users = [actors.alice, actors.bob, actors.carol];
-  for (const [index, user] of users.entries()) {
-    const allocation = ALLOCATIONS[index]!;
-    await evm.send(actors.deployer, usd, usdAbi, "mint", [user.address, allocation]);
-    await evm.send(user, usd, usdAbi, "approve", [vault, allocation]);
-    await evm.send(user, vault, vaultAbi, "deposit", [allocation], `deposit${index}`);
+  for (const chain of chains) {
+    const { evm } = chain;
+    const { MockUSD: usd, VulnerableVault: vault } = chain.contracts;
+    step(2, TOTAL_STEPS, `Users deposit into the demo protocol on ${chain.label}`);
+    for (const [index, user] of users.entries()) {
+      const allocation = ALLOCATIONS[index]!;
+      await evm.send(actors.deployer, usd, usdAbi, "mint", [user.address, allocation]);
+      await evm.send(user, usd, usdAbi, "approve", [vault, allocation]);
+      await evm.send(user, vault, vaultAbi, "deposit", [allocation], `deposit${index}`);
+    }
+    detail("vault balance", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [vault]))} mUSD`);
+
+    step(3, TOTAL_STEPS, `Attacker exploits the bug on ${chain.label}`);
+    await evm.send(actors.attacker, vault, vaultAbi, "emergencyWithdraw", [actors.attacker.address], "drain");
+    detail("stolen", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [actors.attacker.address]))} mUSD`);
+    detail("vault balance", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [vault]))} mUSD`);
   }
-  detail("vault balance", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [vault]))} mUSD`);
 
-  step(3, TOTAL_STEPS, "Attacker exploits the bug");
-  await evm.send(actors.attacker, vault, vaultAbi, "emergencyWithdraw", [actors.attacker.address], "drain");
-  const stolen = await evm.read<bigint>(usd, usdAbi, "balanceOf", [actors.attacker.address]);
-  detail("stolen", `${formatTokens(stolen)} mUSD`);
-  detail("vault balance", `${formatTokens(await evm.read<bigint>(usd, usdAbi, "balanceOf", [vault]))} mUSD`);
-
-  step(4, TOTAL_STEPS, "Guardians read the offer on NEAR and approve, the controller signs");
+  step(4, TOTAL_STEPS, "Guardians read one offer on NEAR and approve once, the controller signs for every chain");
+  // The same users and amounts on every chain, so the refund tree is the same.
   const tree = buildRefundTree(users.map((user, index) => ({ account: user.address, allocation: ALLOCATIONS[index]! })));
   const evidence = {
     incident: "Demo protocol",
-    protocol: vault,
-    token: usd,
-    drainTx: evm.txs.drain,
-    totalLoss: TOTAL_LOSS.toString(),
     offer: { conditions: OFFER_TEXT },
+    chains: chains.map((chain) => ({
+      chainId: chain.evm.chain.id,
+      protocol: chain.contracts.VulnerableVault,
+      token: chain.contracts.MockUSD,
+      drainTx: chain.evm.txs.drain,
+      totalLoss: TOTAL_LOSS.toString(),
+    })),
     allocations: tree.allocations.map(({ account, allocation }) => ({ account, allocation: allocation.toString() })),
   };
   // This exact string is hashed and stored on NEAR, so guardians can read what they approve.
   const evidenceText = JSON.stringify(evidence);
-  const block = await evm.publicClient.getBlock();
-  const terms: CaseTerms = {
-    caseId: keccak256(stringToHex(`pactum-demo:${desk}`)),
-    token: usd,
-    totalLoss: TOTAL_LOSS,
-    maxReturn: TOTAL_LOSS,
-    rewardCap: 150_000n * ONE_TOKEN,
-    refundRoot: tree.root,
-    evidenceHash: keccak256(stringToHex(evidenceText)),
-    tiers: [
-      { until: block.timestamp + 72n * HOUR, rewardBps: 1000 },
-      { until: block.timestamp + 168n * HOUR, rewardBps: 500 },
-    ],
-    nonce: 1n,
-    chainId,
-  };
-  const digest = await evm.read<Hex>(desk, deskAbi, "hashCaseTerms", [terms]);
-  const { signature, record } = await controller.sign(terms, digest, evidenceText);
+  const offerCases = await Promise.all(
+    chains.map(async (chain) => {
+      const block = await chain.evm.publicClient.getBlock();
+      const terms: CaseTerms = {
+        caseId: keccak256(stringToHex(`pactum-demo:${chain.contracts.Pactum}`)),
+        token: chain.contracts.MockUSD,
+        totalLoss: TOTAL_LOSS,
+        maxReturn: TOTAL_LOSS,
+        rewardCap: 150_000n * ONE_TOKEN,
+        refundRoot: tree.root,
+        evidenceHash: keccak256(stringToHex(evidenceText)),
+        tiers: [
+          { until: block.timestamp + 72n * HOUR, rewardBps: 1000 },
+          { until: block.timestamp + 168n * HOUR, rewardBps: 500 },
+        ],
+        nonce: 1n,
+        chainId: BigInt(chain.evm.chain.id),
+      };
+      return { terms, digest: await chain.evm.read<Hex>(chain.contracts.Pactum, deskAbi, "hashCaseTerms", [terms]) };
+    }),
+  );
+  const { signatures, record } = await controller.signOffer(offerCases, evidenceText);
+
+  // The main chain runs last: with --stage it stops so the viewer continues in the interface.
+  for (const chain of [...chains].reverse()) {
+    console.log(`\n=== ${chain.label} ===`);
+    const index = chains.indexOf(chain);
+    const near = mode === "local" ? record : { ...record, caseIndex: index };
+    await finishChain(mode, stage && chain === chains[0], chain, controller, actors, chains, offerCases[index]!, signatures[index]!, near, evidence, tree);
+  }
+}
+
+// The rest on one chain: open the case with the existing signature, return funds, claim refunds.
+async function finishChain(
+  mode: Mode,
+  stage: boolean,
+  chain: ChainRun,
+  controller: ControllerSide,
+  actors: Actors,
+  chains: ChainRun[],
+  { terms, digest }: { terms: CaseTerms; digest: Hex },
+  signature: Hex,
+  near: Record<string, unknown>,
+  evidence: Record<string, unknown>,
+  tree: ReturnType<typeof buildRefundTree>,
+) {
+  const { evm } = chain;
+  const { MockUSD: usd, VulnerableVault: vault, Pactum: desk, PublicNotes: publicNotes } = chain.contracts;
+  const usdAbi = artifact("MockUSD", "MockUSD.sol").abi;
+  const deskAbi = artifact("Pactum", "Pactum.sol").abi;
+  const users = [actors.alice, actors.bob, actors.carol];
+  const stolen = await evm.read<bigint>(usd, usdAbi, "balanceOf", [actors.attacker.address]);
+  detail("MockUSD", usd);
+  detail("VulnerableVault", vault);
+  detail("Pactum", desk);
+  detail("PublicNotes", publicNotes);
 
   step(5, TOTAL_STEPS, "Anyone relays the signature to open the case");
   // The deployer submits it here, but the contract does not care who sends it.
@@ -489,7 +548,7 @@ async function runStory(mode: Mode, stage: boolean, chain: ChainRun, controller:
     contracts: chain.contracts,
     notesBlock: chain.notesBlock,
     controllerAddress: controller.address,
-    near: record,
+    near,
     // The other chains this controller serves.
     otherChains: chains.filter((other) => other !== chain).map((other) => ({ network: other.network, chainId: other.evm.chain.id, Pactum: other.contracts.Pactum })),
     actors: {

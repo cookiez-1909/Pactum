@@ -82,8 +82,8 @@ impl Setup {
     async fn propose(&self, seed: u8) -> String {
         let outcome = self
             .alice
-            .call(self.controller.id(), "propose_case")
-            .args_json(json!({ "terms": terms(seed), "evidence": EVIDENCE }))
+            .call(self.controller.id(), "propose_offer")
+            .args_json(json!({ "cases": [terms(seed)], "evidence": EVIDENCE }))
             .max_gas()
             .transact()
             .await
@@ -94,9 +94,9 @@ impl Setup {
     }
 
     async fn approve(&self, who: &Account, id: &str) -> near_workspaces::result::ExecutionFinalResult {
-        who.call(self.controller.id(), "approve_case")
+        who.call(self.controller.id(), "approve_offer")
             .args_json(json!({ "proposal_id": id }))
-            .gas(Gas::from_tgas(150))
+            .gas(Gas::from_tgas(300))
             .transact()
             .await
             .unwrap()
@@ -130,7 +130,7 @@ impl Setup {
     async fn retry(&self, who: &Account, id: &str) -> near_workspaces::result::ExecutionFinalResult {
         who.call(self.controller.id(), "retry_signature")
             .args_json(json!({ "proposal_id": id }))
-            .gas(Gas::from_tgas(150))
+            .gas(Gas::from_tgas(300))
             .transact()
             .await
             .unwrap()
@@ -160,12 +160,12 @@ async fn threshold_requests_exact_digest_with_real_cross_contract_call() {
     assert_eq!(last["caller"], s.controller.id().to_string());
     assert_eq!(last["deposit_yocto"], "1");
     let request: Value = serde_json::from_str(last["request"].as_str().unwrap()).unwrap();
-    let digest = proposal["digest"].as_str().unwrap().trim_start_matches("0x");
+    let digest = proposal["cases"][0]["digest"].as_str().unwrap().trim_start_matches("0x");
     assert_eq!(request["payload_v2"]["Ecdsa"], digest);
     assert_eq!(request["path"], "pactum-1");
     assert_eq!(request["domain_id"], 0);
 
-    let signature = proposal["signature"].as_str().unwrap();
+    let signature = proposal["cases"][0]["signature"].as_str().unwrap();
     assert_eq!(signature.len(), 2 + 65 * 2);
     assert!(signature.ends_with("1b"));
 }
@@ -179,14 +179,15 @@ async fn signer_failure_returns_to_approved_and_anyone_can_retry() {
     let _ = s.approve(&s.bob, &id).await;
     let proposal = s.proposal(&id).await;
     assert_eq!(proposal["status"], "Approved");
-    assert!(proposal["signature"].is_null());
+    assert_eq!(proposal["cases"][0]["status"], "Unsigned");
+    assert!(proposal["cases"][0]["signature"].is_null());
 
     s.set_mode("Ok").await;
     let retried = s.retry(&s.stranger, &id).await;
     assert!(retried.is_success(), "{:?}", retried.failures());
     let signed = s.proposal(&id).await;
     assert_eq!(signed["status"], "Signed");
-    assert_eq!(signed["digest"], proposal["digest"], "retry must sign the same digest");
+    assert_eq!(signed["cases"][0]["digest"], proposal["cases"][0]["digest"], "retry must sign the same digest");
 }
 
 #[tokio::test]
@@ -211,7 +212,7 @@ async fn too_little_gas_rolls_back_the_approval() {
 
     let result = s
         .bob
-        .call(s.controller.id(), "approve_case")
+        .call(s.controller.id(), "approve_offer")
         .args_json(json!({ "proposal_id": id }))
         .gas(Gas::from_tgas(30))
         .transact()
@@ -243,8 +244,8 @@ async fn wasm_rejects_unauthorized_calls_for_the_right_reason() {
 
     let propose = s
         .stranger
-        .call(s.controller.id(), "propose_case")
-        .args_json(json!({ "terms": terms(2), "evidence": EVIDENCE }))
+        .call(s.controller.id(), "propose_offer")
+        .args_json(json!({ "cases": [terms(2)], "evidence": EVIDENCE }))
         .max_gas()
         .transact()
         .await
@@ -312,17 +313,96 @@ async fn keeps_working_with_no_access_keys() {
     assert_eq!(s.proposal(&id).await["status"], "Signed");
 }
 
-// Real wasm: one council signs for two chains, the offer text reads back, and the two chains' hashes differ.
+fn on_chain(seed: u8, chain_id: &str) -> Value {
+    let mut item = terms(seed);
+    item["chain_id"] = json!(chain_id);
+    item
+}
+
+impl Setup {
+    async fn propose_cases(&self, cases: Vec<Value>) -> String {
+        self.alice
+            .call(self.controller.id(), "propose_offer")
+            .args_json(json!({ "cases": cases, "evidence": EVIDENCE }))
+            .max_gas()
+            .transact()
+            .await
+            .unwrap()
+            .into_result()
+            .unwrap()
+            .json()
+            .unwrap()
+    }
+}
+
+// Real wasm with real gas: one approval signs for all three chains in a single 300 Tgas transaction.
 #[tokio::test]
-async fn one_council_signs_for_two_chains_and_keeps_the_offer_text() {
+async fn one_approval_round_signs_three_chains() {
     let s = setup().await;
-    let first = s.propose(1).await;
-    let mut other = terms(1);
-    other["chain_id"] = json!(BASE_SEPOLIA);
-    let second: String = s
+    let chain = add_third_chain(&s).await;
+    let id = s
+        .propose_cases(vec![on_chain(1, SEPOLIA), on_chain(1, BASE_SEPOLIA), on_chain(1, &chain)])
+        .await;
+
+    assert!(s.approve(&s.alice, &id).await.is_success());
+    assert_eq!(s.signer_calls().await, 0, "signed below threshold");
+    let result = s.approve(&s.bob, &id).await;
+    assert!(result.failures().is_empty(), "{:?}", result.failures());
+    assert_eq!(s.signer_calls().await, 3);
+
+    let proposal = s.proposal(&id).await;
+    assert_eq!(proposal["status"], "Signed");
+    assert_eq!(proposal["approvals"].as_array().unwrap().len(), 2);
+    assert_eq!(proposal["evidence"], EVIDENCE);
+    let cases = proposal["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 3);
+    assert!(cases.iter().all(|item| item["status"] == "Signed" && item["signature"].is_string()));
+    assert_ne!(cases[0]["digest"], cases[1]["digest"]);
+    assert_ne!(cases[1]["digest"], cases[2]["digest"]);
+}
+
+// One failed signature does not lose the others, and signing again only signs what is missing.
+#[tokio::test]
+async fn signer_failure_keeps_a_multi_chain_offer_recoverable() {
+    let s = setup().await;
+    s.set_mode("Panic").await;
+    let id = s.propose_cases(vec![on_chain(1, SEPOLIA), on_chain(1, BASE_SEPOLIA)]).await;
+    let _ = s.approve(&s.alice, &id).await;
+    let _ = s.approve(&s.bob, &id).await;
+    let failed = s.proposal(&id).await;
+    assert_eq!(failed["status"], "Approved");
+    assert!(failed["cases"].as_array().unwrap().iter().all(|item| item["status"] == "Unsigned"));
+
+    s.set_mode("Ok").await;
+    let retried = s.retry(&s.stranger, &id).await;
+    assert!(retried.failures().is_empty(), "{:?}", retried.failures());
+    assert_eq!(s.proposal(&id).await["status"], "Signed");
+}
+
+// An offer larger than one transaction's limit can still be fully signed by calling again.
+#[tokio::test]
+async fn large_offer_finishes_in_a_second_call() {
+    let s = setup().await;
+    let cases = (1..=5).map(|seed| terms(seed)).collect();
+    let id = s.propose_cases(cases).await;
+    let _ = s.approve(&s.alice, &id).await;
+    let _ = s.approve(&s.bob, &id).await;
+    assert_eq!(s.signer_calls().await, 3);
+    assert_eq!(s.proposal(&id).await["status"], "Approved");
+
+    let retried = s.retry(&s.stranger, &id).await;
+    assert!(retried.failures().is_empty(), "{:?}", retried.failures());
+    assert_eq!(s.signer_calls().await, 5);
+    assert_eq!(s.proposal(&id).await["status"], "Signed");
+}
+
+// Adds a chain through a vote and returns its chain id.
+async fn add_third_chain(s: &Setup) -> String {
+    let chain = "46630".to_string();
+    let id: String = s
         .alice
-        .call(s.controller.id(), "propose_case")
-        .args_json(json!({ "terms": other, "evidence": EVIDENCE }))
+        .call(s.controller.id(), "propose_chain")
+        .args_json(json!({ "chain_id": chain, "pactum": "0x6666666666666666666666666666666666666666" }))
         .max_gas()
         .transact()
         .await
@@ -331,30 +411,57 @@ async fn one_council_signs_for_two_chains_and_keeps_the_offer_text() {
         .unwrap()
         .json()
         .unwrap();
-
-    for id in [&first, &second] {
-        assert!(s.approve(&s.alice, id).await.is_success());
-        assert!(s.approve(&s.bob, id).await.is_success());
+    for who in [&s.alice, &s.bob] {
+        who.call(s.controller.id(), "approve_chain")
+            .args_json(json!({ "proposal_id": id }))
+            .max_gas()
+            .transact()
+            .await
+            .unwrap()
+            .into_result()
+            .unwrap();
     }
-    let listed: Vec<Value> = s
+    chain
+}
+
+#[tokio::test]
+async fn guardians_vote_in_a_chain_but_strangers_and_replacements_fail() {
+    let s = setup().await;
+    let stranger = s
+        .stranger
+        .call(s.controller.id(), "propose_chain")
+        .args_json(json!({ "chain_id": "46630", "pactum": BASE_DESK }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    assert!(failure_text(&stranger).contains("caller is not a guardian"), "{}", failure_text(&stranger));
+
+    let replace = s
+        .alice
+        .call(s.controller.id(), "propose_chain")
+        .args_json(json!({ "chain_id": SEPOLIA, "pactum": BASE_DESK }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
+    assert!(failure_text(&replace).contains("chain_id is already served"), "{}", failure_text(&replace));
+
+    add_third_chain(&s).await;
+    let config: Value = s.controller.view("get_config").await.unwrap().json().unwrap();
+    let chains = config["deployments"].as_array().unwrap();
+    assert_eq!(chains.len(), 3);
+    assert_eq!(chains[0]["pactum"], DESK);
+    assert_eq!(chains[2]["chain_id"], "46630");
+    let votes: Vec<Value> = s
         .controller
-        .view("list_proposals")
+        .view("list_chain_proposals")
         .args_json(json!({ "from": "0", "limit": 10 }))
         .await
         .unwrap()
         .json()
         .unwrap();
-    assert_eq!(listed.len(), 2);
-    assert_eq!(listed[0]["status"], "Signed");
-    assert_eq!(listed[1]["status"], "Signed");
-    assert_eq!(listed[0]["evidence"], EVIDENCE);
-    assert_eq!(listed[1]["evidence"], EVIDENCE);
-    assert_eq!(listed[1]["terms"]["chain_id"], BASE_SEPOLIA);
-    assert_ne!(listed[0]["digest"], listed[1]["digest"]);
-    assert_eq!(s.signer_calls().await, 2);
-
-    let config: Value = s.controller.view("get_config").await.unwrap().json().unwrap();
-    assert_eq!(config["deployments"].as_array().unwrap().len(), 2);
+    assert_eq!(votes[0]["status"], "Added");
 }
 
 #[tokio::test]
@@ -362,8 +469,8 @@ async fn wasm_rejects_text_that_does_not_match_the_hash() {
     let s = setup().await;
     let result = s
         .alice
-        .call(s.controller.id(), "propose_case")
-        .args_json(json!({ "terms": terms(1), "evidence": "A different offer" }))
+        .call(s.controller.id(), "propose_offer")
+        .args_json(json!({ "cases": [terms(1)], "evidence": "A different offer" }))
         .max_gas()
         .transact()
         .await

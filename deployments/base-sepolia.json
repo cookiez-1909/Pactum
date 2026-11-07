@@ -2,18 +2,18 @@
   "network": "base-sepolia",
   "chainId": 84532,
   "stage": "complete",
-  "openBlock": "55431518",
+  "openBlock": "55441129",
   "contracts": {
-    "MockUSD": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
-    "VulnerableVault": "0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba",
-    "Pactum": "0xbecfb6471bce4353c4bf067149fc3acdbfa30ae5",
-    "PublicNotes": "0x65c1bf2abb7bc0145b19cb7c784335e0ea45371a"
+    "MockUSD": "0xdeb5d8c818a4798f515c9a8df90c0252cf31347e",
+    "VulnerableVault": "0x49961135f956efff50a9191053750632a2b430bd",
+    "Pactum": "0xb17b9de220c88652d2c00e412db92c9239c23a94",
+    "PublicNotes": "0x09082b8f4d4327f5058cb26baf8fa6c7ceb41ff4"
   },
-  "notesBlock": "55430904",
-  "controllerAddress": "0x7Ca4a74F0d13aececb82ECB616D5D03dae700aEf",
+  "notesBlock": "55439964",
+  "controllerAddress": "0xaDC3580f19C6840717929efFb36AC9fA40bdd67B",
   "near": {
     "simulated": false,
-    "controllerAccount": "ctrl-fe0caadd.rd-guardian-a-3ff0494a5d.testnet",
+    "controllerAccount": "ctrl-228eb3b8.rd-guardian-b-90c085b48d.testnet",
     "derivationPath": "pactum-1",
     "guardians": [
       "rd-guardian-a-3ff0494a5d.testnet",
@@ -21,25 +21,29 @@
       "rd-guardian-c-6b8f4bb36c.testnet"
     ],
     "threshold": 2,
-    "proposalId": "1",
+    "proposalId": "0",
     "txs": {
-      "deployController": "FQ1LnHXRNBUoqP2sjRJRdU4i5YVJESe7nAgvydBfmK5A",
-      "removeKeys": "DMpyBg3DMDo68ZG7aHvitZ6EHdMAnfSvRcduoJ9a8cgF",
-      "propose": "6C1QPTYnhadk2zrU6SNvMspuq1VnMNrL7Zwqj7ZTTrBX",
-      "approve1": "ARR9tKXPXsMnZFopYcMXvVaMygdP1WsrJ5opHTgCGRE5",
-      "approve2": "Gf3VPnK26mgxkboWnHewkkYjQ6SWmzjwT6oQZ9DuAfdz"
-    }
+      "deployController": "CGYCrAHQQCMuH83RNqgZX9r8KteP8rHcNx2W6AaM3Xra",
+      "removeKeys": "5qtpZn1G5NKjwAbyDHpj4vuhk9WWDZV5AnUDP4rph8h7",
+      "proposeChain": "HbtrF9E3SFWdZHqretdoiPUgNpwUQNRgdg24HjNz3LN7",
+      "approveChain1": "84Ennr4RaGxxwgeSarVRcPmyn6dsqXV8SrJy8Tnar8g5",
+      "approveChain2": "A7dVGYjkGPXMtfaAHfjTDLXbJYFG2ig5UF8UJAtUm1ps",
+      "propose": "9Wox7LcZi5BqDesvWSWhUYDs3jsH67mLZLgagHmwLybx",
+      "approve1": "BJXn2QRJyxgtVks13m7zZJdmc56wTV9PxPkvC6jZWust",
+      "approve2": "DymA7v23m57fZAaKM64SADCB7Uj8NHpNs3G8tFSbo1um"
+    },
+    "caseIndex": 1
   },
   "otherChains": [
     {
       "network": "sepolia",
       "chainId": 11155111,
-      "Pactum": "0xfdc970a0e0db1b8f1775c855ab4496982d0e2ae9"
+      "Pactum": "0x6a4d35e4aa08a9edbaa863a80fdaa5abcf7b7e7e"
     },
     {
       "network": "robinhood-testnet",
       "chainId": 46630,
-      "Pactum": "0xd9a17c2adc2e1c929175ae322b85596d62738cdd"
+      "Pactum": "0xbecfb6471bce4353c4bf067149fc3acdbfa30ae5"
     }
   ],
   "actors": {
@@ -53,37 +57,56 @@
     "relayer": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC"
   },
   "terms": {
-    "caseId": "0x7ed3a1b0d9d58a23a9eacae09248a609675fc42f24f0c2ecba5f9219b3835203",
-    "token": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
+    "caseId": "0x4d795530f3bf39cba578708c30e4e1d3d232355e3b30847d26ed8174d5b36f15",
+    "token": "0xdeb5d8c818a4798f515c9a8df90c0252cf31347e",
     "totalLoss": "1000000000000000000000000",
     "maxReturn": "1000000000000000000000000",
     "rewardCap": "150000000000000000000000",
     "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
-    "evidenceHash": "0xbb9cb5b62d6de09fc3d3968dfe69f4ac58e7c1b4b26bafdea63f00a5a9ac0e05",
+    "evidenceHash": "0x3231721b323eb1e7e50f07c0e9d26ef923b487bade464186701b227dbfdb3914",
     "tiers": [
       {
-        "until": "1794267345",
+        "until": "1794269243",
         "rewardBps": 1000
       },
       {
-        "until": "1794612945",
+        "until": "1794614843",
         "rewardBps": 500
       }
     ],
     "nonce": "1",
     "chainId": "84532"
   },
-  "digest": "0xc37e05ac1d27efe9b34705e880db971c598f5570d6dfa9be53df4e3a1e261053",
-  "signature": "0x3257f859d4c6c4af1a6edad0b87276ac8f132d483801aa92350295aa8fc278722b08e3c9afc402eb80095d145041eba1b3a816099aaf93b0ac2f49a05aae856b1b",
+  "digest": "0xc10e67c4d517c6c6b072d4ef1c78bb695a814202014d01f698e66b8f711526d0",
+  "signature": "0x377626746907cf200df9b9edfd8121c08477277b194a931439ba98aef274c6144431620836fbb33ebb854d5bbb4a33eec85c8d4cd2f51478d67058c902d5472d1c",
   "evidence": {
     "incident": "Demo protocol",
-    "protocol": "0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba",
-    "token": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
-    "drainTx": "0xaa0c932407e83215bf42bbceeec7a9f5ffd827406cd35b2381ee4625e96d6d99",
-    "totalLoss": "1000000000000000000000000",
     "offer": {
       "conditions": "Keep 10% if the funds come back within 72 hours, or 5% within 7 days. Send everything to the contract and the reward comes back in the same transaction."
     },
+    "chains": [
+      {
+        "chainId": 11155111,
+        "protocol": "0x9e4578cc0d924cd957ea31b1af46a16c97d43ba1",
+        "token": "0x690b050d179921a658966c8d0029f1bfa6d5db0b",
+        "drainTx": "0x88990b1bf8ded3e30767f04e39e491aaec6d0b3076de4fce8a6216529819bb10",
+        "totalLoss": "1000000000000000000000000"
+      },
+      {
+        "chainId": 84532,
+        "protocol": "0x49961135f956efff50a9191053750632a2b430bd",
+        "token": "0xdeb5d8c818a4798f515c9a8df90c0252cf31347e",
+        "drainTx": "0xee30685f71da80d75dedc4df57d372abe4655a3745ca3b1b3d2199ff988685cf",
+        "totalLoss": "1000000000000000000000000"
+      },
+      {
+        "chainId": 46630,
+        "protocol": "0xf3d202683d9a05fb4272ab313589e9a0cbe5bdba",
+        "token": "0xe5c7c24001bf9e8eef7e4d15f1fcdfb7c5545c20",
+        "drainTx": "0x9b472ba696c953482cad20ca0b5026bb47da4b45f06efa32f92429e74a9ee576",
+        "totalLoss": "1000000000000000000000000"
+      }
+    ],
     "allocations": [
       {
         "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
@@ -125,19 +148,19 @@
     }
   ],
   "txs": {
-    "deployMockUSD": "0x79e6a0f4f3af0b511c527b4826f900fc6368d206921be7d21a9322f38a39224f",
-    "deployVulnerableVault": "0xa0c34c630f88f0352ae7890e7ab229b448166d62d1f80b522904cc2dd8f989d7",
-    "deployPactum": "0x726a323489be985695a59ff9a1dc063e1c4c0f685f481f8c092e6410e20aec3d",
-    "deployPublicNotes": "0xa2736114145b38b97aefa78ad26514d67d9a67b8ef93f159a86c96a3676b7e1f",
-    "deposit0": "0x7f9e420a2587fa33b4dcc87aa68d7b9a978c357abc88dc1921f8297035e59e23",
-    "deposit1": "0x5cdb3c1037cc008d1330d6fd97d0b20f9336bababe3100b10460056450ca7e68",
-    "deposit2": "0x298a76559d874b436f52e6bd68cd59354ab95e114299f1cc56e1d156d721dd91",
-    "drain": "0xaa0c932407e83215bf42bbceeec7a9f5ffd827406cd35b2381ee4625e96d6d99",
-    "openCase": "0x4f241478a71ed09f9f9a79c1ba75a625653b6cd384f410ae66f335f33d86fd35",
-    "approveReturn": "0x12de419eda3056fdf80b88753c86a45083452432a601c5ba263e9e3817946cdf",
-    "returnFunds": "0xf272484b77270d92bbdc0f1886b4de486964ff9e5c53086e98445bdf3953278a",
-    "claim0": "0xaf977727f9f164eb88d86261f21fa6451cacf6fe5388ad16b9032d7f72d5786a",
-    "claim1": "0x9021923a31ce1eecbebc25ba817c6da0b17076fd039171cd7cf5a25e8770b196",
-    "claim2": "0x572e8794fbecd5891763083cf2db8ac37523a5ef7d9b70d43c54d51dd2a67d03"
+    "deployMockUSD": "0x8e3df1c9a8219b66e45e2da903b31eeb081705817e22417f9a9c1d5037d0ddaf",
+    "deployVulnerableVault": "0x3e8aaed5704f57aef01b92720cdb21ced1b37eecbe2ee810c96aa54a8de5bb1d",
+    "deployPactum": "0xdf090a684a7010c75fc81f33238d04df321cea464d8b7d41431998048c7b0d56",
+    "deployPublicNotes": "0x4bfbdaf5fd3bfeb283f8d74ebfef7515070633bce9415ccdbe0b9dae7623e2c9",
+    "deposit0": "0x90c3142945d147c67d3e6bd7e301fb69749612b06df503b8e1dda256c7a2a88c",
+    "deposit1": "0x7903797db6e18b39648476967329029d6e6c05fd50402fb29be00640d81255ab",
+    "deposit2": "0x4610b0bbf9bfc138040c3f38e303767e9a97c2fa0cd44034c9968631399cbb8a",
+    "drain": "0xee30685f71da80d75dedc4df57d372abe4655a3745ca3b1b3d2199ff988685cf",
+    "openCase": "0xc344eb19f34eb19b67b5f5ace33da2586cdf7a5dce75957f7339e2068a4443ba",
+    "approveReturn": "0x475ad2c73c443e66464cdf923ccd7233041d34d39d66c74924c53885d66ccc29",
+    "returnFunds": "0xc02931cf47596787ec128c7844389ded4745cbc3cfa3ecba3068c1254edf2219",
+    "claim0": "0xb506fff1eb13ac12f86ea2e472deb2b167ba0d0d74102ccbe1e7649d0a0c43fc",
+    "claim1": "0x04c9be035d436853d4c888a807a44eb14cd2c7f650e4821f1879dcd02ac77dce",
+    "claim2": "0x4cf87c0aba2708f07a04fd18030954e4bc6b90bd32756460f6c5527554b365b8"
   }
 }

@@ -35,33 +35,68 @@ pub struct Deployment {
     pub pactum: String,
 }
 
-/// Proposal state. It only moves forward, except a failed signing request goes back to `Approved`.
+/// The state of an offer. `Approved` means it has enough votes and is waiting for every signature.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProposalStatus {
     Pending,
     Approved,
+    Signed,
+}
+
+/// A case's signature state. A failed signing request goes back to `Unsigned` so it can be signed again.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CaseStatus {
+    Unsigned,
     Signing,
     Signed,
 }
 
-/// A proposal to open a case, with the fixed hash and the MPC signature once available.
+/// One case in an offer: its terms, the fixed hash, and the MPC signature once there is one.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
-pub struct Proposal {
-    pub id: U64,
+pub struct ProposalCase {
     pub terms: CaseTerms,
-    /// The offer text and public record. The contract checked its hash against `terms.evidence_hash`.
-    pub evidence: String,
     pub digest: String,
-    pub proposer: AccountId,
-    pub approvals: Vec<AccountId>,
-    pub status: ProposalStatus,
+    pub status: CaseStatus,
     /// The 65-byte signature (r || s || v) in hex, ready to pass to `Pactum.openCase`.
     pub signature: Option<String>,
 }
 
-/// Public configuration, unchanged after initialization.
+/// An offer: one text, one approval round, and the cases it covers on one or more chains.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct Proposal {
+    pub id: U64,
+    pub cases: Vec<ProposalCase>,
+    /// The offer text and public record. The contract checked its hash against the `evidence_hash` of every case.
+    pub evidence: String,
+    pub proposer: AccountId,
+    pub approvals: Vec<AccountId>,
+    pub status: ProposalStatus,
+}
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChainProposalStatus {
+    Pending,
+    Added,
+}
+
+/// A proposal to add a chain that this controller serves.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct ChainProposal {
+    pub id: U64,
+    pub chain_id: U64,
+    pub pactum: String,
+    pub proposer: AccountId,
+    pub approvals: Vec<AccountId>,
+    pub status: ChainProposalStatus,
+}
+
+/// Public configuration. Only the chain list can grow, by a vote of the guardians.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct Config {

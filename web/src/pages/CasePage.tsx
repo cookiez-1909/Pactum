@@ -439,9 +439,12 @@ function txLabel(key: string): string {
 const NEAR_LABELS: Record<string, string> = {
   deployController: "Deploy controller contract",
   removeKeys: "Delete every access key of the controller",
-  propose: "Guardian proposes the case",
+  proposeChain: "Guardian proposes adding a chain",
+  approveChain1: "Guardian 1 approves the chain",
+  approveChain2: "Guardian 2 approves, the chain is added",
+  propose: "Guardian proposes the offer",
   approve1: "Guardian 1 approves",
-  approve2: "Guardian 2 approves, Chain Signatures signs",
+  approve2: "Guardian 2 approves, Chain Signatures signs every chain",
 };
 
 export function Ledger({ info, sessionTxs }: { info: CaseInfo; sessionTxs: SessionTx[] }) {

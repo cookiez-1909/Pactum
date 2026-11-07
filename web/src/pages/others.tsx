@@ -241,7 +241,7 @@ const PERMISSIONS: { who: string; role: Role; can: string; cannot: string }[] = 
   { who: "Whoever holds the funds", role: "hacker", can: "Return them, choose where the reward goes, and return in parts.", cannot: "Get more than the published reward, or return after the last deadline." },
   { who: "A user who lost funds", role: "user", can: "Claim their share with a proof, again whenever more funds come back.", cannot: "Add themselves to the list or raise their amount." },
   { who: "Anyone else", role: "unknown", can: "Relay a signature, or send a claim on someone's behalf. The tokens go only to the listed wallet.", cannot: "Spend anyone's tokens, or receive someone else's refund." },
-  { who: "Guardians", role: "guardian", can: "Read each offer on NEAR, then approve it for any chain the controller serves.", cannot: "Change a case once it is open, sign anything but approved terms, or go above the reward limit on any chain." },
+  { who: "Guardians", role: "guardian", can: "Read an offer on NEAR and approve it once for every chain it covers. Vote to add a new chain.", cannot: "Change a case once it is open, sign anything but approved terms, go above the reward limit, or replace a chain already served." },
   { who: "The protocol owner", role: "protocol", can: "Write the offer: how much the holder keeps, the deadlines and any special conditions. Guardians must approve it.", cannot: "Lower or change an offer once published, or withdraw anything. No such function exists." },
 ];
 

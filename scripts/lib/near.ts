@@ -26,13 +26,27 @@ export interface NearCredentials {
   secretKey: string;
 }
 
+export interface NearProposalCase {
+  terms: { chain_id: string };
+  digest: Hex;
+  status: "Unsigned" | "Signing" | "Signed";
+  signature: Hex | null;
+}
+
 export interface NearProposal {
   id: string;
-  digest: Hex;
-  status: "Pending" | "Approved" | "Signing" | "Signed";
+  cases: NearProposalCase[];
+  status: "Pending" | "Approved" | "Signed";
   approvals: string[];
-  signature: Hex | null;
   evidence: string;
+}
+
+export interface NearChainProposal {
+  id: string;
+  chain_id: string;
+  pactum: string;
+  approvals: string[];
+  status: "Pending" | "Added";
 }
 
 export async function view<T>(contractId: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -189,29 +203,37 @@ export async function accessKeyCount(accountId: string): Promise<number> {
   return keys.length;
 }
 
-export async function proposeCase(guardian: NearCredentials, controller: string, terms: CaseTerms, evidence: string): Promise<{ id: string; txHash: string }> {
-  const outcome = await accountOf(guardian).callFunctionRaw({
-    contractId: controller,
-    methodName: "propose_case",
-    args: { terms: toNearTerms(terms), evidence },
-    gas: 100n * TGAS,
-    waitUntil: "FINAL",
-  });
+async function callOk(guardian: NearCredentials, controller: string, methodName: string, args: Record<string, unknown>, tgas: bigint) {
+  const outcome = await accountOf(guardian).callFunctionRaw({ contractId: controller, methodName, args, gas: tgas * TGAS, waitUntil: "FINAL" });
   const status = outcome.status as { SuccessValue?: string };
-  if (typeof status.SuccessValue !== "string") throw new Error(`propose_case failed: ${JSON.stringify(outcome.status)}`);
-  return { id: JSON.parse(Buffer.from(status.SuccessValue, "base64").toString()) as string, txHash: outcome.transaction.hash };
+  if (typeof status.SuccessValue !== "string") throw new Error(`${methodName} failed: ${JSON.stringify(outcome.status)}`);
+  return { value: status.SuccessValue, txHash: outcome.transaction.hash };
 }
 
-// At the threshold this transaction waits for the MPC network to sign, so it needs a lot of gas.
-export async function approveCase(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
-  const outcome = await accountOf(guardian).callFunctionRaw({
-    contractId: controller,
-    methodName: "approve_case",
-    args: { proposal_id: proposalId },
-    gas: 150n * TGAS,
-    waitUntil: "FINAL",
-  });
-  return outcome.transaction.hash;
+const decodeId = (value: string) => JSON.parse(Buffer.from(value, "base64").toString()) as string;
+
+// An offer is one text and the cases it applies to, possibly on several chains.
+export async function proposeOffer(guardian: NearCredentials, controller: string, cases: CaseTerms[], evidence: string): Promise<{ id: string; txHash: string }> {
+  const { value, txHash } = await callOk(guardian, controller, "propose_offer", { cases: cases.map(toNearTerms), evidence }, 100n);
+  return { id: decodeId(value), txHash };
+}
+
+// At the threshold this transaction also creates the sign requests and waits for the MPC network, so it uses the full 300 Tgas.
+export async function approveOffer(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
+  return (await callOk(guardian, controller, "approve_offer", { proposal_id: proposalId }, 300n)).txHash;
+}
+
+export async function retrySignature(caller: NearCredentials, controller: string, proposalId: string): Promise<string> {
+  return (await callOk(caller, controller, "retry_signature", { proposal_id: proposalId }, 300n)).txHash;
+}
+
+export async function proposeChain(guardian: NearCredentials, controller: string, chainId: bigint, pactum: Address): Promise<{ id: string; txHash: string }> {
+  const { value, txHash } = await callOk(guardian, controller, "propose_chain", { chain_id: chainId.toString(), pactum }, 50n);
+  return { id: decodeId(value), txHash };
+}
+
+export async function approveChain(guardian: NearCredentials, controller: string, proposalId: string): Promise<string> {
+  return (await callOk(guardian, controller, "approve_chain", { proposal_id: proposalId }, 50n)).txHash;
 }
 
 export async function getProposal(controller: string, proposalId: string): Promise<NearProposal> {
