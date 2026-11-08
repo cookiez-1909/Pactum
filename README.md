@@ -4,6 +4,14 @@ Pactum lets whoever holds exploited funds return them and receive a published re
 
 Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do not send real or stolen funds.**
 
+## Pactum in 60 seconds
+
+- **The problem.** TRM Labs counted 207 crypto hacks in the first half of 2026, about eight a week. After a hack, protocols often post "return it and keep 10%", and then nobody wants to go first: the holder fears getting nothing, the protocol fears paying first, and users fear the money never reaches them.
+- **What Pactum does.** The protocol publishes an offer on a contract. Whoever holds the funds sends them in, and one transaction pays the reward and books the rest for users, who claim it with a Merkle proof. The contract has no owner and no withdraw function, and the holder sets a reward floor, so a lower reward reverts instead of paying less.
+- **What NEAR does.** Guardians read and approve an offer once on NEAR, and Chain Signatures signs it for every EVM chain it covers, from an address with no private key. Operators stake NEAR in a registry, anyone can challenge them, and a council can slash the stake. NEAR Intents gives users live quotes to swap a refund to another asset and chain.
+- **What it does not do.** It cannot force a hacker to return funds, it gives no legal immunity, the team still writes the refund list, and it runs on testnet without an audit.
+- **Check it yourself.** `make setup` then `make verify` re-checks every claim above from public testnet data, with no wallet.
+
 | | |
 | --- | --- |
 | PactumController (NEAR testnet) | [`ctrl-4944dd8b.rd-guardian-b-90c085b48d.testnet`](https://testnet.nearblocks.io/address/ctrl-4944dd8b.rd-guardian-b-90c085b48d.testnet) |
