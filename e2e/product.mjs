@@ -10,8 +10,10 @@ function check(name, ok, note = "") {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${note ? `  (${note})` : ""}`);
   if (!ok) failed += 1;
 }
-async function fresh(viewport = { width: 1360, height: 900 }) {
+async function fresh(viewport = { width: 1360, height: 900 }, firstVisit = false) {
   const context = await browser.newContext({ viewport, colorScheme: "dark" });
+  // The other checks are not first visits, so they skip the welcome screen.
+  if (!firstVisit) await context.addInitScript(() => localStorage.setItem("pactum-tour", "done"));
   const page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error" && !/fonts\.g|ERR_|Failed to load resource/.test(m.text())) errors.push(m.text().slice(0, 220)); });
   page.on("pageerror", (e) => errors.push(`PAGE: ${e}`));
@@ -27,6 +29,10 @@ const go = async (page, hash) => {
   await page.waitForTimeout(450);
 };
 const panel = (page) => page.innerText(".tab-panel");
+const confirmReturn = async (page) => {
+  await page.locator(".warn-check input").check();
+  await page.locator(".warn-confirm").click();
+};
 const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 
 const page = await fresh();
@@ -57,12 +63,18 @@ await page.locator(".landing-header .button-primary").click();
 
 // Sidebar and sorting
 await page.waitForSelector(".case-row", { timeout: 40000 });
-await page.waitForFunction(() => /\d of 5/.test(document.querySelector(".stat dd")?.textContent ?? ""), null, { timeout: 15000 });
+await page.waitForFunction(() => /\d of 6/.test(document.querySelector(".stat dd")?.textContent ?? ""), null, { timeout: 15000 });
 const brand = await page.locator(".sidebar .brand").boundingBox();
 check("the name sits top left in the app", brand.x < 40 && brand.y < 40);
 check("the app brand is text only", (await page.locator(".sidebar .brand svg").count()) === 0);
 const navLabels = await page.locator(".side-nav .side-label").allInnerTexts();
-check("sections are stacked in the sidebar", navLabels.join() === "Search,Cases,Hack tracker,Activity,My wallet,Guardians", navLabels.join());
+await page.locator(".theme-toggle").click();
+await page.waitForTimeout(100);
+check("light mode can be turned on", (await page.evaluate(() => document.documentElement.dataset.theme)) === "light");
+await page.screenshot({ path: `${out}/p2b-light.png` });
+await page.locator(".theme-toggle").click();
+await page.waitForTimeout(100);
+check("sections are stacked in the sidebar", navLabels.join() === "Search,Cases,Hack tracker,Activity,My wallet,Profile,Guardians,More", navLabels.join());
 const order = await page.locator(".case-name").allInnerTexts();
 check("the case closing soonest comes first", order[0] === "Tidewater Perps", order.join(" > "));
 check("the closed case is last", order[order.length - 1] === "Quillon DEX");
@@ -275,6 +287,16 @@ check("the split uses the owner's 20%", /You receive\s+1\.6 mBTC/.test(text) && 
 await page.screenshot({ path: `${out}/p7-return.png`, fullPage: true });
 check("leaving the reward wallet empty is allowed", await page.locator(".optional").first().isVisible() && !(await page.locator(".tab-panel .button-block").isDisabled()));
 await page.locator(".tab-panel .button-block").click();
+await page.waitForSelector(".return-warning");
+text = await page.innerText(".return-warning");
+check("a warning stops a normal person before sending", text.includes("If these tokens are your own money, do not continue") && text.includes("cannot be undone"));
+check("the warning shows what you give up", text.includes("Leaves your wallet") && text.includes("Gone for good") && text.includes("6.4 mBTC"));
+check("the warning cannot be confirmed without ticking the box", await page.locator(".warn-confirm").isDisabled());
+await page.keyboard.press("Escape");
+await page.waitForTimeout(100);
+check("the warning can be cancelled without sending anything", (await page.locator(".return-warning").count()) === 0 && (await page.locator(".result").count()) === 0);
+await page.locator(".tab-panel .button-block").click();
+await confirmReturn(page);
 await page.waitForSelector(".result", { timeout: 30000 });
 check("return succeeds and shows the result", (await page.innerText(".result")).includes("1.6 mBTC reward"));
 
@@ -307,6 +329,7 @@ check("the page says no proof is needed", text.includes("Do I have to prove I am
 check("the new wallet gets the 20% offer", /You receive\s+8,000 mHYPE/.test(text));
 await page.locator("label.field input").nth(1).fill(await page.evaluate(() => "0x90F79bf6EB2c4f870365E785982E1f101E93b906"));
 await page.locator(".tab-panel .button-block").click();
+await confirmReturn(page);
 await page.waitForSelector(".result", { timeout: 30000 });
 check("the new wallet returned the funds", (await page.innerText(".result")).includes("8,000 mHYPE reward"));
 
@@ -449,6 +472,7 @@ await page.screenshot({ path: `${out}/p11-activity.png` });
 await go(page, "#/tracker");
 text = await page.innerText("main");
 check("tracker keeps real events separate", text.includes("None of these organizations uses Pactum") && text.includes("Binance"));
+check("tracker lists at least ten real hacks", (await page.locator(".tracker-item").count()) >= 10, String(await page.locator(".tracker-item").count()));
 await page.locator(".tracker-head", { hasText: "Bitget" }).click();
 await page.waitForTimeout(350);
 check("tracker rows expand", await page.locator(".tracker-item.is-open", { hasText: "Bitget" }).isVisible());
@@ -508,7 +532,16 @@ const servedChains = await guardians.locator(".chain-list .party-name").allInner
 check("guardians page shows all three chains", servedChains.join() === "Sepolia,Base Sepolia,Robinhood testnet", servedChains.join());
 check("guardians page shows the rule and the limit", guardiansText.includes("2 of 3 guardians") && guardiansText.includes("20% on every chain"));
 check("guardians page reports no access keys", guardiansText.includes("0. Nobody can change this contract"));
+check("the guardians page shows five offers at first", (await guardians.locator(".proposal").count()) <= 5);
+check("each offer names its protocol", (await guardians.locator(".proposal-protocol").first().innerText()).length > 0);
+for (const name of ["Action required", "Approved", "Cancelled"]) check(`the guardians page can filter by ${name}`, await guardians.locator(".gd-filter", { hasText: name }).isVisible());
+await guardians.locator(".gd-filter", { hasText: "Cancelled" }).click();
+await guardians.waitForFunction(() => document.querySelectorAll(".proposal").length > 0, null, { timeout: 40000 });
+check("filtering by cancelled keeps only cancelled offers", (await guardians.locator(".proposal").allInnerTexts()).every((item) => item.includes("Cancelled")));
+await guardians.locator(".gd-filter", { hasText: "All" }).click();
+for (let i = 0; i < 20 && (await guardians.locator(".show-more").count()); i += 1) { await guardians.locator(".show-more").click(); await guardians.waitForTimeout(80); }
 const proposalCount = await guardians.locator(".proposal").count();
+check("show more reveals every offer", proposalCount > 5, String(proposalCount));
 check("one offer has one approval round for three chains", (await guardians.locator(".proposal").last().innerText()).includes("Approved once by Guardian A, Guardian B") && (await guardians.locator(".proposal").last().locator(".offer-chain").count()) === 3);
 check("the vote that added a chain is shown", guardiansText.includes("Added by a guardian vote") && guardiansText.includes("Robinhood testnet"));
 const proposalChains = await guardians.locator(".offer-chain-name").allInnerTexts();
@@ -541,6 +574,179 @@ await calm.goto(base);
 await calm.waitForSelector(".hero h1");
 await calm.waitForTimeout(300);
 check("reduced motion shows content without waiting", (await calm.locator(".reveal:not(.is-visible)").count()) === 0);
+
+// First visit
+const newcomer = await fresh({ width: 1360, height: 900 }, true);
+await newcomer.goto(base);
+await newcomer.waitForSelector(".hero h1");
+await newcomer.waitForTimeout(300);
+check("the landing page is not covered on a first visit", (await newcomer.locator(".welcome-box").count()) === 0);
+await newcomer.locator(".landing-header .button-primary").click();
+await newcomer.waitForSelector(".welcome-box");
+check("a first visit asks who you are", (await newcomer.locator(".welcome-role strong").allInnerTexts()).join() === "User,Hacker,Protocol");
+await newcomer.locator(".welcome-skip").click();
+check("the welcome can be skipped", (await newcomer.locator(".welcome-box").count()) === 0);
+await newcomer.reload();
+await newcomer.waitForSelector(".case-row");
+await newcomer.waitForTimeout(300);
+check("a skipped welcome does not come back", (await newcomer.locator(".welcome-box").count()) === 0);
+await newcomer.goto(`${base}#/tour`);
+await newcomer.waitForSelector(".welcome-box");
+check("the tour can be reopened", true);
+await newcomer.locator(".welcome-role", { hasText: "Hacker" }).click();
+await newcomer.waitForSelector(".tour-card");
+await newcomer.waitForSelector(".tour-spot");
+check("the tour switches to the right wallet", (await newcomer.innerText(".wallet-button")).includes("Hacker"));
+const tourTitles = [await newcomer.innerText(".tour-card h3")];
+await newcomer.locator(".tour-next").click();
+await newcomer.waitForFunction((seen) => document.querySelector(".tour-card h3")?.textContent !== seen, tourTitles[0]);
+await newcomer.waitForSelector(".tour-spot");
+tourTitles.push(await newcomer.innerText(".tour-card h3"));
+check("the tour moves to the next page and highlights it", tourTitles[1] === "See your cut" && newcomer.url().includes("/return"), tourTitles.join());
+await newcomer.locator(".tour-next").click();
+await newcomer.waitForFunction(() => document.querySelector(".tour-next")?.textContent === "Done");
+await newcomer.locator(".tour-next").click();
+await newcomer.waitForTimeout(200);
+check("finishing the tour closes it", (await newcomer.locator(".tour-card").count()) === 0 && (await newcomer.locator(".tour-spot").count()) === 0);
+for (const [role, expected] of [["user", 4], ["protocol", 3]]) {
+  await newcomer.goto(`${base}#/tour/${role}`);
+  await newcomer.reload();
+  await newcomer.waitForSelector(".tour-card");
+  let seen = 1;
+  while (await newcomer.locator(".tour-next").innerText() !== "Done") {
+    const before = await newcomer.innerText(".tour-card h3");
+    await newcomer.waitForSelector(".tour-spot", { timeout: 15000 });
+    await newcomer.locator(".tour-next").click();
+    await newcomer.waitForFunction((title) => document.querySelector(".tour-card h3")?.textContent !== title, before);
+    seen += 1;
+  }
+  await newcomer.waitForSelector(".tour-spot", { timeout: 15000 });
+  check(`the ${role} tour finds every step on the page`, seen === expected, String(seen));
+  await newcomer.locator(".tour-skip").click();
+  check(`the ${role} tour can be skipped`, (await newcomer.locator(".tour-card").count()) === 0);
+}
+
+// The mascot and the replay of a real hack
+const replay = await fresh();
+await replay.goto(`${base}#/cases`);
+await replay.waitForSelector(".case-row");
+check("the cases page starts with the numbers, not a second role picker", (await replay.locator(".role-card").count()) === 0);
+await replay.goto(base);
+await replay.waitForSelector(".role-card");
+await replay.locator(".role-card").first().scrollIntoViewIfNeeded();
+await replay.waitForFunction(() => document.querySelector('.role-card img[data-action="sad"]')?.naturalWidth > 0, null, { timeout: 15000 });
+check("the role cards show the mascot acting out each role", (await replay.locator(".role-card img").evaluateAll((items) => items.map((item) => item.dataset.action).join())) === "sad,sneak,alarm,look");
+await go(replay, "#/case/gmx-replay");
+await replay.waitForSelector(".replay-card");
+await as(replay, "Hacker");
+text = await replay.innerText(".replay-card");
+check("the replay says it is a replay and names its limits", text.includes("GMX did not use Pactum") && text.includes("What this replay leaves out"));
+check("the replay links its sources", (await replay.locator(".replay-sources a").count()) === 3);
+await go(replay, "#/case/gmx-replay/return/mUSDC");
+await replay.waitForSelector(".split-preview");
+await replay.locator(".tab-panel .button-block").click();
+await replay.waitForSelector('.return-warning img[data-action="stop"]');
+await confirmReturn(replay);
+await replay.waitForSelector(".result", { timeout: 30000 });
+check("replaying the return pays 10% and books the rest in one transaction", (await replay.innerText(".result")).includes("4,200,000 mUSDC") && (await replay.innerText(".result")).includes("37,800,000 mUSDC"), (await replay.innerText(".result")).replace(/\n/g, " ").slice(0, 120));
+await go(replay, "#/tracker");
+check("the tracker links GMX to its replay", await replay.locator(".tracker").getByText("GMX").first().isVisible());
+
+// Trang Profile
+const me = await fresh();
+await me.goto(`${base}#/profile`);
+await me.waitForSelector(".page h1");
+await as(me, "User 3");
+await me.waitForSelector(".intent-card");
+check("the profile asks where the money should go", (await me.innerText(".intent-card h2")).includes("Where do you want your returned money to go?"));
+await me.waitForSelector(".intent-chain", { timeout: 20000 });
+check("any chain NEAR Intents lists can be picked", (await me.locator(".intent-chain option").count()) > 20, String(await me.locator(".intent-chain option").count()));
+check("the upcoming refunds are listed", (await me.locator(".intent-list li").count()) > 0);
+// Fakes the NEAR Intents reply, so saving is tested without depending on the network.
+await me.route("**/v0/quote", (route) => route.fulfill({ json: { quote: { amountOutFormatted: "6.1", amountOutUsd: "998", timeEstimate: 60 } } }));
+await me.locator(".intent-chain").selectOption("sol");
+await me.locator(".intent-asset").selectOption({ label: "SOL" });
+check("a non-EVM chain asks for an address", (await me.locator(".intent-recipient").inputValue()) === "" && await me.locator(".intent-save").isDisabled());
+await me.locator(".intent-recipient").fill("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV");
+await me.locator(".intent-save").click();
+await me.waitForSelector(".intent-card .quote-result");
+check("saving shows a sample quote and says nothing swaps", (await me.innerText(".intent-card")).includes("6.1 SOL") && (await me.innerText(".intent-card")).includes("Nothing is swapped"));
+check("upcoming refunds use the chosen asset", (await me.innerText(".intent-list")).includes("as SOL on Solana"));
+await me.reload();
+await me.waitForSelector(".intent-recipient", { timeout: 20000 });
+check("the choice survives a reload", (await me.locator(".intent-recipient").inputValue()).startsWith("7EcDh"));
+await go(me, "#/case/tidewater/refund/mBTC");
+await me.waitForSelector(".convert", { timeout: 20000 });
+check("the refund tab opens on the saved choice", (await me.innerText(".convert .pill.is-active")).includes("SOL on Solana (your choice)") && (await me.locator(".convert input").inputValue()).startsWith("7EcDh"));
+await go(me, "#/profile");
+await me.waitForSelector(".available-list li", { timeout: 15000 });
+const readyBefore = await me.locator(".available-list li").count();
+check("available refunds are listed above the upcoming ones", await me.evaluate(() => { const titles = [...document.querySelectorAll(".intent-upcoming")].map((item) => item.textContent); return titles[0] === "Available refunds" && titles[1] === "Your upcoming refunds"; }));
+const northgateRow = me.locator(".available-list li", { hasText: "Northgate" }).first();
+await northgateRow.locator(".available-claim").click();
+await me.waitForFunction((before) => document.querySelectorAll(".available-list li").length < before, readyBefore, { timeout: 30000 });
+check("a refund can be claimed straight from the profile", true);
+check("a finished case is not listed as still to come", !(await me.innerText(".intent-card")).includes("Quillon"));
+await go(me, "#/case/northgate");
+await me.waitForFunction(() => document.querySelector(".next-step h2")?.textContent === "All done. You have been paid", null, { timeout: 15000 });
+check("a wallet that was paid in full is told it is done", true);
+check("a case someone has not finished claiming is not completed yet", (await me.innerText(".case-title")).includes("Fully returned"));
+for (const name of ["User 1", "User 2"]) {
+  await go(me, "#/profile");
+  await as(me, name);
+  const row = me.locator(".available-list li", { hasText: "Northgate" }).first();
+  await row.waitFor({ timeout: 15000 });
+  const before = await me.locator(".available-list li").count();
+  await row.locator(".available-claim").click();
+  await me.waitForFunction((count) => document.querySelectorAll(".available-list li").length < count, before, { timeout: 30000 });
+}
+await go(me, "#/case/northgate");
+await me.waitForFunction(() => document.querySelector(".case-title")?.textContent.includes("Completed"), null, { timeout: 15000 });
+check("a case everyone has claimed shows as completed", true);
+await go(me, "#/stats");
+await me.waitForSelector(".stats-list li");
+text = await me.innerText(".page");
+check("the stats page shows the whole platform and this wallet", ["Recovery rate", "Claimed by users", "Refunds received", "Reward earned"].every((label) => text.includes(label)) && (await me.locator(".stats-list li").count()) === 6);
+check("stats and stake sit under More", (await me.locator(".side-sub .side-label").allInnerTexts()).join() === "Stats,Stake");
+check("the sidebar sections do not overlap with More open", await me.evaluate(() => document.querySelector(".side-section").getBoundingClientRect().bottom <= document.querySelector(".sidebar-bottom").getBoundingClientRect().top + 1));
+await go(me, "#/stake");
+await me.waitForSelector(".operator-list li", { timeout: 20000 });
+check("the stake page shows the real stake from NEAR", (await me.innerText(".staking-card")).includes("0.54 NEAR"));
+await me.setViewportSize({ width: 390, height: 800 });
+await go(me, "#/stats");
+await me.waitForSelector(".stats-list li");
+await me.waitForTimeout(300);
+check("the stats page has no sideways scroll on a phone", !(await overflow(me)));
+await go(me, "#/profile");
+await me.waitForSelector(".intent-card");
+await me.waitForTimeout(400);
+check("the profile has no sideways scroll on a phone", !(await overflow(me)));
+const landing = await fresh();
+await landing.goto(base);
+await landing.waitForSelector(".hero h1");
+check("the theme button sits right next to Open app", await landing.evaluate(() => document.querySelector(".landing-header > .button-primary").nextElementSibling?.classList.contains("theme-toggle")));
+
+// A reward tier expires while the page still shows the old numbers
+const race = await fresh();
+await race.goto(`${base}#/case/tidewater/return/mHYPE`);
+await race.waitForSelector(".tab-panel");
+await as(race, "Hacker");
+await race.waitForSelector(".split-preview");
+check("the first reward rate is shown", (await race.innerText(".split-preview")).includes("127,500 mHYPE"));
+const { rpc } = await (await fetch(`${base}deployment.json`)).json();
+// Blocks exactly the reward-tier read, so the page keeps the old numbers right as chain time passes the deadline. The selector is currentTier's.
+await race.route(rpc, (route) => (route.request().postData()?.includes("c01853c1") ? route.abort() : route.continue()));
+await fetch(rpc, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "evm_increaseTime", params: [1500] }) });
+await race.locator(".tab-panel .button-block").click();
+await confirmReturn(race);
+await race.waitForSelector("text=The reward dropped before this went through", { timeout: 15000 });
+check("a reward that just dropped gets a plain explanation", (await race.innerText(".tab-panel")).includes("Your tokens did not move"));
+await race.unroute(rpc);
+await race.waitForTimeout(7000);
+check("the page moves to the new reward without a reload", (await race.innerText(".split-preview")).includes("85,000 mHYPE"));
+await go(race, "#/case/tidewater");
+await race.waitForFunction(() => document.querySelector(".tab-panel")?.innerText.includes("rate in force"), null, { timeout: 15000 });
+check("the timeline shows the rate used when funds came back", (await race.innerText(".tab-panel")).includes("Paid at the 15% rate in force at the time"));
 
 check("no console or page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);

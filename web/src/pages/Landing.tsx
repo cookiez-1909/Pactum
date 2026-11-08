@@ -6,6 +6,9 @@ import { useEffect } from "react";
 import { Arrow, Clock, ExternalLink, Lock, Shield, Split } from "../components/icons";
 import { CountUp, Reveal } from "../components/motion";
 import { Faq } from "./Faq";
+import { Mascot, type MascotAction } from "../components/Mascot";
+import { RoleChooser } from "../components/RoleChooser";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -106,6 +109,9 @@ function RewardDecay() {
   );
 }
 
+// Each step in "How it works" has its own mascot action.
+const STEP_MASCOTS: MascotAction[] = ["write", "stamp", "split", "cheer"];
+
 export function Landing({ anchor }: { anchor?: string }) {
   const year = 2026;
   // Coming from inside the app through #/faq jumps straight to that section instead of scrolling the whole page.
@@ -125,6 +131,7 @@ export function Landing({ anchor }: { anchor?: string }) {
           <button type="button" onClick={() => scrollTo("faq")}>FAQ</button>
         </nav>
         <a className="button button-primary" href="#/cases">Open app <Arrow /></a>
+        <ThemeToggle />
       </header>
 
       <section className="hero">
@@ -140,6 +147,15 @@ export function Landing({ anchor }: { anchor?: string }) {
           </div>
         </div>
         <SplitFlow />
+      </section>
+
+      <section className="band">
+        <Reveal>
+          <p className="eyebrow">Start here</p>
+          <h2>What brought you here?</h2>
+          <p className="section-lead">Pick one, and we will take you to the right place. Nothing here is real money.</p>
+        </Reveal>
+        <Reveal><RoleChooser /></Reveal>
       </section>
 
       <section className="band">
@@ -169,6 +185,7 @@ export function Landing({ anchor }: { anchor?: string }) {
           {STEPS.map((step, index) => (
             <li key={step.title}>
               <Reveal delay={index * 90}>
+                <span className="step-art"><Mascot action={STEP_MASCOTS[index]!} size={104} /></span>
                 <span className="step-number">{index + 1}</span>
                 <h3>{step.title}</h3>
                 <p>{step.body}</p>

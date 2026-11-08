@@ -7,14 +7,21 @@ import { identify, roleHint } from "../labels";
 import { useWallet, WalletMenu } from "../wallet";
 import { AssetIcon } from "./case-bits";
 import { Party } from "./Party";
-import { Book, Cases, Close, Help, Menu, Panel, Pulse, Radar, Search, Shield, Wallet } from "./icons";
+import { ThemeToggle } from "./ThemeToggle";
+import { Bars, Book, Cases, Chevron, Close, Coins, Dots, Help, Menu, Panel, Pulse, Radar, Search, Shield, User, Wallet } from "./icons";
 
 const NAV = [
   { href: "#/cases", label: "Cases", icon: Cases, match: ["cases", "case"] },
   { href: "#/tracker", label: "Hack tracker", icon: Radar, match: ["tracker"] },
   { href: "#/activity", label: "Activity", icon: Pulse, match: ["activity"] },
   { href: "#/wallet", label: "My wallet", icon: Wallet, match: ["wallet"] },
+  { href: "#/profile", label: "Profile", icon: User, match: ["profile"] },
   { href: "#/guardians", label: "Guardians", icon: Shield, match: ["guardians"] },
+];
+
+const MORE = [
+  { href: "#/stats", label: "Stats", icon: Bars, page: "stats" },
+  { href: "#/stake", label: "Stake", icon: Coins, page: "stake" },
 ];
 
 export function Shell({ page, caseId, children }: { page: string; caseId: string | null; children: ReactNode }) {
@@ -22,6 +29,12 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
   const [drawer, setDrawer] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const inMore = MORE.some((item) => item.page === page);
+  const [moreOpen, setMoreOpen] = useState(inMore);
+  // Opening a page under More expands it, so users see where they are.
+  useEffect(() => {
+    if (inMore) setMoreOpen(true);
+  }, [inMore]);
   const ranked = useMemo(() => rankIncidents(desk.incidents, desk.states), [desk.incidents, desk.states]);
 
   useEffect(() => setDrawer(false), [page, caseId]);
@@ -64,6 +77,14 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
               <IconComponent /><span className="side-label">{label}</span>
             </a>
           ))}
+          <button type="button" className="side-link side-more" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}>
+            <Dots /><span className="side-label">More</span><Chevron className={moreOpen ? "side-chevron is-open" : "side-chevron"} />
+          </button>
+          {moreOpen && MORE.map(({ href, label, icon: IconComponent, page: target }) => (
+            <a key={href} href={href} className={page === target ? "side-link side-sub is-active" : "side-link side-sub"} aria-current={page === target ? "page" : undefined}>
+              <IconComponent /><span className="side-label">{label}</span>
+            </a>
+          ))}
         </nav>
 
         <div className="side-section">
@@ -93,6 +114,7 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
         </div>
 
         <div className="sidebar-bottom">
+          <a href="#/tour" className="side-link side-tour"><Radar /><span className="side-label">Take the tour</span></a>
           <a href="#/how" className={page === "how" ? "side-link is-active" : "side-link"}><Book /><span className="side-label">How it works</span></a>
           <a href="#/faq" className="side-link"><Help /><span className="side-label">FAQ</span></a>
           <p className="side-network"><span className="live-dot" aria-hidden="true" /><span className="side-label">{network}</span></p>
@@ -105,6 +127,7 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
           <button type="button" className="icon-button menu-button" aria-label="Open menu" onClick={() => setDrawer(true)}><Menu /></button>
           <p className="testnet-note" role="note">Testnet demo. Do not send real or stolen funds.</p>
           <WalletMenu />
+          <ThemeToggle />
         </header>
         {desk.error && <p className="banner-error" role="alert">Chain read failed: {desk.error}</p>}
         <ViewingStrip />
@@ -142,7 +165,10 @@ function Palette({ onClose }: { onClose(): void }) {
       { label: "Hack tracker", hint: "Page", href: "#/tracker" },
       { label: "Activity", hint: "Page", href: "#/activity" },
       { label: "My wallet", hint: "Page", href: "#/wallet" },
+      { label: "Profile", hint: "Page", href: "#/profile" },
       { label: "Guardians", hint: "Page", href: "#/guardians" },
+      { label: "Stats", hint: "Page", href: "#/stats" },
+      { label: "Stake", hint: "Page", href: "#/stake" },
       { label: "How it works", hint: "Page", href: "#/how" },
       { label: "FAQ", hint: "Home", href: "#/faq" },
       { label: "Pactum home", hint: "Page", href: "#/" },

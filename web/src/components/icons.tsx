@@ -11,6 +11,10 @@ function Icon({ children, ...props }: SVGProps<SVGSVGElement> & { children: Reac
 
 type P = SVGProps<SVGSVGElement>;
 
+export const Bars = (p: P) => <Icon {...p}><path d="M5 20v-7M12 20V5M19 20v-10" /></Icon>;
+export const Coins = (p: P) => <Icon {...p}><ellipse cx="12" cy="7" rx="7" ry="3" /><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" /></Icon>;
+export const Dots = (p: P) => <Icon {...p}><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Icon>;
+export const User = (p: P) => <Icon {...p}><circle cx="12" cy="8" r="4" /><path d="M4 21c1.2-4.2 4.2-6 8-6s6.8 1.8 8 6" /></Icon>;
 export const Search = (p: P) => <Icon {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Icon>;
 export const Cases = (p: P) => <Icon {...p}><path d="M4 7h6l2 2h8v10H4z" /></Icon>;
 export const Radar = (p: P) => <Icon {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /><path d="M12 12 18 6" /></Icon>;

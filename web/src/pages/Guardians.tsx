@@ -9,9 +9,50 @@ import { caseIsOpen, demoGuardians, nearAmount, type RegistryChallenge, type Reg
 import { ExternalLink } from "../components/icons";
 import { shortAddress } from "../format";
 import { nearName } from "../labels";
+import { earn } from "../fun";
 import { useWallet } from "../wallet";
 
 const PAGE_SIZE = 50;
+const SHOWN_AT_ONCE = 5;
+
+type Filter = "all" | "action" | "approved" | "cancelled";
+type ChainState = Record<string, { opened: boolean | null; used: boolean | null }>;
+
+// The protocol name comes from the offer's record. It is text written by a guardian; the contract cannot verify it.
+function protocolOf(proposal: NearProposal): string {
+  try {
+    const parsed = JSON.parse(proposal.evidence) as { incident?: unknown };
+    if (typeof parsed.incident === "string" && parsed.incident) return parsed.incident;
+  } catch {
+    // Plain text: handled below.
+  }
+  if (proposal.evidence.startsWith("Drill")) return "Pactum drill, not a real hack";
+  if (proposal.evidence.startsWith("Follow-up offer")) return "Demo protocol";
+  return "Unnamed protocol";
+}
+
+function bucketOf(proposal: NearProposal, chain: ChainState): Exclude<Filter, "all"> {
+  if (proposal.status === "Cancelled") {
+    const unsent = proposal.cases.some((item) => item.status === "Revoked" && chain[item.digest]?.used === false && chain[item.digest]?.opened === false);
+    return isWaiting(proposal) || unsent ? "action" : "cancelled";
+  }
+  if (proposal.status === "Signed") return proposal.cases.some((item) => chain[item.digest]?.opened === false) ? "action" : "approved";
+  return "action";
+}
+
+// One sentence on what this offer is waiting for, so nobody has to read the whole table.
+function nextAction(proposal: NearProposal, chain: ChainState, config: NearConfig): string | null {
+  const unopened = proposal.cases.filter((item) => chain[item.digest]?.opened === false);
+  if (proposal.status === "Pending") {
+    const left = Math.max(1, config.threshold - proposal.approvals.length);
+    return `Needs ${left} more guardian ${left === 1 ? "approval" : "approvals"}.`;
+  }
+  if (proposal.cases.some((item) => IN_FLIGHT.includes(item.status))) return "The NEAR network is signing. This usually takes about 10 seconds.";
+  if (isWaiting(proposal)) return "Some signatures are still missing. Anyone can ask for them.";
+  if (proposal.status === "Signed" && unopened.length > 0) return `Signed, but ${unopened.length} ${unopened.length === 1 ? "chain has" : "chains have"} not been opened yet. Anyone can send the signature.`;
+  if (proposal.status === "Cancelled" && bucketOf(proposal, chain) === "action") return "Cancelled on NEAR. Someone still has to send the revocation to each chain.";
+  return null;
+}
 
 interface Snapshot {
   config: NearConfig;
@@ -76,6 +117,11 @@ export function Guardians() {
   const account = deployment.near.controllerAccount ?? proof.near.controllerAccount;
   const [data, setData] = useState<Snapshot | null>(null);
   const [failed, setFailed] = useState(false);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [shown, setShown] = useState(SHOWN_AT_ONCE);
+  const [chain, setChain] = useState<ChainState>({});
+  const [chainVersion, setChainVersion] = useState(0);
+  const toast = useToast();
   const waiting = data?.proposals.some(isWaiting) ?? false;
 
   const load = useCallback(async () => {
@@ -107,6 +153,47 @@ export function Guardians() {
     return () => window.clearInterval(poll);
   }, [load, waiting]);
 
+  useEffect(() => {
+    const badge = earn("detective");
+    if (badge) toast({ kind: "ok", title: `Badge unlocked: ${badge.name}`, detail: badge.how });
+    // Only needs to be reported once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reads each case's state on its own chain. Needed at page level so the filters know which offers still need action.
+  const proposalKey = data?.proposals.map((item) => `${item.id}:${item.status}:${item.cases.map((entry) => entry.status).join()}`).join("|") ?? "";
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    const rows = data.proposals.flatMap((proposal) => proposal.cases);
+    Promise.all(
+      rows.map(async (item) => {
+        const pactum = data.config.deployments.find((entry) => entry.chain_id === item.terms.chain_id)?.pactum as Address | undefined;
+        if (!pactum) return [item.digest, { opened: null, used: null }] as const;
+        const [opened, used] = await Promise.all([caseIsOpen(item.terms.chain_id, pactum, item.terms.case_id), nonceIsUsed(item.terms.chain_id, pactum, item.terms.nonce)]);
+        return [item.digest, { opened, used }] as const;
+      }),
+    ).then((entries) => {
+      if (!cancelled) setChain(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Only re-read when there is a new offer or state, or right after a signature was relayed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposalKey, chainVersion]);
+
+  const newestFirst = data ? [...data.proposals].reverse() : [];
+  const counts = { action: 0, approved: 0, cancelled: 0 };
+  for (const item of newestFirst) counts[bucketOf(item, chain)] += 1;
+  const matching = newestFirst.filter((item) => filter === "all" || bucketOf(item, chain) === filter);
+  const FILTERS: { id: Filter; label: string; count: number }[] = [
+    { id: "all", label: "All", count: newestFirst.length },
+    { id: "action", label: "Action required", count: counts.action },
+    { id: "approved", label: "Approved", count: counts.approved },
+    { id: "cancelled", label: "Cancelled", count: counts.cancelled },
+  ];
+
   return (
     <div className="page">
       <header className="page-head">
@@ -127,11 +214,22 @@ export function Guardians() {
           <div className="col-main">
             <section className="card">
               <h2>{data.proposals.length} {data.proposals.length === 1 ? "offer" : "offers"} proposed</h2>
+              <div className="gd-summary" role="group" aria-label="Filter offers">
+                {FILTERS.map((item) => (
+                  <button key={item.id} type="button" className={`gd-filter${filter === item.id ? " is-active" : ""}${item.id === "action" && item.count > 0 ? " is-urgent" : ""}`} aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setShown(SHOWN_AT_ONCE); }}>
+                    {item.label} <span className="gd-count">{item.count}</span>
+                  </button>
+                ))}
+              </div>
+              {matching.length === 0 && <p className="empty">Nothing here right now.</p>}
               <ol className="proposals">
-                {[...data.proposals].reverse().map((item) => (
-                  <ProposalCard key={item.id} proposal={item} config={data.config} account={account} onChange={load} />
+                {matching.slice(0, shown).map((item) => (
+                  <ProposalCard key={item.id} proposal={item} config={data.config} account={account} chain={chain} onChange={load} onRelayed={() => setChainVersion((value) => value + 1)} />
                 ))}
               </ol>
+              {matching.length > shown && (
+                <button type="button" className="button button-ghost show-more" onClick={() => setShown((value) => value + SHOWN_AT_ONCE)}>Show more ({matching.length - shown} left)</button>
+              )}
             </section>
           </div>
           <div className="col-side">
@@ -276,18 +374,40 @@ function GuardianControls({ proposal, config, account, onChange }: { proposal: N
   );
 }
 
-function ProposalCard({ proposal, config, account, onChange }: { proposal: NearProposal; config: NearConfig; account: string; onChange(): Promise<void> }) {
+function ProposalCard({ proposal, config, account, chain, onChange, onRelayed }: { proposal: NearProposal; config: NearConfig; account: string; chain: ChainState; onChange(): Promise<void>; onRelayed(): void }) {
   // Recomputed in the browser; no value reported by a page or server is trusted.
   const textHash = keccak256(stringToHex(proposal.evidence));
   const matches = proposal.cases.every((item) => item.terms.evidence_hash === textHash);
+  const total = proposal.cases.length;
+  const signed = proposal.cases.filter((item) => item.signature).length;
+  const live = proposal.cases.filter((item) => chain[item.digest]?.opened === true).length;
+  const keep = (proposal.cases[0]?.terms.tiers[0]?.reward_bps ?? 0) / 100;
+  const chainCount = new Set(proposal.cases.map((item) => item.terms.chain_id)).size;
+  const bucket = bucketOf(proposal, chain);
+  const next = nextAction(proposal, chain, config);
+  const approved = proposal.status !== "Pending" || proposal.approvals.length >= config.threshold;
+  const steps = [
+    { label: "Proposed", value: "Done", state: "is-done" },
+    { label: "Guardians", value: `${Math.min(proposal.approvals.length, config.threshold)} of ${config.threshold}`, state: approved ? "is-done" : "is-now" },
+    { label: "Signatures", value: `${signed} of ${total}`, state: signed === total ? "is-done" : approved ? "is-now" : "" },
+    proposal.status === "Cancelled"
+      ? { label: "Outcome", value: "Cancelled", state: "" }
+      : { label: "Live on chain", value: `${live} of ${total}`, state: live === total ? "is-done" : signed === total ? "is-now" : "" },
+  ];
 
   return (
-    <li className="proposal">
-      <div className="proposal-head">
-        <span className="proposal-chain">{proposal.cases.length === 1 ? "One case" : `${proposal.cases.length} cases, one offer`}</span>
+    <li className={`proposal is-${bucket}`}>
+      <div className="proposal-top">
+        <div>
+          <p className="proposal-protocol">{protocolOf(proposal)}</p>
+          <p className="proposal-sub">Holder keeps up to {keep}% · {chainCount} {chainCount === 1 ? "chain" : "chains"} · {total} {total === 1 ? "case" : "cases"} · Proposal {proposal.id}</p>
+        </div>
         <span className={proposal.status === "Signed" ? "badge badge-open" : proposal.status === "Cancelled" ? "badge" : "badge badge-loading"}>{STATUS_NOTE[proposal.status] ?? proposal.status}</span>
-        <span className="muted small">Proposal {proposal.id}</span>
       </div>
+      <ol className="proposal-steps">
+        {steps.map((step) => <li key={step.label} className={step.state}><strong>{step.value}</strong>{step.label}</li>)}
+      </ol>
+      {next && <p className="proposal-next"><strong>Next:</strong> {next}</p>}
       <blockquote className="proposal-offer">{offerText(proposal.evidence)}</blockquote>
       <p className={matches ? "proposal-hash is-good" : "proposal-hash is-bad"}>
         {matches ? "Matches the hash in the signed terms of every case. Checked in your browser." : "Does not match the hash in the signed terms."}
@@ -298,9 +418,9 @@ function ProposalCard({ proposal, config, account, onChange }: { proposal: NearP
       <GuardianControls proposal={proposal} config={config} account={account} onChange={onChange} />
       <div className="table-wrap">
         <table className="data-table offer-table">
-          <thead><tr><th scope="col">Chain</th><th scope="col">Reward</th><th scope="col">Signature</th><th scope="col">Signed hash</th><th scope="col">Case</th></tr></thead>
+          <thead><tr><th scope="col">Chain</th><th scope="col">Reward</th><th scope="col">Signature</th><th scope="col">Case</th></tr></thead>
           <tbody>
-            {proposal.cases.map((item) => <CaseRow key={item.digest} item={item} config={config} />)}
+            {proposal.cases.map((item) => <CaseRow key={item.digest} item={item} config={config} state={chain[item.digest]} onRelayed={onRelayed} />)}
           </tbody>
         </table>
       </div>
@@ -312,30 +432,16 @@ function ProposalCard({ proposal, config, account, onChange }: { proposal: NearP
   );
 }
 
-function CaseRow({ item, config }: { item: NearProposalCase; config: NearConfig }) {
+function CaseRow({ item, config, state, onRelayed }: { item: NearProposalCase; config: NearConfig; state: ChainState[string] | undefined; onRelayed(): void }) {
   const { terms } = item;
   const target = TESTNET_CHAINS[terms.chain_id];
   const pactum = config.deployments.find((entry) => entry.chain_id === terms.chain_id)?.pactum as Address | undefined;
   const { deployment } = useApp();
   const { persona, address, readOnly } = useWallet();
   const toast = useToast();
-  const [opened, setOpened] = useState<boolean | null | undefined>(undefined);
-  const [used, setUsed] = useState<boolean | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    if (!pactum) return;
-    let cancelled = false;
-    Promise.all([caseIsOpen(terms.chain_id, pactum, terms.case_id), nonceIsUsed(terms.chain_id, pactum, terms.nonce)]).then(([isOpen, isUsed]) => {
-      if (cancelled) return;
-      setOpened(isOpen);
-      setUsed(isUsed);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pactum, terms.chain_id, terms.case_id, terms.nonce, version]);
+  const opened = state?.opened;
+  const used = state?.used;
 
   // The local build's test accounts have no ETH on testnet, so the button only shows when a usable wallet exists.
   const canSend = deployment.network !== "local" && !!address && !readOnly;
@@ -351,7 +457,7 @@ function CaseRow({ item, config }: { item: NearProposalCase; config: NearConfig 
         ? await relayToChain(terms.chain_id, pactum, persona, { revokeNonce: terms.nonce, signature: item.revocation as Hex })
         : await relayToChain(terms.chain_id, pactum, persona, { open: terms, signature: item.signature as Hex });
       toast({ kind: "ok", title: canRevoke ? "Revocation sent" : "Case opened", href: target ? `${target.explorer}/tx/${hash}` : null });
-      setVersion((value) => value + 1);
+      onRelayed();
     } catch (reason) {
       toast({ kind: "error", title: "Could not relay the signature", detail: reason instanceof Error ? reason.message.split("\n")[0] : "Unknown error" });
     } finally {
@@ -364,7 +470,6 @@ function CaseRow({ item, config }: { item: NearProposalCase; config: NearConfig 
       <td className="offer-chain-name">{target?.label ?? `Chain ${terms.chain_id}`}</td>
       <td>{terms.tiers.map((tier) => `${tier.reward_bps / 100}% until ${date(tier.until)}`).join(", then ")}</td>
       <td>{CASE_STATUS_NOTE[item.status] ?? item.status}</td>
-      <td><code>{shortAddress(item.digest)}</code></td>
       <td>
         {place}
         {canSend && (canOpen || canRevoke) && (

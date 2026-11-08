@@ -15,7 +15,7 @@ export interface CaseState {
 }
 
 export type CaseStatus = "Open" | "Partly returned" | "Fully returned" | "Closed";
-export type IncidentStatus = CaseStatus | "Awaiting offer";
+export type IncidentStatus = CaseStatus | "Awaiting offer" | "Completed";
 
 export function statusOf(info: CaseInfo, state: CaseState | undefined): CaseStatus | null {
   if (!state) return null;
@@ -46,7 +46,11 @@ export function incidentStatus(incident: Incident, states: Record<string, CaseSt
   if (incident.cases.length === 0) return "Awaiting offer";
   const statuses = incident.cases.map((info) => statusOf(info, states[info.id]));
   if (statuses.some((item) => item === null)) return null;
-  if (statuses.every((item) => item === "Fully returned")) return "Fully returned";
+  if (statuses.every((item) => item === "Fully returned")) {
+    // Each person is rounded down by at most 1 unit, so a few units can remain even after everyone has claimed.
+    const everyonePaid = incident.cases.every((info) => states[info.id]!.totalRefund - states[info.id]!.totalClaimed <= BigInt(info.allocations.length));
+    return everyonePaid ? "Completed" : "Fully returned";
+  }
   if (statuses.some((item) => item === "Open" || item === "Partly returned")) {
     const anyReturned = incident.cases.some((info) => (states[info.id]?.totalReturned ?? 0n) > 0n);
     return anyReturned ? "Partly returned" : "Open";
@@ -66,7 +70,7 @@ export function rankIncidents(incidents: Incident[], states: Record<string, Case
   const group = (incident: Incident) => {
     const status = incidentStatus(incident, states);
     if (status === "Closed") return 4;
-    if (status === "Fully returned") return 3;
+    if (status === "Fully returned" || status === "Completed") return 3;
     if (status === "Awaiting offer") return 2;
     return status === null ? 1 : 0;
   };
@@ -120,10 +124,13 @@ export function useDesk(deployment: Deployment): DeskData {
 
   const refresh = useCallback(async () => {
     try {
+      // The local chain only makes a block when a transaction arrives, so "latest" stays in the past while new transactions
+      // run on real time. Reading "pending" keeps the reward rate and clock in line with when a transaction would land.
+      const blockTag = deployment.network === "local" ? ("pending" as const) : ("latest" as const);
       const readState = async (caseId: Hex): Promise<CaseState> => {
         const [state, tier] = await Promise.all([
           client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [caseId] }),
-          client.readContract({ address: desk, abi: deskAbi, functionName: "currentTier", args: [caseId] }),
+          client.readContract({ address: desk, abi: deskAbi, functionName: "currentTier", args: [caseId], blockTag }),
         ]);
         return { totalReturned: state.totalReturned, totalReward: state.totalReward, totalRefund: state.totalRefund, totalClaimed: state.totalClaimed, open: tier[0], rewardBps: tier[1], until: tier[2] };
       };
@@ -176,7 +183,7 @@ export function useDesk(deployment: Deployment): DeskData {
       );
       const made = offers.filter((item): item is CaseInfo => item !== null);
       const all = [...deployment.cases, ...made];
-      const [block, ...entries] = await Promise.all([client.getBlock(), ...all.map(async (info) => [info.id, await readState(info.terms.caseId)] as const)]);
+      const [block, ...entries] = await Promise.all([client.getBlock({ blockTag }), ...all.map(async (info) => [info.id, await readState(info.terms.caseId)] as const)]);
       setMadeOffers(made);
       setStates(Object.fromEntries(entries as (readonly [string, CaseState])[]));
       setClockSkew(Number(block.timestamp) * 1000 - Date.now());
@@ -210,7 +217,7 @@ export function useDesk(deployment: Deployment): DeskData {
 }
 
 export type ActivityRow =
-  | { kind: "returned"; key: string; block: bigint; hash: Hash; time: number; info: CaseInfo; from: Address; rewardTo: Address; received: bigint; reward: bigint; refund: bigint }
+  | { kind: "returned"; key: string; block: bigint; hash: Hash; time: number; info: CaseInfo; from: Address; rewardTo: Address; received: bigint; reward: bigint; refund: bigint; rewardBps: number }
   | { kind: "claimed"; key: string; block: bigint; hash: Hash; time: number; info: CaseInfo; account: Address; amount: bigint }
   | { kind: "opened"; key: string; block: bigint; hash: Hash; time: number; info: CaseInfo };
 
@@ -243,7 +250,7 @@ export function useActivity(deployment: Deployment, desk: DeskData): { rows: Act
       }
       for (const log of returned) {
         const info = byCaseId.get(log.args.caseId!);
-        if (info) next.push({ kind: "returned", key: `${log.transactionHash}-${log.logIndex}`, block: log.blockNumber, hash: log.transactionHash, time: times.get(log.blockNumber)!, info, from: log.args.from!, rewardTo: log.args.rewardTo!, received: log.args.received!, reward: log.args.reward!, refund: log.args.refund! });
+        if (info) next.push({ kind: "returned", key: `${log.transactionHash}-${log.logIndex}`, block: log.blockNumber, hash: log.transactionHash, time: times.get(log.blockNumber)!, info, from: log.args.from!, rewardTo: log.args.rewardTo!, received: log.args.received!, reward: log.args.reward!, refund: log.args.refund!, rewardBps: log.args.rewardBps! });
       }
       for (const log of claimed) {
         const info = byCaseId.get(log.args.caseId!);

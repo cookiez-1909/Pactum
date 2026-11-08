@@ -5,16 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatUnits, parseUnits, type Address } from "viem";
 import type { TokenInfo } from "../chain";
 import { decimalString } from "../format";
-
-const API = "https://1click.chaindefuser.com/v0";
-
-interface IntentsToken {
-  assetId: string;
-  decimals: number;
-  blockchain: string;
-  symbol: string;
-  price?: number;
-}
+import { chainName, dryQuote, isEvmChain, loadIntentsTokens, savedPayout, type IntentsToken, type Quote } from "../intents";
 
 // The real asset behind each fake token, and the preferred EVM chains. Refunds live on an EVM chain,
 // so the swap's input must be an ERC-20 token on an EVM chain.
@@ -30,9 +21,15 @@ const REAL_ASSET: Record<string, string[]> = {
   mSOL: ["SOL"],
 };
 const EVM_CHAINS = ["base", "arb", "eth", "op", "pol", "bsc", "avax"];
-const CHAIN_NAME: Record<string, string> = { btc: "Bitcoin", eth: "Ethereum", sol: "Solana", base: "Base", cardano: "Cardano", near: "NEAR", arb: "Arbitrum", xrp: "XRP Ledger" };
+interface Destination {
+  id: string;
+  symbol: string;
+  chain: string;
+  placeholder: string;
+  assetId?: string;
+}
 
-const DESTINATIONS = [
+const DESTINATIONS: Destination[] = [
   { id: "btc", symbol: "BTC", chain: "btc", placeholder: "bc1…" },
   { id: "eth", symbol: "ETH", chain: "eth", placeholder: "0x…" },
   { id: "usdc-base", symbol: "USDC", chain: "base", placeholder: "0x…" },
@@ -50,16 +47,14 @@ function findOrigin(tokens: IntentsToken[], symbol: string): IntentsToken | null
   return null;
 }
 
-interface Quote {
-  amountOut: string;
-  usdOut: string;
-  seconds: number;
-}
-
 export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amount: bigint; owner: Address }) {
   const [tokens, setTokens] = useState<IntentsToken[] | null>(null);
   const [unavailable, setUnavailable] = useState(false);
-  const [destinationId, setDestinationId] = useState("btc");
+  // If the user picked where to receive funds on the Profile page, open with that choice.
+  const saved = useMemo(() => savedPayout(owner), [owner]);
+  const savedOption: Destination | null = saved ? { id: "saved", symbol: saved.symbol, chain: saved.blockchain, placeholder: "", assetId: saved.assetId } : null;
+  const options = savedOption ? [savedOption, ...DESTINATIONS.filter((item) => item.symbol !== savedOption.symbol || item.chain !== savedOption.chain)] : DESTINATIONS;
+  const [destinationId, setDestinationId] = useState(saved ? "saved" : "btc");
   const [recipient, setRecipient] = useState("");
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -67,11 +62,7 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API}/tokens`)
-      .then((response) => {
-        if (!response.ok) throw new Error("tokens");
-        return response.json() as Promise<IntentsToken[]>;
-      })
+    loadIntentsTokens()
       .then((list) => {
         if (!cancelled) setTokens(list);
       })
@@ -84,15 +75,15 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
   }, []);
 
   const origin = useMemo(() => (tokens ? findOrigin(tokens, token.symbol) : null), [tokens, token.symbol]);
-  const destination = DESTINATIONS.find((item) => item.id === destinationId)!;
-  const target = tokens?.find((item) => item.symbol === destination.symbol && item.blockchain === destination.chain);
-  const isEvmTarget = destination.chain === "eth" || destination.chain === "base";
+  const destination = options.find((item) => item.id === destinationId)!;
+  const target = tokens?.find((item) => (destination.assetId ? item.assetId === destination.assetId : item.symbol === destination.symbol && item.blockchain === destination.chain));
+  const isEvmTarget = isEvmChain(destination.chain);
 
   useEffect(() => {
     setQuote(null);
     setFailure(null);
-    setRecipient(isEvmTarget ? owner : "");
-  }, [destinationId, isEvmTarget, owner, amount]);
+    setRecipient(destinationId === "saved" && saved ? saved.recipient : isEvmTarget ? owner : "");
+  }, [destinationId, isEvmTarget, owner, amount, saved]);
 
   if (unavailable) return null;
   if (!tokens) return null;
@@ -113,27 +104,7 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
     try {
       // Fake and real tokens can have different decimals, so convert using the real amount.
       const realAmount = parseUnits(formatUnits(amount, token.decimals), origin.decimals);
-      const response = await fetch(`${API}/quote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dry: true,
-          swapType: "EXACT_INPUT",
-          slippageTolerance: 100,
-          originAsset: origin.assetId,
-          depositType: "ORIGIN_CHAIN",
-          destinationAsset: target.assetId,
-          amount: realAmount.toString(),
-          refundTo: owner,
-          refundType: "ORIGIN_CHAIN",
-          recipient: recipient.trim(),
-          recipientType: "DESTINATION_CHAIN",
-          deadline: new Date(Date.now() + 3_600_000).toISOString(),
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok || !body.quote) throw new Error(body.message ?? "No quote is available for this route.");
-      setQuote({ amountOut: body.quote.amountOutFormatted, usdOut: body.quote.amountOutUsd, seconds: body.quote.timeEstimate });
+      setQuote(await dryQuote({ originAsset: origin.assetId, destinationAsset: target.assetId, amount: realAmount.toString(), refundTo: owner, recipient: recipient.trim() }));
     } catch (reason) {
       setFailure(reason instanceof Error ? reason.message : "No quote is available for this route.");
     } finally {
@@ -141,7 +112,7 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
     }
   };
 
-  const chainLabel = CHAIN_NAME[origin.blockchain] ?? origin.blockchain;
+  const chainLabel = chainName(origin.blockchain);
 
   return (
     <section className="card convert">
@@ -152,22 +123,22 @@ export function ConvertRefund({ token, amount, owner }: { token: TokenInfo; amou
       <p className="muted small">Your refund arrives as {token.symbol}. With NEAR Intents you could then swap it for an asset on another chain, without a bridge. This shows a live quote for the real {origin.symbol} on {chainLabel}.</p>
 
       <div className="picker-row convert-targets" role="group" aria-label="Receive as">
-        {DESTINATIONS.map((item) => (
+        {options.map((item) => (
           <button key={item.id} type="button" className={destinationId === item.id ? "pill is-active" : "pill"} aria-pressed={destinationId === item.id} onClick={() => setDestinationId(item.id)}>
-            {item.symbol} on {CHAIN_NAME[item.chain] ?? item.chain}
+            {item.symbol} on {chainName(item.chain)}{item.id === "saved" ? " (your choice)" : ""}
           </button>
         ))}
       </div>
 
       <label className="field">
-        <span>Your wallet on {CHAIN_NAME[destination.chain] ?? destination.chain}</span>
+        <span>Your wallet on {chainName(destination.chain)}</span>
         <input value={recipient} spellCheck={false} placeholder={destination.placeholder} onChange={(event) => setRecipient(event.target.value)} />
       </label>
 
       <button type="button" className="button convert-button" disabled={busy || recipient.trim().length === 0 || amount === 0n || !target} onClick={getQuote}>
         {busy ? <><span className="spinner" /> Getting a live quote…</> : amount === 0n ? "Nothing available to convert yet" : "Get a live quote"}
       </button>
-      <p className="fine-print">Getting a quote sends the amount and this destination address to the NEAR Intents service.</p>
+      <p className="fine-print">Getting a quote sends the amount and this destination address to the NEAR Intents service. <a href="#/profile">{saved ? "Change your default" : "Set a default for future refunds"}</a></p>
 
       {failure && <p className="field-error" role="alert">NEAR Intents returned: {failure}</p>}
       {quote && (

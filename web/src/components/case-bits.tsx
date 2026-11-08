@@ -1,4 +1,5 @@
 // Pieces of an incident's interface: asset icons, the asset list, the status and the progress bar.
+import { useState, type SyntheticEvent } from "react";
 import { tokens, usd } from "../format";
 import type { IncidentStatus } from "../useDesk";
 
@@ -24,6 +25,13 @@ export function AssetSummary({ assets }: { assets: LostAsset[] }) {
   const sorted = [...assets].sort((a, b) => b.value - a.value);
   const shown = sorted.slice(0, VISIBLE_ASSETS);
   const hidden = sorted.length - shown.length;
+  const [opensUp, setOpensUp] = useState(false);
+  // A row near the bottom of the screen opens the list upward so it is not cut off, as long as there is room above.
+  const place = (event: SyntheticEvent<HTMLElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const height = 48 + sorted.length * 27;
+    setOpensUp(box.bottom + height > window.innerHeight - 8 && box.top - height > 72);
+  };
   return (
     <span className="asset-summary">
       <span className="asset-summary-list">
@@ -35,7 +43,7 @@ export function AssetSummary({ assets }: { assets: LostAsset[] }) {
         ))}
       </span>
       {hidden > 0 && (
-        <span className="more-assets" tabIndex={0} aria-label={`All ${assets.length} assets lost: ${sorted.map((asset) => `${tokens(asset.amount, asset.decimals, 2)} ${asset.symbol}`).join(", ")}`}>
+        <span className={opensUp ? "more-assets opens-up" : "more-assets"} tabIndex={0} onMouseEnter={place} onFocus={place} aria-label={`All ${assets.length} assets lost: ${sorted.map((asset) => `${tokens(asset.amount, asset.decimals, 2)} ${asset.symbol}`).join(", ")}`}>
           <span className="more-count">+{hidden}</span>
           <span className="more-mark" aria-hidden="true">!</span>
           <span className="asset-tooltip" role="tooltip">
@@ -58,6 +66,7 @@ const STATUS_ICON: Record<IncidentStatus, string> = {
   Open: "●",
   "Partly returned": "◐",
   "Fully returned": "✓",
+  Completed: "★",
   Closed: "■",
   "Awaiting offer": "…",
 };

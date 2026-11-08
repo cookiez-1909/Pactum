@@ -32,6 +32,18 @@ export const deskAbi = parseAbi([
   "function revokeNonce(uint256 nonce, bytes controllerSig)",
   "function nonceUsed(uint256 nonce) view returns (bool)",
   "error CaseNotFound()",
+  "error WrongChain()",
+  "error NonceUsed()",
+  "error CaseExists()",
+  "error InvalidTerms()",
+  "error InvalidSignature()",
+  "error CaseClosed()",
+  "error ZeroRewardAddress()",
+  "error RewardToPactum()",
+  "error RewardTooLow()",
+  "error NothingToReturn()",
+  "error InvalidProof()",
+  "error NothingToClaim()",
   "event CaseOpened(bytes32 indexed caseId, address indexed token, uint256 totalLoss, bytes32 refundRoot, bytes32 evidenceHash)",
   "event FundsReturned(bytes32 indexed caseId, address indexed from, address indexed rewardTo, uint256 received, uint256 reward, uint256 refund, uint16 rewardBps)",
   "event RefundClaimed(bytes32 indexed caseId, address indexed account, uint256 amount)",
@@ -117,6 +129,7 @@ export interface IncidentInfo {
   name: string;
   summary: string;
   fictional: boolean;
+  replay?: boolean;
 }
 
 export interface NearRecord {

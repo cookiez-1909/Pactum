@@ -1,17 +1,23 @@
 // The remaining app pages: Hack tracker, Activity, My wallet and How it works.
 import { useEffect, useMemo, useState } from "react";
+import type { Address } from "viem";
 import { useApp } from "../appdata";
 import { erc20Abi, deskAbi, publicClientOf, txUrl, type CaseInfo } from "../chain";
 import { AssetIcon } from "../components/case-bits";
 import { Chevron, ExternalLink } from "../components/icons";
+import { Mascot } from "../components/Mascot";
 import { Party, RoleTag } from "../components/Party";
 import { REPORTED_INCIDENTS, REPORTED_SNAPSHOT } from "../data/reported";
+import { REPLAY_ID } from "../data/replay";
+import { BADGES, earnedBadges } from "../fun";
 import { shortAddress, timeAgo, tokens } from "../format";
 import { identify, type Role } from "../labels";
 import { acceptsFunds, rankIncidents } from "../useDesk";
 import { useWallet } from "../wallet";
 
 export function Tracker() {
+  const { desk } = useApp();
+  const hasReplay = desk.incidents.some((incident) => incident.id === REPLAY_ID);
   const [expanded, setExpanded] = useState<string | null>(REPORTED_INCIDENTS[0]?.name ?? null);
   return (
     <div className="page">
@@ -42,7 +48,7 @@ export function Tracker() {
                     <div><dt>Assets</dt><dd>{item.assets}</dd></div>
                     <div><dt>Outcome</dt><dd>{item.outcome}</dd></div>
                     <div><dt>Attributed to</dt><dd>{item.attribution}</dd></div>
-                    <div><dt>Would it fit?</dt><dd><strong>{item.fit}.</strong> {item.fitReason}</dd></div>
+                    <div><dt>Would it fit?</dt><dd><strong>{item.fit}.</strong> {item.fitReason}{item.name === "GMX" && hasReplay && <> <a className="replay-link" href={`#/case/${REPLAY_ID}`}>See this hack replayed on Pactum</a></>}</dd></div>
                     <div>
                       <dt>Sources</dt>
                       <dd className="sources">
@@ -104,7 +110,7 @@ export function ActivityPage() {
                   {row.kind === "returned" && <><Party address={row.from} compact /> returned <strong className="mono">{fmt(row.received)} {token.symbol}</strong> to <a href={`#/case/${incidentId}`}>{incident}</a></>}
                   {row.kind === "claimed" && <><Party address={row.account} compact /> claimed <strong className="mono">{fmt(row.amount)} {token.symbol}</strong> from <a href={`#/case/${incidentId}`}>{incident}</a></>}
                 </p>
-                {row.kind === "returned" && <p className="feed-sub">{fmt(row.reward)} paid as reward, {fmt(row.refund)} booked for users</p>}
+                {row.kind === "returned" && <p className="feed-sub">{fmt(row.reward)} paid as reward at the {row.rewardBps / 100}% rate, {fmt(row.refund)} booked for users</p>}
               </div>
               <div className="feed-meta">
                 <span>{timeAgo(row.time, desk.now)}</span>
@@ -118,7 +124,7 @@ export function ActivityPage() {
   );
 }
 
-interface Holding {
+export interface Holding {
   info: CaseInfo;
   balance: bigint;
   allocation: bigint | null;
@@ -126,9 +132,9 @@ interface Holding {
   claimed: bigint;
 }
 
-export function MyWallet() {
-  const { deployment, desk, directory } = useApp();
-  const { address, connect, personas } = useWallet();
+// A wallet's balances and refunds across every case. Shared by My wallet and Profile.
+export function useHoldings(address: Address | null | undefined): Holding[] | null {
+  const { deployment, desk } = useApp();
   const client = useMemo(() => publicClientOf(deployment), [deployment]);
   const [holdings, setHoldings] = useState<Holding[] | null>(null);
   const version = Object.values(desk.states).reduce((sum, state) => sum + state.totalReturned + state.totalClaimed, 0n).toString();
@@ -162,6 +168,14 @@ export function MyWallet() {
     };
   }, [address, client, deployment, desk.cases, version]);
 
+  return holdings;
+}
+
+export function MyWallet() {
+  const { desk, directory } = useApp();
+  const { address, connect, personas } = useWallet();
+  const holdings = useHoldings(address);
+
   if (!address) {
     return (
       <div className="page">
@@ -187,6 +201,23 @@ export function MyWallet() {
           <p className="muted">{me.detail}</p>
         </div>
       </header>
+
+      <section className="card badges">
+        <div className="card-head"><h2>Your badges</h2><span className="muted small">{earnedBadges().length} of {BADGES.length}</span></div>
+        <ul className="badge-grid">
+          {BADGES.map((badge) => {
+            const earned = earnedBadges().includes(badge.id);
+            return (
+              <li key={badge.id} className={earned ? "badge-tile is-earned" : "badge-tile"}>
+                <span className="badge-icon" aria-hidden="true">{earned ? <Mascot action={badge.mascot} size={84} /> : "🔒"}</span>
+                <span className="badge-name">{badge.name}</span>
+                <span className="badge-how">{badge.how}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="fine-print">Just for fun. Saved only in this browser, and worth nothing.</p>
+      </section>
 
       {holdings === null && <div className="skeleton skeleton-block" />}
 

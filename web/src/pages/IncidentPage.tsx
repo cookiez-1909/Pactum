@@ -1,10 +1,14 @@
 // An incident page: a multi-asset overview, the protocol's offer, returns, refunds and the ledger.
+import { ReplayCard } from "../components/ReplayCard";
+import { REPLAY_ID } from "../data/replay";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Hash } from "viem";
 import { useApp, useToast } from "../appdata";
 import { deskAbi, discussionTopic, notesAbi, fetchNearProposal, hashEvidence, offerCaseId, publicClientOf, signAsSimulatedController, txUrl, walletFor, type CaseInfo, type CaseTerms, type Evidence, type NearProposal, type PendingAsset } from "../chain";
 import { AssetIcon, RecoveryBar, RecoveryLegend, StatusBadge } from "../components/case-bits";
 import { Check } from "../components/icons";
+import { NextStep, RecoveryQuest } from "../components/NextStep";
+import { earn } from "../fun";
 import { CopyButton, Party } from "../components/Party";
 import { countdown, shortAddress, tokens, usd } from "../format";
 import { nearName } from "../labels";
@@ -24,6 +28,15 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "discussion", label: "Discussion" },
   { id: "ledger", label: "Ledger" },
 ];
+
+const TAB_HELP: Record<Tab, string> = {
+  incident: "What happened, and where the money is now.",
+  offer: "The deal on the table: how much the holder keeps, and until when.",
+  return: "For whoever holds the stolen tokens. Send them back and keep the reward.",
+  refund: "For people who lost money. Check your share and claim it.",
+  discussion: "Public comments. Anyone can read them and nobody can delete them.",
+  ledger: "Every transaction in this case, for anyone who wants to check.",
+};
 
 function offerConditions(incident: Incident): string {
   return incident.cases.map((info) => info.evidence?.offer?.conditions ?? "").find((text) => text.length > 0) ?? "";
@@ -47,6 +60,14 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
   const needsAsset = tab === "return" || tab === "refund" || tab === "ledger";
   const conditions = offerConditions(incident);
   const discussion = useNotes(deployment, discussionTopic(incident.id));
+  const toast = useToast();
+
+  useEffect(() => {
+    const badge = earn("explorer");
+    if (badge) toast({ kind: "ok", title: `Badge unlocked: ${badge.name}`, detail: badge.how });
+    // Only needs to be reported once, when the first case is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="page">
@@ -57,6 +78,7 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
             <h1>{incident.name}</h1>
             <StatusBadge status={status} />
             {incident.fictional && <span className="tag">Fictional</span>}
+            {incident.replay && <span className="tag tag-real">Replay of a real hack</span>}
           </div>
           <p>{incident.summary}</p>
         </div>
@@ -69,12 +91,16 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
         <div className="stat"><dt>{offer ? "Rate ends in" : "In refund pool"}</dt><dd className="stat-small">{desk.loaded ? (offer ? countdown(offer.until, now) : usd(sum.refund)) : <span className="skeleton" />}</dd></div>
       </dl>
 
+      <RecoveryQuest incident={incident} />
+      <NextStep incident={incident} />
+
       <nav className="tabs" aria-label="Case sections">
         {TABS.map(({ id, label }) => (
           <a key={id} href={`#/case/${incident.id}/${id}${selected && (id === "return" || id === "refund" || id === "ledger") ? `/${selected.token.symbol}` : ""}`} className={tab === id ? "tab is-active" : "tab"} aria-current={tab === id ? "page" : undefined}>{label}{id === "discussion" && <span className="tab-count">{discussion.notes.length}</span>}</a>
         ))}
       </nav>
 
+      <p className="tab-help">{TAB_HELP[tab]}</p>
       <div className="tab-panel" key={tab}>
         {needsAsset && incident.cases.length === 0 && (
           <p className="block-reason" role="status">The protocol has not published an offer yet, so there is nothing to return or claim. <a href={`#/case/${incident.id}/offer`}>See the Offer tab</a>.</p>
@@ -96,6 +122,7 @@ export function IncidentPage({ incident, tab, symbol }: { incident: Incident; ta
             </div>
           </>
         )}
+        {tab === "incident" && incident.id === REPLAY_ID && <ReplayCard />}
         {tab === "incident" && <Overview incident={incident} />}
         {tab === "offer" && <OfferTab incident={incident} onTx={onTx} />}
         {tab === "discussion" && <Discussion incident={incident} notes={discussion.notes} failed={discussion.failed} reload={discussion.reload} />}
@@ -238,7 +265,7 @@ function Overview({ incident }: { incident: Incident }) {
             {sum.returned > 0 && (
               <li className="is-good">
                 <p className="timeline-title">{usd(sum.returned)} returned</p>
-                <p className="timeline-body">{usd(sum.reward)} paid as reward{capped.length > 0 ? ", limited by the reward cap" : ""}, {usd(sum.refund)} booked for users.</p>
+                <p className="timeline-body">{usd(sum.reward)} paid as reward{capped.length > 0 ? ", limited by the reward cap" : ""}, {usd(sum.refund)} booked for users.<RatesUsed incident={incident} /></p>
               </li>
             )}
           </ol>
@@ -726,4 +753,12 @@ function termsForContract(terms: CaseTerms) {
     nonce: BigInt(terms.nonce),
     chainId: BigInt(terms.chainId),
   };
+}
+
+// The reward rate may have dropped since the funds came back, so record the exact rate the contract used then.
+function RatesUsed({ incident }: { incident: Incident }) {
+  const { activity } = useApp();
+  const rates = [...new Set(activity.rows.flatMap((row) => (row.kind === "returned" && row.info.incidentId === incident.id ? [row.rewardBps] : [])))].sort((a, b) => b - a);
+  if (rates.length === 0) return null;
+  return <> Paid at the {rates.map((bps) => `${bps / 100}%`).join(" and ")} rate in force at the time.</>;
 }

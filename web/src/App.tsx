@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { AppProvider, ToastProvider, useApp } from "./appdata";
 import { normalizeDeployment, type Deployment } from "./chain";
 import { Shell } from "./components/Shell";
+import { markTourSeen, Tour, TourEntry, tourSeen, Welcome, type TourRole } from "./components/Tour";
 import { IncidentPage, TAB_IDS, type Tab } from "./pages/IncidentPage";
 import { CasesPage } from "./pages/CasesPage";
 import { Guardians } from "./pages/Guardians";
 import { Landing } from "./pages/Landing";
+import { StakePage, StatsPage } from "./pages/More";
+import { Profile } from "./pages/Profile";
 import { ActivityPage, HowItWorks, MyWallet, Tracker } from "./pages/others";
-import { WalletProvider } from "./wallet";
+import { useWallet, WalletProvider } from "./wallet";
 
 interface Route {
   page: string;
@@ -41,6 +44,16 @@ export function App() {
   const route = useRoute();
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [loadError, setLoadError] = useState(false);
+  // Newcomers are asked when they enter the app, not on the landing page, so they read what Pactum is first.
+  const [welcome, setWelcome] = useState(() => !tourSeen());
+  // Skip the question if a role was already picked on the home page or the tour link was opened directly.
+  const choseRole = route.page === "start" || route.page === "tour";
+  useEffect(() => {
+    if (!choseRole) return;
+    markTourSeen();
+    setWelcome(false);
+  }, [choseRole]);
+  const greeting = welcome && !choseRole && route.page !== "" && route.page !== "faq" ? <Welcome onClose={() => setWelcome(false)} /> : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +88,7 @@ export function App() {
         <span className="brand-name">Pactum</span>
         <p>{loadError ? "Waiting for a deployment. Run: make web-local" : "Loading…"}</p>
         <a href="#/">Back to home</a>
+        {greeting}
       </div>
     );
   }
@@ -84,30 +98,60 @@ export function App() {
       <AppProvider deployment={deployment}>
         <WalletProvider deployment={deployment}>
           <Routed route={route} />
+          {greeting}
         </WalletProvider>
       </AppProvider>
     </ToastProvider>
   );
 }
 
+// An entry point for newcomers: pick the right role and go to the right page, instead of making them search.
+function Start({ kind }: { kind: string }) {
+  const { desk } = useApp();
+  const { personas, select } = useWallet();
+  useEffect(() => {
+    const name = kind === "lost" ? "User 1" : kind === "holding" ? "Hacker" : kind === "team" ? "Protocol owner" : null;
+    const persona = personas.find((item) => item.name === name);
+    if (persona) select(persona);
+    if (kind === "lost" || kind === "holding") window.location.replace("#/wallet");
+    else if (kind === "team") {
+      const open = desk.incidents.find((incident) => incident.cases.length === 0);
+      window.location.replace(open ? `#/case/${open.id}/offer` : "#/cases");
+    } else window.location.replace("#/cases");
+    // Runs only once when this page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div className="page"><p className="empty">Taking you there…</p></div>;
+}
+
 function Routed({ route }: { route: Route }) {
   const { desk } = useApp();
   const incident = desk.incidents.find((item) => item.id === route.caseId);
+  const [tour, setTour] = useState<TourRole | null>(null);
   return (
+    <>
+    {/* Outside the Shell, because the Shell's content is rebuilt on every page change. */}
+    {tour && desk.loaded && <Tour key={tour} role={tour} onClose={() => setTour(null)} />}
     <Shell page={route.page} caseId={route.caseId}>
+      {route.page === "tour" && <TourEntry role={window.location.hash.split("/")[2]} onStart={setTour} />}
+      {route.page === "start" && <Start kind={window.location.hash.split("/")[2] ?? "explore"} />}
       {route.page === "cases" && <CasesPage />}
       {route.page === "tracker" && <Tracker />}
       {route.page === "activity" && <ActivityPage />}
       {route.page === "wallet" && <MyWallet />}
+      {route.page === "profile" && <Profile />}
+      {route.page === "stats" && <StatsPage />}
+      {route.page === "stake" && <StakePage />}
       {route.page === "guardians" && <Guardians />}
       {route.page === "how" && <HowItWorks />}
       {route.page === "case" && incident && <IncidentPage key={incident.id} incident={incident} tab={route.tab} symbol={route.symbol} />}
       {route.page === "case" && !incident && (
         <div className="page"><p className="empty">Case not found. <a href="#/cases">Back to all cases</a></p></div>
       )}
-      {!["cases", "tracker", "activity", "wallet", "guardians", "how", "case"].includes(route.page) && (
+      {!["cases", "tracker", "activity", "wallet", "profile", "stats", "stake", "guardians", "how", "case", "start", "tour"].includes(route.page) && (
         <div className="page"><p className="empty">Page not found. <a href="#/cases">Go to cases</a></p></div>
       )}
     </Shell>
+    </>
   );
 }

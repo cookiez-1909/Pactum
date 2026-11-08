@@ -48,10 +48,18 @@ Then, if you want more:
 make test         → all tests pass: 91 in Foundry, 124 in Rust (83 for the controller, 41 for the registry), 7 for the refund list tool. Took 3 to 5 minutes, mostly compiling Rust
 make scenarios    → 22 simulated situations on Anvil with real transactions and time travel, all marked PASS
 make intents-quote → prints a live NEAR Intents quote, no wallet and nothing is swapped
-make web-local    → serves http://localhost:5173 with 5 fictional hacks across 8 mock assets. Pick a test account, then write an offer, return funds or claim. Open Guardians to read the real offers live from NEAR testnet
+make web-local    → serves http://localhost:5173 with 5 fictional hacks and one marked replay of the real GMX hack, across 8 mock assets. Pick a test account, then write an offer, return funds or claim. Open Guardians to read the real offers live from NEAR testnet
 ```
 
 `make web-local` uses ports 5173 and 8546 and runs until you press Ctrl-C.
+
+What to try in the app:
+
+- **First visit:** opening the app asks if you are a User, a Hacker or a Protocol, then shows you around in three or four short steps. You can skip it, or reopen it with "Take the tour" in the sidebar.
+- **Case "GMX replay":** the July 2025 GMX hack next to what the same terms would do on Pactum. As the Hacker wallet, Return funds pays $4.2M and books $37.8M for users in one transaction. Figures for the real hack link to their sources.
+- **Profile:** claim every refund that is ready from one list, and choose the asset and chain you want refunds quoted in through NEAR Intents.
+- **More > Stats:** totals for the whole app, recovery for each case, and the numbers of the selected wallet.
+- **More > Stake:** the operators staked in the NEAR testnet registry, read live.
 
 `make demo-local`, `make scenarios` and the cases in `make web-local` run on Anvil with a **simulated** controller: a local test key replaces NEAR. Only `make demo-testnet`, `make verify` and the Guardians page involve the real NEAR contract. The Guardians page reads it live, even in `make web-local`.
 
@@ -241,7 +249,7 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 | `make test-near` | 124 passed: 83 for the controller, 41 for the registry |
 | `make test-refund-list` | 7 passed |
 | `make scenarios` | 22 of 22 situations on Anvil, including time travel across reward tiers, assets with different decimals, funds moved through several wallets and a team hacking itself |
-| `make test-ui` | Drives the app in Chromium through every role, offers, returns, refunds and phones. Needs `npx playwright install chromium` in `e2e/`, or `CHROMIUM_PATH` set |
+| `make test-ui` | 230 checks passed. Drives the app in Chromium through every role, offers, returns, refunds, the tour and phones. Needs `npx playwright install chromium` in `e2e/`, or `CHROMIUM_PATH` set |
 | `make test-sandbox` | 26 passed: the real NEAR wasm in a local sandbox. 17 run the controller against a **mock** MPC signer, including the largest offer with the longest text. 9 run the registry against the real controller wasm, with real refunds and transfers. The first build took about 8 minutes |
 
 Covered as the spec requires: a reward floor against a deadline or another return arriving first, wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval, invalid terms, a chain the controller does not serve, separate digests per chain, offer text that does not match its hash, one failed signature in a multi-chain offer, offers larger than one transaction can sign, a stranger adding a chain, a vote trying to replace a served chain, replacing a guardian, votes from a removed guardian, cancelling before and after signing, a failed revocation, and a proposal with no storage deposit.
@@ -257,12 +265,16 @@ The mock signer exists to force failures the real MPC network will not produce o
 - `VulnerableVault`: intentionally vulnerable. `emergencyWithdraw` has no access control.
 - `MockUSD` and `MockToken`: anyone can mint them, so they have no value.
 - The test accounts in `make web-local` (Hacker, Hacker 2, Hacker 3, New wallet, Users, Protocol owner, Stranger) are demo wallets. On a real deployment nothing would label a wallet that moved funds as a hacker.
+- The GMX replay in `make web-local` uses the loss and offer reported for the July 2025 hack, with test tokens and test wallets. GMX did not use Pactum and has no link to this project.
 - The hacks in `make web-local` use fictional protocols (Quillon DEX, Kestrel Bridge, Tidewater Perps, Northgate Lending, Marlin Vaults), and their dollar values use made-up prices.
 - The registration step before the offer form is a mock. It sends and saves nothing, it is lost when the page reloads, its code is not checked by anyone, and two buttons stand in for the guardians' decision.
 - The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms. The Guardians page can relay signatures with any wallet that has testnet ETH. It can only vote as a guardian with test keys on the local dev server after `make demo-stage`. Real guardians get a `near` CLI command to run with their own key, because the app has no NEAR wallet connection. That command has not been run on testnet.
 - The app acts on one chain at a time. The hosted build can return and claim on Sepolia, and shows the other two runs on the Guardians page and in `deployments/`.
 - The comments shown in `make web-local` are written for the demo and posted by test accounts.
-- "Hack tracker" in the interface lists real events with figures and links from public sources, as of 2026-11-06. None of those organizations uses Pactum. The "Would it fit?" column is this project's opinion.
+- The Profile choice of where to receive refunds is saved in the browser only. It sets the live NEAR Intents quote shown for a refund. No swap runs, because NEAR Intents has no testnet and the refund tokens are mock. A claim always pays the token that was returned.
+- The Stake page reads real data but only operators can stake, with their own NEAR key. Users cannot stake, and do not need to.
+- Badges are saved in the browser only and are worth nothing.
+- "Hack tracker" in the interface lists real events with figures and links from public sources, as of 2026-11-08. None of those organizations uses Pactum. The "Would it fit?" column is this project's opinion.
 - Users, attacker and reward wallets in the demo are test accounts controlled by the demo script.
 - [`spike/chain-signatures`](spike/chain-signatures) is the first experiment that proved an MPC signature recovers correctly on the EVM. It is kept as evidence and is not part of the product.
 
@@ -274,7 +286,8 @@ controller/   NEAR contract in Rust that approves offers and requests Chain Sign
 registry/     NEAR contract in Rust that lists staked operators and slashes them after a challenge
 scripts/      demo, verify, scenarios, mutation tests, refund list tool and test vector generation
 sandbox/      local NEAR sandbox tests and the mock MPC signer
-web/          React app: landing page, cases, offers, returns, refunds, discussion, activity, guardians, hack tracker and FAQ
+web/          React app: landing page, tour, cases, offers, returns, refunds, discussion, activity, profile, stats, stake, guardians, hack tracker and FAQ
+web/mascot/   source of the mascot animations, drawn in SVG for this project
 e2e/          interface tests in Chromium
 deployments/  public addresses, transaction hashes and the deployed wasm of the testnet run
 spike/        first Chain Signatures experiment, kept as evidence

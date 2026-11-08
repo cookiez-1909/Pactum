@@ -101,6 +101,8 @@ interface IncidentSpec {
   id: string;
   name: string;
   summary: string;
+  // Replays a real hack rather than a fictional one.
+  replay?: boolean;
   attacker: LocalAccount;
   // How much each user lost of each asset, in whole tokens.
   losses: Partial<Record<AssetKey, [LocalAccount, string][]>>;
@@ -127,12 +129,12 @@ async function tokenFor(key: AssetKey): Promise<Address> {
   return address;
 }
 
-const incidents: { id: string; name: string; summary: string; fictional: boolean }[] = [];
+const incidents: { id: string; name: string; summary: string; fictional: boolean; replay: boolean }[] = [];
 const cases: unknown[] = [];
 const pending: unknown[] = [];
 
 async function setUpIncident(spec: IncidentSpec): Promise<void> {
-  incidents.push({ id: spec.id, name: spec.name, summary: spec.summary, fictional: true });
+  incidents.push({ id: spec.id, name: spec.name, summary: spec.summary, fictional: !spec.replay, replay: !!spec.replay });
   const opened = new Map<AssetKey, { caseId: Hex; tree: ReturnType<typeof buildRefundTree>; txs: Record<string, Hash>; returns: number; claims: number }>();
   const stolen: string[] = [];
 
@@ -345,6 +347,23 @@ async function main() {
       btc: [[user1, "5"], [user4, "3"]],
       usdt: [[user2, "750000"], [user3, "250000"]],
       eth: [[user3, "90"], [user4, "30"]],
+    },
+  });
+
+  // Amounts and terms come from the July 2025 GMX hack. The users and tokens are test accounts.
+  await setUpIncident({
+    id: "gmx-replay",
+    name: "GMX replay",
+    replay: true,
+    attacker: hacker1,
+    summary: "A replay of the July 2025 GMX hack, with its $42M loss and its real offer: keep 10%, within 48 hours. Test tokens and test wallets.",
+    losses: {
+      usdc: [[user1, "21000000"], [user2, "12600000"], [user3, "8400000"]],
+    },
+    offer: {
+      rewardShare: 0.1,
+      conditions: "Keep 10% and return the rest within 48 hours. These are the terms GMX offered in its on-chain message in July 2025.",
+      tiers: (now) => [{ until: now + 48n * HOUR, rewardBps: 1000 }],
     },
   });
 

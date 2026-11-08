@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatUnits, isAddress, isAddressEqual, parseEventLogs, parseUnits, zeroAddress, type Address, type Hash } from "viem";
+import { BaseError, ContractFunctionRevertedError, formatUnits, isAddress, isAddressEqual, parseEventLogs, parseUnits, zeroAddress, type Address, type Hash } from "viem";
 import { useApp, useToast } from "../appdata";
 import {
   deskAbi,
@@ -11,6 +11,8 @@ import {
   type CaseInfo,
 } from "../chain";
 import { ConvertRefund } from "../components/ConvertRefund";
+import { ReturnWarning } from "../components/ReturnWarning";
+import { celebrate, earn } from "../fun";
 import { VerifyOffer } from "../components/VerifyOffer";
 import { Check, ExternalLink } from "../components/icons";
 import { Party } from "../components/Party";
@@ -23,7 +25,28 @@ export interface SessionTx {
   hash: Hash;
 }
 
-const errorText = (reason: unknown, fallback: string) => (reason instanceof Error ? reason.message.split("\n")[0]! : fallback);
+// The contract's rejection reasons, rewritten for people who cannot read error names.
+const REVERT_TEXT: Record<string, string> = {
+  RewardTooLow: "The reward dropped before this went through, because a deadline passed or someone else returned funds first. Your tokens did not move. Check the new amount and try again.",
+  CaseClosed: "This case no longer accepts funds. Your tokens did not move.",
+  NothingToReturn: "This case has already received everything it can accept. Your tokens did not move.",
+  ZeroRewardAddress: "Enter a real wallet to receive the reward. Your tokens did not move.",
+  RewardToPactum: "The reward cannot be sent to the Pactum contract. Enter another wallet. Your tokens did not move.",
+  CaseNotFound: "This case does not exist on this chain.",
+  InvalidProof: "This wallet's refund proof does not match the published list.",
+  NothingToClaim: "There is nothing to claim right now. Your share appears here when more funds come back.",
+};
+
+export const errorText = (reason: unknown, fallback: string) => {
+  if (reason instanceof BaseError) {
+    const revert = reason.walk((item) => item instanceof ContractFunctionRevertedError);
+    const name = revert instanceof ContractFunctionRevertedError ? revert.data?.errorName : undefined;
+    if (name && REVERT_TEXT[name]) return REVERT_TEXT[name];
+  }
+  const firstLine = reason instanceof Error ? reason.message.split("\n")[0]! : "";
+  // A first line ending in a colon means the important part was cut off; showing it only confuses.
+  return firstLine && !firstLine.endsWith(":") ? firstLine : fallback;
+};
 
 export function TxLink({ hash, near = false }: { hash: string; near?: boolean }) {
   const { deployment } = useApp();
@@ -60,7 +83,7 @@ export function RewardSchedule({ info, state }: { info: CaseInfo; state: CaseSta
 }
 
 export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: CaseState | undefined; onTx: (label: string, hash: Hash) => void }) {
-  const { deployment } = useApp();
+  const { deployment, desk: deskData } = useApp();
   const toast = useToast();
   const { terms, token } = info;
   const { address, persona, connect, readOnly } = useWallet();
@@ -70,6 +93,7 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
   const [amountText, setAmountText] = useState("");
   const [rewardText, setRewardText] = useState("");
   const [step, setStep] = useState<"idle" | "approve" | "return">("idle");
+  const [warning, setWarning] = useState(false);
   const [result, setResult] = useState<{ reward: bigint; refund: bigint; hash: Hash } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const sym = token.symbol;
@@ -157,10 +181,15 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
       const refund = paid?.refund ?? preview.refund;
       setResult({ reward, refund, hash });
       toast({ kind: "ok", title: "Funds returned", detail: `${fmt(reward)} ${sym} reward, ${fmt(refund)} ${sym} to refunds.`, href: txUrl(deployment, hash) });
+      celebrate();
+      const badge = earn("returner");
+      if (badge) toast({ kind: "ok", title: `Badge unlocked: ${badge.name}`, detail: badge.how });
     } catch (reason) {
       const text = errorText(reason, "The transaction failed");
       setFailure(text);
       toast({ kind: "error", title: "Return failed", detail: text });
+      // A failed transaction is usually caused by fresh numbers, so re-read at once to show the user the new figures.
+      void deskData.refresh();
     } finally {
       setStep("idle");
     }
@@ -230,13 +259,26 @@ export function ReturnFunds({ info, state, onTx }: { info: CaseInfo; state: Case
 
           {readOnly && <p className="block-reason" role="status">This is a view of a wallet you typed in. It can read, but it cannot send transactions.</p>}
           {address ? (
-            <button type="button" className="button button-primary button-block" disabled={!canSubmit} onClick={submit}>
+            <button type="button" className="button button-primary button-block" disabled={!canSubmit} onClick={() => setWarning(true)}>
               {step === "approve" ? "Approving…" : step === "return" ? "Returning…" : "Return funds"}
             </button>
           ) : (
             <button type="button" className="button button-primary button-block" onClick={connect}>Connect a wallet to return funds</button>
           )}
           {failure && <p className="field-error" role="alert">{failure}</p>}
+          {warning && preview && (
+            <ReturnWarning
+              send={fmt(preview.accepted)}
+              reward={fmt(preview.reward)}
+              lose={fmt(preview.refund)}
+              symbol={sym}
+              onCancel={() => setWarning(false)}
+              onConfirm={() => {
+                setWarning(false);
+                void submit();
+              }}
+            />
+          )}
 
           {result && (
             <div className="result" role="status">
@@ -323,6 +365,9 @@ export function Refund({ info, state, onTx }: { info: CaseInfo; state: CaseState
       await load();
       setJustClaimed({ amount, hash });
       toast({ kind: "ok", title: "Refund received", detail: `${fmt(amount)} ${sym} is now in this wallet.`, href: txUrl(deployment, hash) });
+      celebrate();
+      const badge = earn("claimer");
+      if (badge) toast({ kind: "ok", title: `Badge unlocked: ${badge.name}`, detail: badge.how });
     } catch (reason) {
       const text = errorText(reason, "The claim failed");
       setFailure(text);

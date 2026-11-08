@@ -5,7 +5,7 @@ import { CountUp } from "../components/motion";
 import { countdown, usd } from "../format";
 import { currentOffer, incidentStatus, incidentTotals, rankIncidents, usdOf, type Incident, type IncidentStatus } from "../useDesk";
 
-const STATUS_FILTERS: (IncidentStatus | "All")[] = ["All", "Open", "Partly returned", "Awaiting offer", "Fully returned", "Closed"];
+const STATUS_FILTERS: (IncidentStatus | "All")[] = ["All", "Open", "Partly returned", "Awaiting offer", "Fully returned", "Completed", "Closed"];
 
 export function lostAssets(incident: Incident): LostAsset[] {
   return [
@@ -44,7 +44,7 @@ export function CasesPage() {
       <header className="page-head">
         <div>
           <h1>Cases</h1>
-          <p>Every protocol here is fictional and the tokens have no value. The transactions and contract rules are real.</p>
+          <p>Every protocol here is fictional, except one marked replay of a real hack. The tokens have no value. The transactions and contract rules are real.</p>
         </div>
       </header>
 
