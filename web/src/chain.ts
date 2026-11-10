@@ -17,6 +17,7 @@ import {
 } from "viem";
 import { mnemonicToAccount, privateKeyToAccount, type LocalAccount } from "viem/accounts";
 import { baseSepolia, foundry, robinhoodTestnet, sepolia } from "viem/chains";
+import { sandboxProvider } from "./sandbox";
 
 export const deskAbi = parseAbi([
   "struct Case { address token; uint256 totalLoss; uint256 maxReturn; uint256 rewardCap; bytes32 refundRoot; bytes32 evidenceHash; uint256 totalReturned; uint256 totalReward; uint256 totalRefund; uint256 totalClaimed; }",
@@ -146,6 +147,8 @@ export interface Deployment {
   network: "local" | "sepolia";
   chainId: number;
   rpc?: string;
+  // The hosted demo runs a test chain inside the browser instead of Anvil.
+  sandbox?: boolean;
   contracts: { Pactum: Address; PublicNotes?: Address; MockUSD?: Address; VulnerableVault?: Address };
   // Block to start reading public notes from.
   notesBlock?: string;
@@ -302,8 +305,11 @@ export function chainOf(deployment: Deployment): Chain {
   return deployment.network === "local" ? foundry : sepolia;
 }
 
+// The local chain goes through Anvil, and the sandbox goes through the in-browser worker.
+const transportOf = (deployment: Deployment) => (deployment.sandbox ? custom(sandboxProvider) : http(rpcOf(deployment)));
+
 export function publicClientOf(deployment: Deployment): PublicClient {
-  return createPublicClient({ chain: chainOf(deployment), transport: http(rpcOf(deployment)) });
+  return createPublicClient({ chain: chainOf(deployment), transport: transportOf(deployment), pollingInterval: deployment.sandbox ? 1000 : undefined });
 }
 
 export function txUrl(deployment: Deployment, hash: string): string | null {
@@ -545,7 +551,7 @@ export async function connectInjected(): Promise<Address> {
 export async function walletFor(deployment: Deployment, persona: Persona | null) {
   const chain = chainOf(deployment);
   if (persona) {
-    return { client: createWalletClient({ account: persona.account, chain, transport: http(rpcOf(deployment)) }), account: persona.account };
+    return { client: createWalletClient({ account: persona.account, chain, transport: transportOf(deployment) }), account: persona.account };
   }
   const provider = injected();
   if (!provider) throw new Error("No browser wallet found.");

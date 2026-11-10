@@ -1,5 +1,5 @@
 # Main project commands. See README.md for details.
-.PHONY: registry-testnet refund-list test-refund-list setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
+.PHONY: pages registry-testnet refund-list test-refund-list setup test test-evm test-near test-sandbox test-ui scenarios mutants demo-local demo-testnet demo-stage faucet verify verify-wasm intents-quote build-near vectors web-local clean
 
 setup:
 	git submodule update --init
@@ -96,3 +96,7 @@ clean:
 	cd controller && cargo clean
 	cd sandbox/mock-signer && cargo clean
 	cd sandbox/tests && cargo clean
+
+# Builds the GitHub Pages site in web/dist: a sandbox chain in the browser, and the real testnet case at ?live.
+pages:
+	bash web-sandbox/pages.sh

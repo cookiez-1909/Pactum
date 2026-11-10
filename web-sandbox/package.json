@@ -1,0 +1,19 @@
+{
+  "name": "pactum-web-sandbox",
+  "private": true,
+  "type": "module",
+  "description": "In-browser test chain for the hosted demo. Only needed to build the GitHub Pages site.",
+  "scripts": {
+    "build": "esbuild worker.ts --bundle --format=esm --platform=browser --target=es2022 --minify --define:process.env.NODE_ENV=\"production\" --outfile=../web/public/sandbox-worker.js"
+  },
+  "dependencies": {
+    "@tevm/common": "1.0.0-next.148",
+    "@tevm/memory-client": "1.0.0-next.148",
+    "buffer": "6.0.3",
+    "events": "3.3.0",
+    "viem": "2.46.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10"
+  }
+}

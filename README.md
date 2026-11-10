@@ -26,7 +26,7 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 | One approval, three signatures | [`Cx2DDSJa…`](https://testnet.nearblocks.io/txns/Cx2DDSJaDfdVgyB3WNezNHG7keSTNNTT4oU68dDpevGu) |
 | A signed offer, cancelled | [`GhHsjHZ5…`](https://testnet.nearblocks.io/txns/GhHsjHZ5f5tQeXhVWTwCejRWf5zSWk2DCXWgPoE7cHPB), the final cancel vote on a 12-case offer |
 | Video and X post | Not published yet |
-| Hosted demo | [cookiez-1909.github.io/Pactum](https://cookiez-1909.github.io/Pactum/), reading the live Sepolia and NEAR testnet contracts. Returning or claiming needs your own wallet. The GMX replay and the test accounts run only in `make web-local` |
+| Hosted demo | [cookiez-1909.github.io/Pactum](https://cookiez-1909.github.io/Pactum/) runs a private test chain in your browser with the same cases, test accounts and GMX replay as `make web-local`, so you can return, claim and publish an offer. Reloading starts over. [The live testnet case](https://cookiez-1909.github.io/Pactum/?live#/cases) reads the real Sepolia and NEAR contracts |
 
 Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json), [`deployments/base-sepolia.json`](deployments/base-sepolia.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json) and [`deployments/drill.json`](deployments/drill.json).
 
@@ -284,6 +284,7 @@ The mock signer exists to force failures the real MPC network will not produce o
 - The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms. The Guardians page can relay signatures with any wallet that has testnet ETH. It can only vote as a guardian with test keys on the local dev server after `make demo-stage`. Real guardians get a `near` CLI command to run with their own key, because the app has no NEAR wallet connection. That command has not been run on testnet.
 - The app acts on one chain at a time. The hosted build can return and claim on Sepolia, and shows the other two runs on the Guardians page and in `deployments/`.
 - The comments shown in `make web-local` are written for the demo and posted by test accounts.
+- The hosted demo's sandbox replays the transactions of `make web-local` in a [Tevm](https://tevm.sh) chain inside your browser, then keeps its own clock from the last recorded block, so offer deadlines match the recorded data on any day. Nothing is sent anywhere, and the controller is simulated as in `make web-local`. Guardians and Stake still read the real NEAR testnet.
 - After `make demo-stage`, the dev server can sign with test guardian keys. Guardian A, B and C appear under "Who are you?", and only the selected guardian gets approve and cancel buttons. Any other account is rejected by the NEAR contract. The keys never reach a production build.
 - The Profile choice of where to receive refunds is saved in the browser only. It sets the live NEAR Intents quote shown for a refund. No swap runs, because NEAR Intents has no testnet and the refund tokens are mock. A claim always pays the token that was returned.
 - The Stake page reads real data but only operators can stake, with their own NEAR key. Users cannot stake, and do not need to.
@@ -302,6 +303,7 @@ scripts/      demo, verify, scenarios, mutation tests, refund list tool and test
 sandbox/      local NEAR sandbox tests and the mock MPC signer
 web/          React app: landing page, tour, cases, offers, returns, refunds, discussion, activity, profile, stats, stake, guardians, hack tracker and FAQ
 web/mascot/   source of the mascot animations, drawn in SVG for this project
+web-sandbox/  in-browser test chain for the hosted demo, built by make pages
 e2e/          interface tests in Chromium
 deployments/  public addresses, transaction hashes and the deployed wasm of the testnet run
 spike/        first Chain Signatures experiment, kept as evidence
@@ -316,7 +318,7 @@ All code in this repository was written during the hackathon window, from 2026-1
 - **AI tools:** Claude Code.
 - **Solidity:** [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) 5.6.1, [forge-std](https://github.com/foundry-rs/forge-std), [Foundry](https://getfoundry.sh).
 - **NEAR:** [near-sdk](https://crates.io/crates/near-sdk) 5.30.1, [cargo-near](https://crates.io/crates/cargo-near) 0.23.0, [near-workspaces](https://crates.io/crates/near-workspaces) 0.24.0 for the sandbox tests, NEAR Chain Signatures through `v1.signer-prod.testnet`.
-- **TypeScript:** [viem](https://viem.sh) 2.57.16, [near-api-js](https://www.npmjs.com/package/near-api-js) 7.4.0, [@openzeppelin/merkle-tree](https://www.npmjs.com/package/@openzeppelin/merkle-tree) 1.0.8, [@noble/curves](https://www.npmjs.com/package/@noble/curves) and [@noble/hashes](https://www.npmjs.com/package/@noble/hashes) 2.4.0, tsx, TypeScript.
+- **TypeScript:** [viem](https://viem.sh) 2.57.16, [near-api-js](https://www.npmjs.com/package/near-api-js) 7.4.0, [@openzeppelin/merkle-tree](https://www.npmjs.com/package/@openzeppelin/merkle-tree) 1.0.8, [@noble/curves](https://www.npmjs.com/package/@noble/curves) and [@noble/hashes](https://www.npmjs.com/package/@noble/hashes) 2.4.0, tsx, TypeScript, [Tevm](https://tevm.sh) 1.0.0-next.148 for the hosted sandbox.
 - **Web:** React 19, Vite, Geist fonts from Google Fonts.
 - **Testing the interface:** [Playwright](https://playwright.dev) 1.65.0.
 - **Reference only:** the [near/mpc](https://github.com/near/mpc) source at the deployed commit, for the signing interface and key derivation.

@@ -50,7 +50,8 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const network = deployment.network === "local" ? "Local Anvil, simulated controller" : "Three EVM testnets and NEAR testnet";
+  const network = deployment.sandbox ? "Sandbox chain in your browser, simulated controller" : deployment.network === "local" ? "Local Anvil, simulated controller" : "Three EVM testnets and NEAR testnet";
+  const live = new URLSearchParams(window.location.search).has("live");
 
   return (
     <div className={collapsed ? "shell is-collapsed" : "shell"}>
@@ -125,7 +126,9 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
       <div className="main">
         <header className="topbar">
           <button type="button" className="icon-button menu-button" aria-label="Open menu" onClick={() => setDrawer(true)}><Menu /></button>
-          <p className="testnet-note" role="note">Testnet demo. Do not send real or stolen funds.</p>
+          <p className="testnet-note" role="note">{deployment.sandbox ? "Sandbox: a private test chain in your browser. Reload to start over." : "Testnet demo. Do not send real or stolen funds."}</p>
+          {deployment.sandbox && <a className="mode-switch" href={`?live${window.location.hash || "#/cases"}`}>See the live testnet case</a>}
+          {live && <a className="mode-switch" href={`./${window.location.hash || "#/cases"}`}>Back to the sandbox</a>}
           <WalletMenu />
           <ThemeToggle />
         </header>

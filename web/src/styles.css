@@ -1077,3 +1077,11 @@ textarea:focus { outline: none; border-color: var(--brand); }
   .stats-lost { display: none; }
   .available-list li { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Hosted demo: building the sandbox chain in the browser, and the switch to the real testnet case */
+.sandbox-loading p { max-width: 520px; text-align: center; }
+.sandbox-meter { width: min(420px, 80vw); height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.sandbox-meter > div { height: 100%; border-radius: 999px; background: var(--brand); transition: width 0.3s; }
+.mode-switch { flex: none; padding: 5px 12px; border: 1px solid var(--brand); border-radius: 999px; color: var(--brand); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.mode-switch:hover { background: var(--brand-soft); text-decoration: none; }
+@media (max-width: 720px) { .mode-switch { display: none; } }

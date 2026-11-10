@@ -11,6 +11,11 @@ import { StakePage, StatsPage } from "./pages/More";
 import { Profile } from "./pages/Profile";
 import { ActivityPage, HowItWorks, MyWallet, Tracker } from "./pages/others";
 import { useWallet, WalletProvider } from "./wallet";
+import { startSandbox, useSandboxStatus } from "./sandbox";
+import { Mascot } from "./components/Mascot";
+
+// The hosted demo has two modes: a sandbox in the browser (default) and the real testnet case (add ?live to the address).
+const LIVE = new URLSearchParams(window.location.search).has("live");
 
 interface Route {
   page: string;
@@ -44,6 +49,7 @@ export function App() {
   const route = useRoute();
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const sandbox = useSandboxStatus();
   // Newcomers are asked when they enter the app, not on the landing page, so they read what Pactum is first.
   const [welcome, setWelcome] = useState(() => !tourSeen());
   // Skip the question if a role was already picked on the home page or the tour link was opened directly.
@@ -61,9 +67,11 @@ export function App() {
     // The dev server can start before the seed script finishes, so retry until the file exists.
     const load = async () => {
       try {
-        const response = await fetch("./deployment.json", { cache: "no-store" });
+        const response = await fetch(LIVE ? "./live.json" : "./deployment.json", { cache: "no-store" });
         if (!response.ok || !response.headers.get("content-type")?.includes("json")) throw new Error("missing");
         const data = normalizeDeployment((await response.json()) as Record<string, unknown>);
+        // Start building the sandbox chain at once, even while the visitor is still reading the landing page.
+        if (data.sandbox) startSandbox();
         if (!cancelled) setDeployment(data);
       } catch {
         if (!cancelled) {
@@ -81,6 +89,21 @@ export function App() {
 
   // The landing page needs no chain data, so it shows immediately. The FAQ is the end of this page.
   if (route.page === "" || route.page === "faq") return <Landing anchor={route.page === "faq" ? "faq" : undefined} />;
+
+  if (deployment?.sandbox && !sandbox.ready) {
+    const percent = sandbox.total ? Math.round((sandbox.done / sandbox.total) * 100) : 0;
+    return (
+      <div className="loading-screen sandbox-loading">
+        <Mascot action="wait" size={140} />
+        <span className="brand-name">Pactum</span>
+        <p>{sandbox.error ? `The sandbox could not start: ${sandbox.error}` : "Building your own test chain in this browser…"}</p>
+        <div className="sandbox-meter" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${percent}%` }} /></div>
+        <p className="muted small">Replaying {sandbox.total || "the"} blocks of demo history. Nothing leaves your browser.</p>
+        <a href="?live#/cases">Or see the live testnet case</a>
+        {greeting}
+      </div>
+    );
+  }
 
   if (!deployment) {
     return (
