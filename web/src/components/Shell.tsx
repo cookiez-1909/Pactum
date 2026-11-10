@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../appdata";
 import { timeLeft } from "../format";
 import { currentOffer, incidentStatus, rankIncidents } from "../useDesk";
-import { identify, roleHint } from "../labels";
+import { identify, nearName, roleHint } from "../labels";
 import { useWallet, WalletMenu } from "../wallet";
 import { AssetIcon } from "./case-bits";
-import { Party } from "./Party";
+import { Party, RoleTag } from "./Party";
 import { ThemeToggle } from "./ThemeToggle";
 import { Bars, Book, Cases, Chevron, Close, Coins, Dots, Help, Menu, Panel, Pulse, Radar, Search, Shield, User, Wallet } from "./icons";
 
@@ -141,7 +141,8 @@ export function Shell({ page, caseId, children }: { page: string; caseId: string
 // Always reminds the viewer which role they are in, since the same page differs by role.
 function ViewingStrip() {
   const { directory } = useApp();
-  const { address, readOnly } = useWallet();
+  const { address, readOnly, guardian } = useWallet();
+  if (guardian) return <p className="viewing-strip"><strong>Viewing as</strong> {nearName(guardian.accountId)} <RoleTag role="guardian" /> You can approve or cancel offers on the Guardians page. Guardians never hold the funds.</p>;
   if (!address) return <p className="viewing-strip"><strong>You are not connected.</strong> Everything here is public, so you can read without a wallet. A wallet is only needed to send a transaction.</p>;
   return (
     <p className="viewing-strip">

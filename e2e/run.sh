@@ -24,6 +24,8 @@ rm -f "$ROOT/web/public/deployment.json" "$ROOT/web/.env.local"
 
 setsid bash -c "cd '$ROOT/scripts' && exec npx tsx seed.ts" > "$OUT/seed.log" 2>&1 &
 SEED=$!
+# Fake keys for the real guardian names, to check which buttons appear for whom. The test never presses these buttons.
+export VITE_DEMO_GUARDIANS="$(node -e "const n=require('$ROOT/deployments/sepolia.json').near;console.log(JSON.stringify(n.guardians.map(accountId=>({accountId,secretKey:'ed25519:unused'}))))")"
 setsid bash -c "cd '$ROOT/web' && exec npx vite --port 5173 --strictPort" > "$OUT/vite.log" 2>&1 &
 WEB=$!
 

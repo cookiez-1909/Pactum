@@ -98,7 +98,7 @@ interface ControllerSide {
   // One approval for the whole offer, returning one signature per case in order.
   signOffer(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<{ signatures: Hex[]; record: Record<string, unknown> }>;
   // Proposes an offer and casts one approval, so the other one can be clicked on the Guardians page.
-  proposeForApproval?(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<string>;
+  proposeForApproval?(cases: { terms: CaseTerms; digest: Hex }[], evidence: string): Promise<{ id: string; record: Record<string, unknown> }>;
   // Rehearses what is only needed in an incident: replacing a guardian, and cancelling a large signed offer.
   drill?(chains: ChainRun[], actors: Actors, tree: ReturnType<typeof buildRefundTree>): Promise<void>;
 }
@@ -346,7 +346,8 @@ async function nearController(reuse: boolean): Promise<ControllerSide> {
       const [first] = guardians as [NearCredentials];
       const { id } = await proposeOffer(first, controller.accountId, cases.map((item) => item.terms), evidence);
       await approveOffer(first, controller.accountId, id);
-      return id;
+      const record = { simulated: false, controllerAccount: controller.accountId, derivationPath: DERIVATION_PATH, guardians: guardians.map((guardian) => guardian.accountId), threshold: THRESHOLD, proposalId: id, txs: { ...sharedTxs } };
+      return { id, record };
     },
     async drill(chains, actors, tree) {
       const [first, second, third] = guardians as [NearCredentials, NearCredentials, NearCredentials];
@@ -669,6 +670,33 @@ async function run(mode: Mode, stage: boolean) {
       return { terms, digest: await chain.evm.read<Hex>(chain.contracts.Pactum, deskAbi, "hashCaseTerms", [terms]) };
     }),
   );
+
+  // --stage on testnet: stop here with one approval, so the viewer approves, relays the signature and returns funds on this very case.
+  if (mode === "testnet" && stage && controller.proposeForApproval) {
+    const { id, record } = await controller.proposeForApproval(offerCases, evidenceText);
+    const main = chains[0]!;
+    const deployment = {
+      network: main.network,
+      chainId: main.evm.chain.id,
+      stage: "awaiting-approval",
+      openBlock: await main.evm.publicClient.getBlockNumber(),
+      contracts: main.contracts,
+      notesBlock: main.notesBlock,
+      controllerAddress: controller.address,
+      near: { ...record, caseIndex: 0 },
+      otherChains: chains.slice(1).map((other) => ({ network: other.network, chainId: other.evm.chain.id, Pactum: other.contracts.Pactum })),
+      actors: { users: users.map((user) => user.address), attacker: actors.attacker.address, rewardWallet: actors.rewardWallet, relayer: actors.deployer.address },
+      terms: offerCases[0]!.terms,
+      digest: offerCases[0]!.digest,
+      evidence,
+      allocations: tree.allocations,
+      txs: main.evm.txs,
+    };
+    await writeStageFiles(mode, deployment);
+    console.log(`\nProposal ${id} has one of two approvals. Approve it on the Guardians page in the app, send it to Sepolia, then return and claim.`);
+    return;
+  }
+
   const { signatures, record } = await controller.signOffer(offerCases, evidenceText);
 
   // The main chain runs last: with --stage it stops so the viewer continues in the interface.
@@ -683,31 +711,18 @@ async function run(mode: Mode, stage: boolean) {
     console.log("\n=== Drill: replace a guardian, then cancel a signed offer ===");
     await controller.drill(chains, actors, tree);
   }
+}
 
-  // Adds an offer that is one vote short, so the viewer can approve it and relay the signature on the Guardians page.
-  if (mode === "testnet" && stage && controller.proposeForApproval) {
-    const text = "Follow-up offer: if more of the same token comes back, keep 5% within 7 days.";
-    const followUps = await Promise.all(
-      chains.slice(1).map(async (chain) => {
-        const block = await chain.evm.publicClient.getBlock();
-        const terms: CaseTerms = {
-          caseId: keccak256(stringToHex(`pactum-followup:${chain.contracts.Pactum}:${chain.contracts.MockUSD}`)),
-          token: chain.contracts.MockUSD,
-          totalLoss: TOTAL_LOSS,
-          maxReturn: TOTAL_LOSS,
-          rewardCap: 50_000n * ONE_TOKEN,
-          refundRoot: tree.root,
-          evidenceHash: keccak256(stringToHex(text)),
-          tiers: [{ until: block.timestamp + 168n * HOUR, rewardBps: 500 }],
-          nonce: block.timestamp + 1n,
-          chainId: BigInt(chain.evm.chain.id),
-        };
-        return { terms, digest: await chain.evm.read<Hex>(chain.contracts.Pactum, deskAbi, "hashCaseTerms", [terms]) };
-      }),
-    );
-    const id = await controller.proposeForApproval(followUps, text);
-    console.log(`\nProposal ${id} has one of two approvals. Approve it on the Guardians page in the app, then relay its signatures.`);
-  }
+// The interface reads this file and the viewer clicks through the remaining steps.
+async function writeStageFiles(mode: Mode, deployment: unknown) {
+  mkdirSync(new URL("web/public/", ROOT), { recursive: true });
+  writeFileSync(new URL("web/public/deployment.json", ROOT), toJson(deployment));
+  if (mode !== "testnet") return;
+  // Test keys for screen recording, read only by the dev server. The file is excluded by .gitignore.
+  const demoKeys = { attacker: process.env.DEMO_ATTACKER_KEY, alice: process.env.DEMO_ALICE_KEY, bob: process.env.DEMO_BOB_KEY, carol: process.env.DEMO_CAROL_KEY };
+  // NEAR keys of the test guardians, so approvals can be clicked on the Guardians page while recording.
+  const { guardians } = await loadOrCreateNearAccounts();
+  writeFileSync(new URL("web/.env.local", ROOT), `VITE_DEMO_KEYS=${JSON.stringify(demoKeys)}\nVITE_DEMO_GUARDIANS=${JSON.stringify(guardians)}\n`, { mode: 0o600 });
 }
 
 // The rest on one chain: open the case with the existing signature, return funds, claim refunds.
@@ -771,16 +786,7 @@ async function finishChain(
   };
 
   if (stage) {
-    // The open case: the interface reads this file and the viewer clicks through the remaining steps.
-    mkdirSync(new URL("web/public/", ROOT), { recursive: true });
-    writeFileSync(new URL("web/public/deployment.json", ROOT), toJson(deployment));
-    if (mode === "testnet") {
-      // Test keys for the video recorder, read only by the dev server. The file is blocked by .gitignore.
-      const demoKeys = { attacker: process.env.DEMO_ATTACKER_KEY, alice: process.env.DEMO_ALICE_KEY, bob: process.env.DEMO_BOB_KEY, carol: process.env.DEMO_CAROL_KEY };
-      // NEAR keys of the test guardians, to approve right on the Guardians page while recording.
-      const { guardians } = await loadOrCreateNearAccounts();
-      writeFileSync(new URL("web/.env.local", ROOT), `VITE_DEMO_KEYS=${JSON.stringify(demoKeys)}\nVITE_DEMO_GUARDIANS=${JSON.stringify(guardians)}\n`, { mode: 0o600 });
-    }
+    await writeStageFiles(mode, deployment);
     console.log("\nCase is open. Saved web/public/deployment.json. Continue in the web app.");
     return;
   }

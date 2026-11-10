@@ -69,7 +69,7 @@ What to try in the app:
 cargo install cargo-near --locked --version 0.23.0 --no-default-features
 ```
 
-`make demo-stage` creates a new hack and a new offer on the same controller and `Pactum` contracts, so it only costs gas, then stops after `openCase` on Sepolia so you can return and claim in the app with `cd web && npm run dev`. It also leaves a follow-up offer with one of two approvals, so you can approve it on the Guardians page with a test guardian key, watch the signatures arrive and relay them. It does not change `deployments/`.
+`make demo-stage` creates a new hack and a new offer on the same controller and `Pactum` contracts, so it only costs gas. It stops with one of two guardian approvals. Then run `cd web && npm run dev`, choose Guardian B under "Who are you?", approve on the Guardians page, send the signature to Sepolia, and return and claim in the app. It does not change `deployments/`.
 
 `make faucet ACCOUNT=<id>.testnet` asks for 5 testnet NEAR the same way as the [NEAR docs faucet](https://docs.near.org/getting-started/faucet), and it is rate limited in the same way.
 
@@ -271,6 +271,7 @@ The mock signer exists to force failures the real MPC network will not produce o
 - The offer form publishes only in local mode, where a test key signs in place of the guardians. It is not connected to NEAR. On testnet, an offer goes through `make demo-testnet`, which uses real guardian approval but fixed terms. The Guardians page can relay signatures with any wallet that has testnet ETH. It can only vote as a guardian with test keys on the local dev server after `make demo-stage`. Real guardians get a `near` CLI command to run with their own key, because the app has no NEAR wallet connection. That command has not been run on testnet.
 - The app acts on one chain at a time. The hosted build can return and claim on Sepolia, and shows the other two runs on the Guardians page and in `deployments/`.
 - The comments shown in `make web-local` are written for the demo and posted by test accounts.
+- After `make demo-stage`, the dev server can sign with test guardian keys. Guardian A, B and C appear under "Who are you?", and only the selected guardian gets approve and cancel buttons. Any other account is rejected by the NEAR contract. The keys never reach a production build.
 - The Profile choice of where to receive refunds is saved in the browser only. It sets the live NEAR Intents quote shown for a refund. No swap runs, because NEAR Intents has no testnet and the refund tokens are mock. A claim always pays the token that was returned.
 - The Stake page reads real data but only operators can stake, with their own NEAR key. Users cannot stake, and do not need to.
 - Badges are saved in the browser only and are worth nothing.

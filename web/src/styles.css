@@ -815,6 +815,7 @@ textarea:focus { outline: none; border-color: var(--brand); }
 .proposal-record pre { margin: 8px 0 0; padding: 10px; max-height: 280px; overflow: auto; background: var(--surface-2); border-radius: var(--radius-sm); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .proposal-offer { max-height: 180px; overflow: auto; overflow-wrap: anywhere; }
 .guardian-controls { margin: 0 0 12px; }
+.guardian-locked { margin: 0 0 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink-2); font-size: 13px; }
 .guardian-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
 .guardian-cli pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .relay-button { display: flex; margin-top: 6px; padding: 4px 10px; font-size: 13px; white-space: nowrap; }

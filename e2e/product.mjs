@@ -575,6 +575,25 @@ await calm.waitForSelector(".hero h1");
 await calm.waitForTimeout(300);
 check("reduced motion shows content without waiting", (await calm.locator(".reveal:not(.is-visible)").count()) === 0);
 
+// Only guardians have approve and cancel buttons
+const council = await fresh();
+await council.goto(`${base}#/guardians`);
+await council.waitForSelector(".proposal", { timeout: 30000 });
+await as(council, "Hacker");
+await council.waitForSelector(".guardian-locked");
+check("a wallet that is not a guardian has no approve or cancel button", (await council.locator(".guardian-buttons button").count()) === 0 && (await council.innerText(".guardian-locked >> nth=0")).includes("Only guardians can approve or cancel"));
+await as(council, "Guardian A");
+await council.waitForSelector(".guardian-buttons button");
+const councilButtons = (await council.locator(".guardian-buttons button").allInnerTexts()).join();
+check("a guardian only gets buttons for itself", councilButtons.includes("Guardian A") && !councilButtons.includes("Guardian B") && !councilButtons.includes("Guardian C"), councilButtons.slice(0, 120));
+check("the page says which guardian is acting", (await council.innerText(".wallet-button")).includes("Guardian A") && (await council.innerText(".viewing-strip")).includes("Guardians never hold the funds"));
+await council.reload();
+await council.waitForSelector(".guardian-buttons button", { timeout: 30000 });
+check("the chosen guardian survives a reload", (await council.innerText(".wallet-button")).includes("Guardian A"));
+await as(council, "User 1");
+await council.waitForSelector(".guardian-locked");
+check("switching away removes the guardian buttons", (await council.locator(".guardian-buttons button").count()) === 0);
+
 // First visit
 const newcomer = await fresh({ width: 1360, height: 900 }, true);
 await newcomer.goto(base);

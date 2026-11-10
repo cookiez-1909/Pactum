@@ -1,6 +1,6 @@
 // Polls the contract's state. Time follows the chain's latest block.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { keccak256, stringToHex, type Address, type Hash, type Hex } from "viem";
+import { BaseError, ContractFunctionRevertedError, keccak256, stringToHex, type Address, type Hash, type Hex } from "viem";
 import { deskAbi, offerCaseId, publicClientOf, type CaseInfo, type Deployment, type Evidence, type IncidentInfo, type PendingAsset } from "./chain";
 import { readNotes } from "./useNotes";
 
@@ -12,6 +12,8 @@ export interface CaseState {
   open: boolean;
   rewardBps: number;
   until: bigint;
+  // Terms exist but nobody has submitted the signature on chain yet, so the contract does not know this case.
+  notOpened?: boolean;
 }
 
 export type CaseStatus = "Open" | "Partly returned" | "Fully returned" | "Closed";
@@ -43,7 +45,7 @@ export function incidentsOf(deployment: Deployment, cases: CaseInfo[], pending: 
 }
 
 export function incidentStatus(incident: Incident, states: Record<string, CaseState>): IncidentStatus | null {
-  if (incident.cases.length === 0) return "Awaiting offer";
+  if (incident.cases.length === 0 || incident.cases.every((info) => states[info.id]?.notOpened)) return "Awaiting offer";
   const statuses = incident.cases.map((info) => statusOf(info, states[info.id]));
   if (statuses.some((item) => item === null)) return null;
   if (statuses.every((item) => item === "Fully returned")) {
@@ -128,6 +130,12 @@ export function useDesk(deployment: Deployment): DeskData {
       // run on real time. Reading "pending" keeps the reward rate and clock in line with when a transaction would land.
       const blockTag = deployment.network === "local" ? ("pending" as const) : ("latest" as const);
       const readState = async (caseId: Hex): Promise<CaseState> => {
+        const known = await client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [caseId] }).then(() => true, (reason: unknown) => {
+          const revert = reason instanceof BaseError ? reason.walk((item) => item instanceof ContractFunctionRevertedError) : null;
+          if (revert instanceof ContractFunctionRevertedError && revert.data?.errorName === "CaseNotFound") return false;
+          throw reason;
+        });
+        if (!known) return { totalReturned: 0n, totalReward: 0n, totalRefund: 0n, totalClaimed: 0n, open: false, rewardBps: 0, until: 0n, notOpened: true };
         const [state, tier] = await Promise.all([
           client.readContract({ address: desk, abi: deskAbi, functionName: "getCase", args: [caseId] }),
           client.readContract({ address: desk, abi: deskAbi, functionName: "currentTier", args: [caseId], blockTag }),

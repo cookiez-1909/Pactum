@@ -324,7 +324,10 @@ function cliCommand(account: string, method: string, proposalId: string): string
 function GuardianControls({ proposal, config, account, onChange }: { proposal: NearProposal; config: NearConfig; account: string; onChange(): Promise<void> }) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  const demo = demoGuardians().filter((item) => config.guardians.includes(item.accountId));
+  // Only the guardian selected under "Who are you?" gets buttons. The contract still rejects every other account.
+  const { guardian } = useWallet();
+  const demo = guardian && config.guardians.includes(guardian.accountId) ? [guardian] : [];
+  const hasTestKeys = demoGuardians().length > 0;
   const canApprove = proposal.status === "Pending";
   const canCancel = proposal.status !== "Cancelled" && !proposal.cases.some((item) => IN_FLIGHT.includes(item.status));
   const needsRetry = isWaiting(proposal) && !proposal.cases.some((item) => IN_FLIGHT.includes(item.status));
@@ -364,6 +367,7 @@ function GuardianControls({ proposal, config, account, onChange }: { proposal: N
         </div>
       )}
       {demo.length > 0 && <p className="fine-print">Test guardian keys, only on the local dev server. These are real transactions on NEAR testnet.</p>}
+      {demo.length === 0 && <p className="guardian-locked">Only guardians can approve or cancel.{hasTestKeys ? " Choose a guardian under Who are you? to try it." : " Each one signs with their own NEAR key."}</p>}
       <details className="proposal-record guardian-cli">
         <summary>Sign with your own guardian key</summary>
         {canApprove && <pre>{cliCommand(account, "approve_offer", proposal.id)}</pre>}
@@ -437,14 +441,16 @@ function CaseRow({ item, config, state, onRelayed }: { item: NearProposalCase; c
   const target = TESTNET_CHAINS[terms.chain_id];
   const pactum = config.deployments.find((entry) => entry.chain_id === terms.chain_id)?.pactum as Address | undefined;
   const { deployment } = useApp();
-  const { persona, address, readOnly } = useWallet();
+  const { persona, personas, address, readOnly, guardian } = useWallet();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // Anyone can relay a signature on chain. Guardians have no EVM wallet, so the first test wallet pays the gas.
+  const relayer = persona ?? (guardian ? (personas[0] ?? null) : null);
   const opened = state?.opened;
   const used = state?.used;
 
   // The local build's test accounts have no ETH on testnet, so the button only shows when a usable wallet exists.
-  const canSend = deployment.network !== "local" && !!address && !readOnly;
+  const canSend = deployment.network !== "local" && (!!address || (!!guardian && !!relayer)) && !readOnly;
   const canOpen = item.status === "Signed" && item.signature && opened === false && used === false;
   const canRevoke = item.status === "Revoked" && item.revocation && opened === false && used === false;
   const place = opened === undefined ? "Reading…" : opened === null ? "Could not read" : opened ? "Open" : used ? "Revoked on chain" : "Not opened yet";
@@ -454,8 +460,8 @@ function CaseRow({ item, config, state, onRelayed }: { item: NearProposalCase; c
     setBusy(true);
     try {
       const hash = canRevoke
-        ? await relayToChain(terms.chain_id, pactum, persona, { revokeNonce: terms.nonce, signature: item.revocation as Hex })
-        : await relayToChain(terms.chain_id, pactum, persona, { open: terms, signature: item.signature as Hex });
+        ? await relayToChain(terms.chain_id, pactum, relayer, { revokeNonce: terms.nonce, signature: item.revocation as Hex })
+        : await relayToChain(terms.chain_id, pactum, relayer, { open: terms, signature: item.signature as Hex });
       toast({ kind: "ok", title: canRevoke ? "Revocation sent" : "Case opened", href: target ? `${target.explorer}/tx/${hash}` : null });
       onRelayed();
     } catch (reason) {

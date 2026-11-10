@@ -48,7 +48,7 @@ interface Position {
 
 export function NextStep({ incident }: { incident: Incident }) {
   const { deployment, desk } = useApp();
-  const { address, connect } = useWallet();
+  const { address, connect, guardian } = useWallet();
   const client = useMemo(() => publicClientOf(deployment), [deployment]);
   const [position, setPosition] = useState<Position | null>(null);
   const version = incident.cases.map((info) => `${desk.states[info.id]?.totalReturned}:${desk.states[info.id]?.totalClaimed}`).join();
@@ -93,7 +93,12 @@ export function NextStep({ incident }: { incident: Incident }) {
   let body = "This wallet holds none of these tokens and is not on the refund list. You can still follow what happens.";
   let cta: { label: string; href?: string; onClick?: () => void } | null = null;
 
-  if (!address) {
+  if (guardian) {
+    art = <Mascot action="stamp" size={88} />;
+    title = "You are signed in as a guardian";
+    body = "Guardians approve or cancel offers. They never hold the funds.";
+    cta = { label: "Open Guardians", href: "#/guardians" };
+  } else if (!address) {
     art = <Mascot action="wave" size={88} />;
     title = "Connect a wallet to see what you can do";
     body = "Everything on this page is public, so you can read without one.";
