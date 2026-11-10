@@ -1,166 +1,1285 @@
 {
-  "network": "sepolia",
-  "chainId": 11155111,
-  "stage": "complete",
-  "openBlock": "12085754",
+  "network": "local",
+  "chainId": 31337,
+  "stage": "seeded",
   "contracts": {
-    "MockUSD": "0x13fee36566a3a749e689f10c3240d67628095039",
-    "VulnerableVault": "0x2ca073462d9fe8b73093c53c2320f50edb3b8e82",
-    "Pactum": "0xfbe38f4ecc4d3bb9ab0b66589dfd69caab76070a",
-    "PublicNotes": "0x99c234f1fa2f4b68bb2133e35e06dfa53a15a428"
+    "Pactum": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+    "PublicNotes": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512"
   },
-  "notesBlock": "12085733",
-  "controllerAddress": "0xC1cAc141a7F02706DE80eaC1Ba8615929849E412",
+  "notesBlock": "0",
+  "controllerAddress": "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
   "near": {
-    "simulated": false,
-    "controllerAccount": "ctrl-4944dd8b.rd-guardian-b-90c085b48d.testnet",
-    "derivationPath": "pactum-1",
-    "guardians": [
-      "rd-guardian-a-3ff0494a5d.testnet",
-      "rd-guardian-b-90c085b48d.testnet",
-      "rd-guardian-c-6b8f4bb36c.testnet"
-    ],
-    "threshold": 2,
-    "proposalId": "0",
-    "txs": {
-      "deployController": "CGp93dJBRyTMYhWXxaM2XVDeGX8VwtxeJEK1TpZcyP4d",
-      "removeKeys": "CkouZAfkqhnH4iv7j2xcHhPMYwrtvkswfTs2ZJu7uJBL",
-      "proposeChain": "4tnxP4bEgEJuUcmfprzhj22W49NpwCRRQaPJgQ8tQQDG",
-      "approveChain1": "AcH5od6G5ygEkfi5adXYP3voDBK8ipRropneQREB84t1",
-      "approveChain2": "6uPwseZmcFaMCtEFSN8gdtrmbWMmUdwpeteKkarGLyfY",
-      "propose": "5dZomp55N1NTbLW5bJtTjGVanfxy9S7bwmwDkfUpERco",
-      "approve1": "DWaiaquzYPvGyLiQ1eKiEtgJbPQ16HF3WkjB3xBEiemP",
-      "approve2": "Cx2DDSJaDfdVgyB3WNezNHG7keSTNNTT4oU68dDpevGu"
-    },
-    "caseIndex": 0
+    "simulated": true
   },
-  "otherChains": [
-    {
-      "network": "base-sepolia",
-      "chainId": 84532,
-      "Pactum": "0xf3420846de6c84673cc41363b584c41bed1273d9"
-    },
-    {
-      "network": "robinhood-testnet",
-      "chainId": 46630,
-      "Pactum": "0xd2bb1f7fb56ed077d21268d3ac99f2b54e7b4652"
-    }
-  ],
   "actors": {
+    "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+    "rewardWallet": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+    "hackers": [
+      {
+        "address": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+        "rewardWallet": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+      },
+      {
+        "address": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
+        "rewardWallet": "0xcd3B766CCDd6AE721141F452C550Ca635964ce71"
+      },
+      {
+        "address": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+        "rewardWallet": "0x2546BcD3c84621e976D8185a91A922aE77ECEc30"
+      }
+    ],
+    "newWallet": "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a",
+    "stranger": "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+    "relayer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "owner": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
     "users": [
-      "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
-      "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
-      "0xb587237D2572e82Cba12B25545D30A6105475Bd1"
-    ],
-    "attacker": "0xD4726b65261661D9F3c982cb70004fe32931a93E",
-    "rewardWallet": "0x2d5B36e7A137A61CB9b3219d2AB678e98D55beCE",
-    "relayer": "0x733F6b40cAE78c52b6a390a6bfb54af7562b4cAC"
-  },
-  "terms": {
-    "caseId": "0x56ddc3059b40d2844cf68404f9547eaec722c9a44efdf4a49f8bf0560a3db9ed",
-    "token": "0x13fee36566a3a749e689f10c3240d67628095039",
-    "totalLoss": "1000000000000000000000000",
-    "maxReturn": "1000000000000000000000000",
-    "rewardCap": "150000000000000000000000",
-    "refundRoot": "0xd37a3d219b3f7b4333e0e6f4b63594c96e0a050521473bb76ccac8628018b26b",
-    "evidenceHash": "0x2fe67ae1e743218c2b7b48f89a0988e1a79b50bd85af611fbccbb753934fc0ac",
-    "tiers": [
-      {
-        "until": "1794339036",
-        "rewardBps": 1000
-      },
-      {
-        "until": "1794684636",
-        "rewardBps": 500
-      }
-    ],
-    "nonce": "1",
-    "chainId": "11155111"
-  },
-  "digest": "0x5a44989e21bd8fbd4d9f07c902e9d4c7de37ac1cfe0a11d12d71e0ea1abd7287",
-  "signature": "0x419fec804c6d1efb943be9f3cd03bcffc22b0c13f59089a2f918bf44cb3a932416a82fa29218ef847ae010895f5547da72724569665e2fdc67795de8646417751b",
-  "evidence": {
-    "incident": "Demo protocol",
-    "offer": {
-      "conditions": "Keep 10% if the funds come back within 72 hours, or 5% within 7 days. Send everything to the contract and the reward comes back in the same transaction."
-    },
-    "chains": [
-      {
-        "chainId": 11155111,
-        "protocol": "0x2ca073462d9fe8b73093c53c2320f50edb3b8e82",
-        "token": "0x13fee36566a3a749e689f10c3240d67628095039",
-        "drainTx": "0x82610e318b5f150cff8bedd5803e10bd49ddd43591ed993a2cef9d597504ed94",
-        "totalLoss": "1000000000000000000000000"
-      },
-      {
-        "chainId": 84532,
-        "protocol": "0x46a087f5a58d55bee189d5f2753b4c92424a3b55",
-        "token": "0x9fe2cc3d0c8b467461cc2db2f154451cb4adf1fe",
-        "drainTx": "0xb831bcace3da3c5884a6e3cac8f4659a448716b3f0fd9a82dd7ba3af4ab82877",
-        "totalLoss": "1000000000000000000000000"
-      },
-      {
-        "chainId": 46630,
-        "protocol": "0x72e0868d401ee4d75bb87dd570aef2211844c809",
-        "token": "0xbcb4e9a35732911178c230e5173d1f5bb0a8d511",
-        "drainTx": "0xf90e04a764d5cb754ac39277d78b364d7dbc55dff42840f084d35dc33ea3ee1e",
-        "totalLoss": "1000000000000000000000000"
-      }
-    ],
-    "allocations": [
-      {
-        "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
-        "allocation": "600000000000000000000000"
-      },
-      {
-        "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
-        "allocation": "300000000000000000000000"
-      },
-      {
-        "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
-        "allocation": "100000000000000000000000"
-      }
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+      "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
     ]
   },
-  "allocations": [
+  "incidents": [
     {
-      "account": "0xa6Cea6D3AA4E8D46d896D17b62D0B55bCD5e4b1F",
-      "allocation": "600000000000000000000000",
-      "proof": [
-        "0xd71a9ca3270237f7f668758e649500c3acf5092f6aadfd3d214ff383d6ae0f05"
-      ]
+      "id": "quillon",
+      "name": "Quillon DEX",
+      "summary": "A pool math error let an attacker withdraw more than their share. The offer expired with only part of the funds back.",
+      "fictional": true,
+      "replay": false
     },
     {
-      "account": "0x3AfEa0864b5a12d124637223BD88b22fac370D59",
-      "allocation": "300000000000000000000000",
-      "proof": [
-        "0x82236474e84ddfbb404ece67e01cbc49b805f0a4c3b572e8e2c0f4cd50ef4568",
-        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
-      ]
+      "id": "kestrel",
+      "name": "Kestrel Bridge",
+      "summary": "A forged withdrawal proof drained the bridge. The team made a special offer: keep 20% if everything comes back within two days.",
+      "fictional": true,
+      "replay": false
     },
     {
-      "account": "0xb587237D2572e82Cba12B25545D30A6105475Bd1",
-      "allocation": "100000000000000000000000",
-      "proof": [
-        "0x914a9d2bba087b69fc650b483c6a67e047dc4dacc7463bbe858ed7c68df7dc0a",
-        "0x92d792f251dbdbbc73f083df074e073bcc220f7b9b8b0e5cbfdf6b8da10f4de1"
-      ]
+      "id": "tidewater",
+      "name": "Tidewater Perps",
+      "summary": "A stale price feed let an attacker open and close positions at a profit across every market. The highest reward ends soon.",
+      "fictional": true,
+      "replay": false
+    },
+    {
+      "id": "northgate",
+      "name": "Northgate Lending",
+      "summary": "A rounding bug in the vault share price. Everything came back, and the reward cap sent the excess to users.",
+      "fictional": true,
+      "replay": false
+    },
+    {
+      "id": "marlin",
+      "name": "Marlin Vaults",
+      "summary": "An unprotected upgrade function let an attacker empty three vaults. The team has not published an offer yet.",
+      "fictional": true,
+      "replay": false
+    },
+    {
+      "id": "gmx-replay",
+      "name": "GMX replay",
+      "summary": "A replay of the July 2025 GMX hack, with its $42M loss and its real offer: keep 10%, within 48 hours. Test tokens and test wallets.",
+      "fictional": false,
+      "replay": true
     }
   ],
-  "txs": {
-    "deployMockUSD": "0xe58b1c54416d76cf453e5b37fcfc60fe73a062a314c437a4ef15290d84712988",
-    "deployVulnerableVault": "0x711a8c318d1cc63d9765b1495fbb5718b6cb4eff64cd8d491684a410fbe03dea",
-    "deployPactum": "0xbc1f1635f93325429d8ed3741089437c975e2be5c7bf37130ccada91222b1916",
-    "deployPublicNotes": "0xc37b1f2ac6855d08eb3c1f96f440f69c7bb223dcd15fd243d3f37042f488f222",
-    "deposit0": "0x97e721fe2993a4f8e8c3ca70c441ef912b9af0caae40cd76d1e33914d805120f",
-    "deposit1": "0x7480002dccd7e95234d6a1f83f2974973fc4d853827ac5eba7005a27f62ccc6b",
-    "deposit2": "0x4d2c7372b71df079af12e18711460568c1302c1f38723608000a425da81533da",
-    "drain": "0x82610e318b5f150cff8bedd5803e10bd49ddd43591ed993a2cef9d597504ed94",
-    "openCase": "0x56bac515f8fa205e25ac997fcc51afa93495325b9862a493f7b62d8fe919053c",
-    "approveReturn": "0xb8c3efbc9e2e466a44b8e610bb9a75ac4da6eec0ff96c11c04615631ea5f016d",
-    "returnFunds": "0x0624cd4238ef8d4e94c97e63265db87f4364e76191d4d85ada8bfd8b227d5f03",
-    "claim0": "0x8ba8d6fdc6f95dcc2ef9124b68b51a52633f4a8981fa3e1d2b3047576e758d88",
-    "claim1": "0xfd96721fecd7f33eccf28c27804a192aa3e1889526a9cadfd60d158fc09b8334",
-    "claim2": "0xc7a6650236719399518325d66e4d8e7b2ffdf4fc79866df2e9b5e4a8b065ce52"
-  }
+  "cases": [
+    {
+      "id": "quillon-mada",
+      "incidentId": "quillon",
+      "incident": "Quillon DEX",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "symbol": "mADA",
+        "name": "Mock Wrapped ADA",
+        "decimals": 6,
+        "priceUsd": 0.6
+      },
+      "vault": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "8000000000000",
+          "proof": [
+            "0x64d54aaea0edeb3bbba8df515e0bae871a176cd6e7ecfa45d64095002d70f788"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "4000000000000",
+          "proof": [
+            "0x144bab2702b7de2e9920d21028bd98783a54133cb89be8b3e403d61b1c30e42e",
+            "0x7895e68766ea44a92ebb3535573c4ef1689d619a105ee24b487c2ea5868bfa04"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "2000000000000",
+          "proof": [
+            "0x0b022f7f90f8f66f270772c0084c1f7ae29ca7dff68ebb8af502f97cbe0a3590",
+            "0x7895e68766ea44a92ebb3535573c4ef1689d619a105ee24b487c2ea5868bfa04"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x04c6ad0d96a46287c0dd72670755b529c9819d36a7a1d36c31b8c64186ddfd50",
+        "deposit1": "0x166ae288968477c459d3799ec6de9cac0f60a6b309f57fd5ad7e8ad747072d92",
+        "deposit2": "0xc9a771fdc9edf8714999aeab5fb4f521545596c76cfc313fd6bfd258ea40ee78",
+        "drain": "0x17a68f199e57f14925f55f96e26332b9c4bcb727a215cc9aa2b87ed972e8547a",
+        "openCase": "0xc681b9c0f904ee5af7c11c4ad0e2c6e43a68ae71dfcfc86487f25d87386c80ac",
+        "returnFunds0": "0x83af20168058a11fd39a2333695a9222e0f6345eff218c2a18617b2d951d3bd3",
+        "claim0": "0x6bbdd3d31cc1cdbdeeec4435c1cd50ff802a7981fcd662d64f546bad1551e3f0"
+      },
+      "terms": {
+        "caseId": "0x3a86d10acb4616d8ab89fc70aaf51c8c7607a7717380f717bea2603efebc3fcf",
+        "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "totalLoss": "14000000000000",
+        "maxReturn": "14000000000000",
+        "rewardCap": "1400000000000",
+        "refundRoot": "0xb0d0ad43244638006b772d2cb357dcf39339efbe0da9040585caf93377c6869b",
+        "evidenceHash": "0x19011e225ad43ab1be052376ddb08582b0bc57693829f90594800a1c499c0dd9",
+        "tiers": [
+          {
+            "until": "1794380482",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794384082",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "1",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Quillon DEX",
+        "protocol": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+        "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "drainTx": "0x17a68f199e57f14925f55f96e26332b9c4bcb727a215cc9aa2b87ed972e8547a",
+        "totalLoss": "14000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "30"
+    },
+    {
+      "id": "quillon-musdc",
+      "incidentId": "quillon",
+      "incident": "Quillon DEX",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "symbol": "mUSDC",
+        "name": "Mock USD Coin",
+        "decimals": 6,
+        "priceUsd": 1
+      },
+      "vault": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "300000000000",
+          "proof": [
+            "0xbbf9f91c04956622cb7e8a0d12b6ba2b82ac70cc9b3a57a49d3aa592256418a2"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "100000000000",
+          "proof": [
+            "0x440d4fe391c34a7fcd2f19789734b51379c036627bbe9f982a12e97b94694aab"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xce0f632612e994e82ead953190fd365886bfe6d6631a7c8a48ad4373c5ef848f",
+        "deposit1": "0x888aa1b842d614519c0e1878d494514c42e5f35f7243135fc6afeaff3d19d427",
+        "drain": "0x093e693008a71c5a04bcb4ae7e5b6d5aa08eaaa1f265dec9fa28b160bd418a6a",
+        "openCase": "0x73128f0f96667da10f1ae5ced819f05195953d04f15adf407814371571dd9e2c"
+      },
+      "terms": {
+        "caseId": "0xf21a2dc94d4f37e1e542f81a47651c5be3e90a7067433caa4638092bbaa7857d",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "totalLoss": "400000000000",
+        "maxReturn": "400000000000",
+        "rewardCap": "40000000000",
+        "refundRoot": "0x20a9078f7c1b590374cad87b36acaddd0a60d562d7bd68e90dee668d1e44b7ed",
+        "evidenceHash": "0x3e3c7687125dc8632e516051799f9e873fc8e5a5c9516dd3c157992e18cbd186",
+        "tiers": [
+          {
+            "until": "1794380482",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794384082",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "2",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Quillon DEX",
+        "protocol": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "drainTx": "0x093e693008a71c5a04bcb4ae7e5b6d5aa08eaaa1f265dec9fa28b160bd418a6a",
+        "totalLoss": "400000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "41"
+    },
+    {
+      "id": "kestrel-mbtc",
+      "incidentId": "kestrel",
+      "incident": "Kestrel Bridge",
+      "attacker": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
+      "token": {
+        "address": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "symbol": "mBTC",
+        "name": "Mock Wrapped Bitcoin",
+        "decimals": 8,
+        "priceUsd": 80000
+      },
+      "vault": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "1200000000",
+          "proof": [
+            "0x00b59e0f4c1a0e15094b63f83cd584ace73a8b78a794d09ba722c8b62c38b2f0",
+            "0xc1339d2417e1cc26b56b310fb1b6f85a68a5c418dec9f871a378c97c11498afb"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "600000000",
+          "proof": [
+            "0x396379ef10fe783097e593b676e77fefb71e6e1861fdc22a6f733bd434482764",
+            "0xc1339d2417e1cc26b56b310fb1b6f85a68a5c418dec9f871a378c97c11498afb"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "200000000",
+          "proof": [
+            "0x0578e84ce460b61a06fee8fe648b9e12f5b80175550911cde6c8a4b19051c5f5"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x1d5c2a83a9add2a59051d33b4f616f5d7907e3becc5ee2ec3b0ced4add90646d",
+        "deposit1": "0xcef2722d862e4cc331e8d27e59ce5e3566a658fbf7fe9676dfd3288ed2a51b02",
+        "deposit2": "0xa7173e4fa1ee7614aa8414505176aa03648c000dd5d76ee123409e97ec4dd413",
+        "drain": "0x1167f96bf62b555205c7415f85675b2949749824b9898c057b2165d60ab00287",
+        "openCase": "0x5da6268f4f8f04829e296354680c1e10e038ab21f3e39cbfab796ada842cf16f"
+      },
+      "terms": {
+        "caseId": "0x24a101e97098bf9c956ff22620b3f6aaa0e928d25f20d5879a2ddea99563d1b0",
+        "token": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "totalLoss": "2000000000",
+        "maxReturn": "2000000000",
+        "rewardCap": "400000000",
+        "refundRoot": "0x8f766510939986d28ce2950eaedee58d912759ec2d9d0d0defa2c159ff21a199",
+        "evidenceHash": "0xf67d8d3c15597dfbd0bb41e876d2a44eb42b278f4a61e41236ac99b60490de68",
+        "tiers": [
+          {
+            "until": "1794560482",
+            "rewardBps": 2000
+          },
+          {
+            "until": "1794992482",
+            "rewardBps": 1000
+          }
+        ],
+        "nonce": "3",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Kestrel Bridge",
+        "protocol": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+        "token": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "drainTx": "0x1167f96bf62b555205c7415f85675b2949749824b9898c057b2165d60ab00287",
+        "totalLoss": "2000000000",
+        "offer": {
+          "conditions": "Keep 20% and return 80% within 48 hours. The team will not contact you and will publish a full post-mortem. After 48 hours the reward falls to 10%."
+        }
+      },
+      "openBlock": "58"
+    },
+    {
+      "id": "kestrel-meth",
+      "incidentId": "kestrel",
+      "incident": "Kestrel Bridge",
+      "attacker": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
+      "token": {
+        "address": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "symbol": "mETH",
+        "name": "Mock Wrapped Ether",
+        "decimals": 18,
+        "priceUsd": 3000
+      },
+      "vault": "0x59b670e9fa9d0a427751af201d676719a970857b",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "10000000000000000000",
+          "proof": [
+            "0x7822fed735bfb86515fb5edcf472cf0c9ab16a2f91f531d62ce685fc57a202d5"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "5000000000000000000",
+          "proof": [
+            "0xdfceaf8670aefb2799f6b4ae8c338c2ba77518f8100e9f5b8aa61d46f622eae8"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x6c9ca4c33f8a66fca0da9eceec5c230280dbccc7e89139db1b0d25596663a3f7",
+        "deposit1": "0x9d27185a251039b4d194faca3f447c0c876c0c5d21434ce4b88a7c1fe295dc3c",
+        "drain": "0xe8c22bca7ef3ae6c26dc096627f95428fbca50398ca72b4652fc4073009c8eb0",
+        "openCase": "0xc721c2e80174dce8b75cd960fc3be0a5d187118a78a28079b02fe509a0b2f683"
+      },
+      "terms": {
+        "caseId": "0xbdf312bd369deaf700a6f14a6fad417625a8028eede1d3ce62b533ade01770a0",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "totalLoss": "15000000000000000000",
+        "maxReturn": "15000000000000000000",
+        "rewardCap": "3000000000000000000",
+        "refundRoot": "0xd0bb065bf7e15033a65e2593c13e8dda1cc55e9d4bec30aefd9fbc85bf375b3f",
+        "evidenceHash": "0xe5d8ba3274f3358ccca67581e8c87d79e3458644268a5f38a30ef88f5e52bdfe",
+        "tiers": [
+          {
+            "until": "1794560482",
+            "rewardBps": 2000
+          },
+          {
+            "until": "1794992482",
+            "rewardBps": 1000
+          }
+        ],
+        "nonce": "4",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Kestrel Bridge",
+        "protocol": "0x59b670e9fa9d0a427751af201d676719a970857b",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "drainTx": "0xe8c22bca7ef3ae6c26dc096627f95428fbca50398ca72b4652fc4073009c8eb0",
+        "totalLoss": "15000000000000000000",
+        "offer": {
+          "conditions": "Keep 20% and return 80% within 48 hours. The team will not contact you and will publish a full post-mortem. After 48 hours the reward falls to 10%."
+        }
+      },
+      "openBlock": "69"
+    },
+    {
+      "id": "kestrel-mhype",
+      "incidentId": "kestrel",
+      "incident": "Kestrel Bridge",
+      "attacker": "0xBcd4042DE499D14e55001CcbB24a551F3b954096",
+      "token": {
+        "address": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "symbol": "mHYPE",
+        "name": "Mock Wrapped HYPE",
+        "decimals": 18,
+        "priceUsd": 30
+      },
+      "vault": "0x7a2088a1bfc9d81c55368ae168c2c02570cb814f",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "25000000000000000000000",
+          "proof": [
+            "0x242ca926136b1f4ff58b4684b0eeb6c738c0084e67b3f6815d72a5c5cd589589"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "15000000000000000000000",
+          "proof": [
+            "0x1adf1232f629d2d01d452f1a4a93d7684a2d074ef3ff140a784f2846c4dd1753"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x43d94bd74dab832ded5a60bb1b80f8904d1ae1d8001626a2fc9f9e340cd5eeb3",
+        "deposit1": "0x1250d4b8f9fc33177cb6b97ce437f06cac345f5b52b405ad13a134c5c5811646",
+        "drain": "0xa288d8482f6eda647114195015035a68d74c7b66ea8ca00c99afec3f88d8b53b",
+        "openCase": "0x7093221d914311f0994f426283f550bdb6203c5421b6931af2e3427a60555282"
+      },
+      "terms": {
+        "caseId": "0x33f0610e4e329e718a8d6a2dca11eb661f3d49520e91a938976dcc2fe4a5f4db",
+        "token": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "totalLoss": "40000000000000000000000",
+        "maxReturn": "40000000000000000000000",
+        "rewardCap": "8000000000000000000000",
+        "refundRoot": "0xee6c82cc45de61afa5b8230ebb641a0e6fed5512408090c12b1bcd49f175c55d",
+        "evidenceHash": "0x26d65069af98f0c296db0915d928d6b86ddfedd669f21fa157b482022dcb5a45",
+        "tiers": [
+          {
+            "until": "1794560482",
+            "rewardBps": 2000
+          },
+          {
+            "until": "1794992482",
+            "rewardBps": 1000
+          }
+        ],
+        "nonce": "5",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Kestrel Bridge",
+        "protocol": "0x7a2088a1bfc9d81c55368ae168c2c02570cb814f",
+        "token": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "drainTx": "0xa288d8482f6eda647114195015035a68d74c7b66ea8ca00c99afec3f88d8b53b",
+        "totalLoss": "40000000000000000000000",
+        "offer": {
+          "conditions": "Keep 20% and return 80% within 48 hours. The team will not contact you and will publish a full post-mortem. After 48 hours the reward falls to 10%."
+        }
+      },
+      "openBlock": "80"
+    },
+    {
+      "id": "tidewater-mhype",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "symbol": "mHYPE",
+        "name": "Mock Wrapped HYPE",
+        "decimals": 18,
+        "priceUsd": 30
+      },
+      "vault": "0xe6e340d132b5f46d1e472debcd681b2abc16e57e",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "500000000000000000000000",
+          "proof": [
+            "0x2dfbf023017b93385f791dd8fc7ebdf5e0f6f4415d14ca0f93f5acf17e5422fd",
+            "0xf05574f4bb4daf419b787ff7dcefce5475f1d122845044b1dbe889d4d0c0c57f"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "250000000000000000000000",
+          "proof": [
+            "0x369aa549c1555fd98ac8446843cd7abefc63ed93be90118db8528876472ea45b"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "100000000000000000000000",
+          "proof": [
+            "0xdea277027c04c58dc13ecbd14a014d77efd0ad476178fefae13faf2b232930ff",
+            "0xf05574f4bb4daf419b787ff7dcefce5475f1d122845044b1dbe889d4d0c0c57f"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x20640546811e3bbd3dd2af43dfb4e7531e24adeffc8824a97932e9fdfec30532",
+        "deposit1": "0x24bf10fb180236cee5ae0d74792a29297468d46f2ba0f206933bfb393e567bdc",
+        "deposit2": "0xab006ad193b85a735e01a21bbb154457fc16846876ff1acc69d42a4c5fb68b35",
+        "drain": "0xf700ce50bf8529aea023a9b85100db1658f39d7fb729dab1de14740fc23013a5",
+        "openCase": "0x222c112dafdc0b133cb87853e2633c7a657226c3f85120fc7b9048e558f69688"
+      },
+      "terms": {
+        "caseId": "0xdae4bf605eb023d63bec595cff7ae78c7bf5396ea3f3e66f60f9190c1e315a57",
+        "token": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "totalLoss": "850000000000000000000000",
+        "maxReturn": "850000000000000000000000",
+        "rewardCap": "127500000000000000000000",
+        "refundRoot": "0x1f1af8dbee90f5a568b809d779430996bbb4d17c348ff98c450f41db560177bf",
+        "evidenceHash": "0x6a17091645f6042ce73908bbb786d605cf672b5ef10b60cc36d9222e41de5eeb",
+        "tiers": [
+          {
+            "until": "1794388882",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646882",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992482",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "6",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0xe6e340d132b5f46d1e472debcd681b2abc16e57e",
+        "token": "0x4a679253410272dd5232b3ff7cf5dbb88f295319",
+        "drainTx": "0xf700ce50bf8529aea023a9b85100db1658f39d7fb729dab1de14740fc23013a5",
+        "totalLoss": "850000000000000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "93"
+    },
+    {
+      "id": "tidewater-musdc",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "symbol": "mUSDC",
+        "name": "Mock USD Coin",
+        "decimals": 6,
+        "priceUsd": 1
+      },
+      "vault": "0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "800000000000",
+          "proof": [
+            "0xe2828d7497ef7ea4e7746a393e352f1a7a84221a7b24a89cff978c6e122dc9e7"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "400000000000",
+          "proof": [
+            "0x02ec4bf3c4db0c291bc1da008ec305979cb8dc97672b2887a5b2ed3ae8218e62"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xbc1d7d5cad1c8ba9d7fc69a777f822cb0a7246c2dd45832795e6a67fdecbaf03",
+        "deposit1": "0x563e456c9ff4fb26b0d2b07b98b5c50017af53b72c4c3c70e44c931db2d700dd",
+        "drain": "0x07e00da00da17d49c4ca24073727590945cf173d0bad93454c4a5c03f0081b86",
+        "openCase": "0x5940be1061b45a2638e8caf2b963d924d1be58373d68eaefb7e005e2995356b3",
+        "returnFunds0": "0x5e7c7459decb249472ecfe320ff989f294a7b177ee809c5412b069dbcd194501",
+        "claim0": "0x48bed81e0dd0256bf21ba893f160a5ddf694076d1131633a188a7f73c2687d50"
+      },
+      "terms": {
+        "caseId": "0xe3ee39823d31a4ca439d7a6dd85631d1f3012133d1935bb95cbf998f6876325a",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "totalLoss": "1200000000000",
+        "maxReturn": "1200000000000",
+        "rewardCap": "180000000000",
+        "refundRoot": "0x5f3be26a1aeb8c83be1a57e2dc9e8bd0a82fba4312edeba98a7e13eae5ef80a8",
+        "evidenceHash": "0x2ce8f8cad27f7358b890ea66a27c5dfe756a94e0ec4618c791451dc57ff7cf8e",
+        "tiers": [
+          {
+            "until": "1794388882",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646882",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992482",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "7",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "drainTx": "0x07e00da00da17d49c4ca24073727590945cf173d0bad93454c4a5c03f0081b86",
+        "totalLoss": "1200000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "103"
+    },
+    {
+      "id": "tidewater-meth",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "symbol": "mETH",
+        "name": "Mock Wrapped Ether",
+        "decimals": 18,
+        "priceUsd": 3000
+      },
+      "vault": "0x998abeb3e57409262ae5b751f60747921b33613e",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "200000000000000000000",
+          "proof": [
+            "0x808b4d0e69aebe8ede56ae3f7d06bf16b57a112201e742cd514238fd38cbc1de"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "100000000000000000000",
+          "proof": [
+            "0x2d1cda990f1fc9717ef3e8c920931f9c447cafb43120cd2d7d6418da248f73c4"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xdeaf9a384978fdea1184bcda08ff52acac0a59d2ec27d3cb67dbd77ec3416977",
+        "deposit1": "0x44dc6f5479b6881fd3185c0021aa7d054c6de3ec727f477a501b2d17cea62a6e",
+        "drain": "0x601de87d0cdf60b30c71c896ad0a76b1f9e7c04f7df2f7fe6cd85510fc38343e",
+        "openCase": "0x62f333b6cc1c1f526d3299fe99377e30ec2f9f27836bb6cb60a1c875c21dcc84",
+        "returnFunds0": "0xe00d518509f7fd9de791dd2104bbeb7ab83a85c21a11b1109626b323d18b8ef5"
+      },
+      "terms": {
+        "caseId": "0x9c4b4ddbe01fced2b6e66a0949130867cfb594c78496d8f3bd2747444762776a",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "totalLoss": "300000000000000000000",
+        "maxReturn": "300000000000000000000",
+        "rewardCap": "45000000000000000000",
+        "refundRoot": "0xd48b1fa7a22f984bb6290129ffa6e20b3be0a7ec52a23a62cdcc19d2236cfd2a",
+        "evidenceHash": "0xa715e4615bfdb90cbbf71d0b09ea11b24dc6e79d26d060d1b170e5ed7929a8c0",
+        "tiers": [
+          {
+            "until": "1794388883",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646883",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992483",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "8",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x998abeb3e57409262ae5b751f60747921b33613e",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "drainTx": "0x601de87d0cdf60b30c71c896ad0a76b1f9e7c04f7df2f7fe6cd85510fc38343e",
+        "totalLoss": "300000000000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "113"
+    },
+    {
+      "id": "tidewater-mbtc",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "symbol": "mBTC",
+        "name": "Mock Wrapped Bitcoin",
+        "decimals": 8,
+        "priceUsd": 80000
+      },
+      "vault": "0x0e801d84fa97b50751dbf25036d067dcf18858bf",
+      "allocations": [
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "1200000000",
+          "proof": []
+        }
+      ],
+      "txs": {
+        "deposit0": "0xe11380a28795a1e9df053398f7f87406c08e33a4b15781e02bad5480dbdb2341",
+        "drain": "0x751e56f343cedac3b7e2510af8fed13fc25f68f1bab82beec060819238859755",
+        "openCase": "0xbed4dcb37cdc90f60aeb8cb4289027f9b7c73c5683ef00d420d79dd5114ba019"
+      },
+      "terms": {
+        "caseId": "0xa4fd2022b2149a14304086e381962f3003552f4cef11e8836035175d184b3b60",
+        "token": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "totalLoss": "1200000000",
+        "maxReturn": "1200000000",
+        "rewardCap": "180000000",
+        "refundRoot": "0x95d2c00d3b388ff03287e20bfa13a705a094ccf240c9973e19d4b5123c840385",
+        "evidenceHash": "0x5bc9a497e29d19e361e5d49b6a2df3c78069950f041d5a1c6bec66bc39965f36",
+        "tiers": [
+          {
+            "until": "1794388883",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646883",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992483",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "9",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x0e801d84fa97b50751dbf25036d067dcf18858bf",
+        "token": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "drainTx": "0x751e56f343cedac3b7e2510af8fed13fc25f68f1bab82beec060819238859755",
+        "totalLoss": "1200000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "120"
+    },
+    {
+      "id": "tidewater-mada",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "symbol": "mADA",
+        "name": "Mock Wrapped ADA",
+        "decimals": 6,
+        "priceUsd": 0.6
+      },
+      "vault": "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "2000000000000",
+          "proof": [
+            "0xaff725ec97fbe60ad0f8f2f7893e12b73fbb323cff945d1b30fc347d54df66ea"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "1000000000000",
+          "proof": [
+            "0xc57986bd55362247f274ad4102cbd4ed14b6eef59db47e1e74bdd12cd780e70b"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x9ee12993e7d5dd3b048a569eaa73fc6373521e4548823697379c803148cdf924",
+        "deposit1": "0x1cf1f209769bf5ee6f3a2834900bdf117df98f9c86a31f9d3c180a8b5702fcda",
+        "drain": "0x5fb24278ef51b6074fd58b62348333e109b1918e51675e1ec35f75c06c0a0e11",
+        "openCase": "0xf65386a5e9364b094bb0b23eba707ef11068a6bed63ef464f63ea03de9a18334"
+      },
+      "terms": {
+        "caseId": "0x6d3adad24238159089717658354ba855bc97ea39616048c5c338558356630d01",
+        "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "totalLoss": "3000000000000",
+        "maxReturn": "3000000000000",
+        "rewardCap": "450000000000",
+        "refundRoot": "0x1070d17cc00aaf1b0916fe0fbd1840d5cb70f1492aac7c298974d049c796c335",
+        "evidenceHash": "0x4581e9fd5ec679568f40ad312a7fd196ab2d326a1cba10afc4ff18641035fd99",
+        "tiers": [
+          {
+            "until": "1794388887",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646887",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992487",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "10",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
+        "token": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+        "drainTx": "0x5fb24278ef51b6074fd58b62348333e109b1918e51675e1ec35f75c06c0a0e11",
+        "totalLoss": "3000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "130"
+    },
+    {
+      "id": "tidewater-msol",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x1291be112d480055dafd8a610b7d1e203891c274",
+        "symbol": "mSOL",
+        "name": "Mock Wrapped Solana",
+        "decimals": 9,
+        "priceUsd": 150
+      },
+      "vault": "0x5f3f1dbd7b74c6b46e8c44f98792a1daf8d69154",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "9000000000000",
+          "proof": [
+            "0xf5efea7a0e53a07be3480ef782d50289be044999e5ce5f9f200cba75863c6a9f"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "3000000000000",
+          "proof": [
+            "0x8cb50364cc522fab6c77e46fd06188b46f8980d79159da0ead7b42204fbe2afc"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x40e3fef970909dadcaa557c855fc615d4934e05bc21c631fed609e901ad90d2f",
+        "deposit1": "0xc039b57018d671edda8821e888c7eb0b88ce73d3c4a646016daf824a27cbc502",
+        "drain": "0xd1312106d09ccae94e8f707449e580fca10f7c91bc6d6b5e938cb239c9b41d52",
+        "openCase": "0x8c2ae87e09e406eb20d2b735ac550da418628a1cc6776af6a6b55c9537682662"
+      },
+      "terms": {
+        "caseId": "0x56f8c3e0f50cb119ad4cf51ffaa295a06dbdc3840fbb90dfacdd38c4957bb5ad",
+        "token": "0x1291be112d480055dafd8a610b7d1e203891c274",
+        "totalLoss": "12000000000000",
+        "maxReturn": "12000000000000",
+        "rewardCap": "1800000000000",
+        "refundRoot": "0x2cc9a3c4c196a737ddcdef26e7a887b19b0b72f28899705559218a3b5b2d4ebd",
+        "evidenceHash": "0xc7b72b8836164131b331991586973141b391150837a28b9794dc5a8da71650cd",
+        "tiers": [
+          {
+            "until": "1794388887",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646887",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992487",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "11",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x5f3f1dbd7b74c6b46e8c44f98792a1daf8d69154",
+        "token": "0x1291be112d480055dafd8a610b7d1e203891c274",
+        "drainTx": "0xd1312106d09ccae94e8f707449e580fca10f7c91bc6d6b5e938cb239c9b41d52",
+        "totalLoss": "12000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "141"
+    },
+    {
+      "id": "tidewater-mlink",
+      "incidentId": "tidewater",
+      "incident": "Tidewater Perps",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x2bdcc0de6be1f7d2ee689a0342d76f52e8efaba3",
+        "symbol": "mLINK",
+        "name": "Mock Chainlink",
+        "decimals": 18,
+        "priceUsd": 15
+      },
+      "vault": "0x7969c5ed335650692bc04293b07f5bf2e7a673c0",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "60000000000000000000000",
+          "proof": []
+        }
+      ],
+      "txs": {
+        "deposit0": "0xeb05303ae1988e1937718fe80fdacf007abc4da84a01000970682bc513aa6f2d",
+        "drain": "0xd29473da301da40fc3516ea023db3bbb7466d6c7ca625af7f01e092581be22d7",
+        "openCase": "0xe48aecea932e9b9c77e7d75225be31f85f031b6a98e91fd9ce51d18f7606a052"
+      },
+      "terms": {
+        "caseId": "0x604ad1919465f895f6042ac51d7666235297e797d3781fcd4cd55b58bef2316c",
+        "token": "0x2bdcc0de6be1f7d2ee689a0342d76f52e8efaba3",
+        "totalLoss": "60000000000000000000000",
+        "maxReturn": "60000000000000000000000",
+        "rewardCap": "9000000000000000000000",
+        "refundRoot": "0x095fdf446cf1b0df3d4736f8c745c3dcc3ba2f0e612c4189e722779024e9c916",
+        "evidenceHash": "0x042e8429d9cc18c13ecf678dbc9d631024f8a739aae04adfcbf9324e3917033a",
+        "tiers": [
+          {
+            "until": "1794388887",
+            "rewardBps": 1500
+          },
+          {
+            "until": "1794646887",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992487",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "12",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Tidewater Perps",
+        "protocol": "0x7969c5ed335650692bc04293b07f5bf2e7a673c0",
+        "token": "0x2bdcc0de6be1f7d2ee689a0342d76f52e8efaba3",
+        "drainTx": "0xd29473da301da40fc3516ea023db3bbb7466d6c7ca625af7f01e092581be22d7",
+        "totalLoss": "60000000000000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "149"
+    },
+    {
+      "id": "northgate-musdc",
+      "incidentId": "northgate",
+      "incident": "Northgate Lending",
+      "attacker": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+      "token": {
+        "address": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "symbol": "mUSDC",
+        "name": "Mock USD Coin",
+        "decimals": 6,
+        "priceUsd": 1
+      },
+      "vault": "0xcbeaf3bde82155f56486fb5a1072cb8baaf547cc",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "1200000000000",
+          "proof": [
+            "0xbb59ba1d32c2de3af3fe506f59f1cf8fb6297a1326fa801d91a174a44ca19bfb"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "500000000000",
+          "proof": [
+            "0x4d0551dd0c694358ad9738798bc7fbdf12d22ff8aa4e3fb419328c51f44c2b54",
+            "0x6a01f7e88d4a7b6b000e529ff3c79fde4ae1a814d225084c7255fdb405935210"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "300000000000",
+          "proof": [
+            "0x45fa2dbb889a7f11fde933b7fda843820a54460e911dd1bfe1068496f8803df0",
+            "0x6a01f7e88d4a7b6b000e529ff3c79fde4ae1a814d225084c7255fdb405935210"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xbb72b2e4967c27db0eb83cb03e8a88351550d004f0b4c79ba7767d697c3cbfe4",
+        "deposit1": "0xf0807363cb8d87878ee83cc6660a44b9d8066811b9fa8fb73e9e35cb10296082",
+        "deposit2": "0x7149210107544ab683d50b52c6d70a8f048b977d1d90e3f231e70ed9f07caa26",
+        "drain": "0x9cb765f072bb82d9e217621a9241f378d712efb21fde31c5353040f96f1d461e",
+        "openCase": "0x4577279b7b48fe12270b1ff3382b12591b6c463b7e5139645d58bc0c087cd4f7",
+        "returnFunds0": "0x00ccab3e6024d44474c662265e850f28a14b3ce9d1ff4ae3bdefe3d93311f224",
+        "claim0": "0x83b81bcc2e2984886ad39f1492e1397efb65bdc00064e4933145f6bf0799eed5",
+        "claim1": "0x9024d75537aa7c0905d11eaf68419e27dc61e030093d43e752a51f1bdca77b4e"
+      },
+      "terms": {
+        "caseId": "0x26624fb53265d8b352243caaa440dbd26b002df73356470150056488ad0785a1",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "totalLoss": "2000000000000",
+        "maxReturn": "2000000000000",
+        "rewardCap": "50000000000",
+        "refundRoot": "0xd7e0c337544c789dc70e15065e14448a937b7bec9c04b9de47b7aab9bdafee0a",
+        "evidenceHash": "0x055d59443685fa004208d650af751b182607273f0a80a9de659f7eb103ea4c2c",
+        "tiers": [
+          {
+            "until": "1794646887",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992487",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "13",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Northgate Lending",
+        "protocol": "0xcbeaf3bde82155f56486fb5a1072cb8baaf547cc",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "drainTx": "0x9cb765f072bb82d9e217621a9241f378d712efb21fde31c5353040f96f1d461e",
+        "totalLoss": "2000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "165"
+    },
+    {
+      "id": "northgate-meth",
+      "incidentId": "northgate",
+      "incident": "Northgate Lending",
+      "attacker": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+      "token": {
+        "address": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "symbol": "mETH",
+        "name": "Mock Wrapped Ether",
+        "decimals": 18,
+        "priceUsd": 3000
+      },
+      "vault": "0x5081a39b8a5f0e35a8d959395a630b68b74dd30f",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "300000000000000000000",
+          "proof": [
+            "0xddeb257aa55ff24d8943b910f4360d90d20b79f60252e77cc2f5c4add5a159e0"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "100000000000000000000",
+          "proof": [
+            "0xe151be5479ef624d6dc5498cb022ec808d8e3050a6d7da9ea1eaf67eeecde24d"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0x911464a527a54292bc50be5cef65eff1d1333de41d7f06e696f4c657d407c672",
+        "deposit1": "0xc41f5f7a52273d2cc799788f1c208d9e494b218c5a88a8e465365b6d2e729172",
+        "drain": "0x677605fe645241b6df4686ce199513d8c211d8c39cee0325651f6b0fa7b935ba",
+        "openCase": "0x77af063dccc3cadc9980fcd99c9c8d815dd01e055e6b99b09eb7edea42973b63",
+        "returnFunds0": "0x2746146b3741d00b0e494545d9e1c09cd84bc49eec5d884510ce01a71bc59381"
+      },
+      "terms": {
+        "caseId": "0x41157e7dcb2f5aae0ba3540722d221ee8861c08ffad543311035bad150cea2c6",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "totalLoss": "400000000000000000000",
+        "maxReturn": "400000000000000000000",
+        "rewardCap": "10000000000000000000",
+        "refundRoot": "0x56e808f2e5cf05eb98449c2c919474895b21d9ef7a046ebc996e56d86347b94e",
+        "evidenceHash": "0xb267fc57e09d56ae919e3425b38673e81409c04daf2b69da60fe4f1975d770eb",
+        "tiers": [
+          {
+            "until": "1794646887",
+            "rewardBps": 1000
+          },
+          {
+            "until": "1794992487",
+            "rewardBps": 500
+          }
+        ],
+        "nonce": "14",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "Northgate Lending",
+        "protocol": "0x5081a39b8a5f0e35a8d959395a630b68b74dd30f",
+        "token": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "drainTx": "0x677605fe645241b6df4686ce199513d8c211d8c39cee0325651f6b0fa7b935ba",
+        "totalLoss": "400000000000000000000",
+        "offer": {
+          "conditions": ""
+        }
+      },
+      "openBlock": "175"
+    },
+    {
+      "id": "gmx-replay-musdc",
+      "incidentId": "gmx-replay",
+      "incident": "GMX replay",
+      "attacker": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "token": {
+        "address": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "symbol": "mUSDC",
+        "name": "Mock USD Coin",
+        "decimals": 6,
+        "priceUsd": 1
+      },
+      "vault": "0x4ee6ecad1c2dae9f525404de8555724e3c35d07b",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "21000000000000",
+          "proof": [
+            "0x1c3e5354a384beeab9249bd2730e5ecd7ec9dbedaaf2065ba37dbf8c45e67fa6"
+          ]
+        },
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "12600000000000",
+          "proof": [
+            "0x7ba4d5bff4593b9ec75c02ebb43e393246b05f6f1ab606e4471296b5aaf0250e",
+            "0x86da2d9a12920d764102adc716b188333f4e45654bff5509f30aeead8cd56764"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "8400000000000",
+          "proof": [
+            "0x503ce69949696991605980754c1438b5e171a0c762b21de0f43ac74681cda58a",
+            "0x86da2d9a12920d764102adc716b188333f4e45654bff5509f30aeead8cd56764"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xb97e864b3919c775abc9b2d292def383c63dfc8882a7fe7ff30e2b39558eda93",
+        "deposit1": "0xc0f3e14ebcce8482bc2c56f469084a06300a94454a296bdc270cce6d4e7f966a",
+        "deposit2": "0x68bb2a3e73174b749d69ef5d13a10e4d2fd728cdb9c1125d724218dab10aee59",
+        "drain": "0x46c929c294e609eec12d5a2948543d576f8de5cd8f54fcd28a7f00c5124b71cf",
+        "openCase": "0x43f9a48b6423be19547e267dbe7f516c55d580fa3d08f554ef61db13a9761349"
+      },
+      "terms": {
+        "caseId": "0x1e2556377fdb36e7a6d579cded2804e6867f513d8b8ea5217698edb9c495e929",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "totalLoss": "42000000000000",
+        "maxReturn": "42000000000000",
+        "rewardCap": "4200000000000",
+        "refundRoot": "0x0a4ce2ce3544d028aa6e21f85116f12a2d167085dd8a1b8e3df46da73061e8ad",
+        "evidenceHash": "0xae0bd6bd4289c9853f2fb48c12c57aa71b0412a84b375f134663c693c6f438bc",
+        "tiers": [
+          {
+            "until": "1794560487",
+            "rewardBps": 1000
+          }
+        ],
+        "nonce": "15",
+        "chainId": "31337"
+      },
+      "evidence": {
+        "incident": "GMX replay",
+        "protocol": "0x4ee6ecad1c2dae9f525404de8555724e3c35d07b",
+        "token": "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
+        "drainTx": "0x46c929c294e609eec12d5a2948543d576f8de5cd8f54fcd28a7f00c5124b71cf",
+        "totalLoss": "42000000000000",
+        "offer": {
+          "conditions": "Keep 10% and return the rest within 48 hours. These are the terms GMX offered in its on-chain message in July 2025."
+        }
+      },
+      "openBlock": "223"
+    }
+  ],
+  "pending": [
+    {
+      "id": "marlin-mbtc",
+      "incidentId": "marlin",
+      "incident": "Marlin Vaults",
+      "attacker": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+      "token": {
+        "address": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+        "symbol": "mBTC",
+        "name": "Mock Wrapped Bitcoin",
+        "decimals": 8,
+        "priceUsd": 80000
+      },
+      "vault": "0x2e2ed0cfd3ad2f1d34481277b3204d807ca2f8c2",
+      "allocations": [
+        {
+          "account": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "allocation": "500000000",
+          "proof": [
+            "0xc04d2b147ae605e286faaf106647a3ecebe82a2f21a215d7278877aed6d7b204"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "300000000",
+          "proof": [
+            "0x817d06cef006bdf58e82724d28442167f0205321108be2c33919c462b1726b61"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xbe635c8b480537a95ef5731501a140e2b5e845c1ee856014a23bb36b321a7e36",
+        "deposit1": "0x66e51277ff20cd351afd9cf18b5b6c4e7d19c53c0a64ad2e8f49effda3025b87",
+        "drain": "0xdd09ee4555fcb519b79ca2a4a8b13c8b3df5b2a04ffa0af105db67dc85107117"
+      },
+      "totalLoss": "800000000",
+      "refundRoot": "0x6d3c8a3a0efae71ec7034b9d44058a8a4e29d4475611d20358b404a0c11fce35"
+    },
+    {
+      "id": "marlin-musdt",
+      "incidentId": "marlin",
+      "incident": "Marlin Vaults",
+      "attacker": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+      "token": {
+        "address": "0x51a1ceb83b83f1985a81c295d1ff28afef186e02",
+        "symbol": "mUSDT",
+        "name": "Mock Tether",
+        "decimals": 6,
+        "priceUsd": 1
+      },
+      "vault": "0x36b58f5c1969b7b6591d752ea6f5486d069010ab",
+      "allocations": [
+        {
+          "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+          "allocation": "750000000000",
+          "proof": [
+            "0x799b9ebe952b788db5bf75bf3b08f38e7957ba4eea27248cecba4c4327eea013"
+          ]
+        },
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "250000000000",
+          "proof": [
+            "0xa26ddcd088967cce624bdf879b5f9d7efc05480d39f6cc80f1935f69488c1af2"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xdfebd23b1ebfa83587faed9f1bb68004eb322f9765355f05d54a6b1abf2e78e9",
+        "deposit1": "0x0018095fbe6df36feb6414826f1c96ef875184385074439933211db25d6736c3",
+        "drain": "0x559c0d16307431b1b9e9200b35b22b7f9e294625fdb3a17fb837b088dbeab98e"
+      },
+      "totalLoss": "1000000000000",
+      "refundRoot": "0x425d117416041cfcdf74f470bf3dc3522f47423b4452d41e27d93ca57908d2fc"
+    },
+    {
+      "id": "marlin-meth",
+      "incidentId": "marlin",
+      "incident": "Marlin Vaults",
+      "attacker": "0x71bE63f3384f5fb98995898A86B02Fb2426c5788",
+      "token": {
+        "address": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+        "symbol": "mETH",
+        "name": "Mock Wrapped Ether",
+        "decimals": 18,
+        "priceUsd": 3000
+      },
+      "vault": "0x202cce504e04bed6fc0521238ddf04bc9e8e15ab",
+      "allocations": [
+        {
+          "account": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+          "allocation": "90000000000000000000",
+          "proof": [
+            "0xfefaaa513cf3c4c88b5568763b3d9e78437c23a5b58c96d448b971962f8c93b3"
+          ]
+        },
+        {
+          "account": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+          "allocation": "30000000000000000000",
+          "proof": [
+            "0x08486a08de5430df05ee858db2bf847930c9ebc548dfdab1a8e87438921e7548"
+          ]
+        }
+      ],
+      "txs": {
+        "deposit0": "0xe5d0f6c19bc548305b052bdf6c892a3e968ed07f74cd3335b75ed069f4b471cc",
+        "deposit1": "0x3acbfb1815735dc4d9e9c856407b71bf1d5f8b8c3b9848e622f804c3c769d04f",
+        "drain": "0x943fe590f4cc3a3b7a463c15b4db14be181ebf136fa1dc286309ae34f28c30aa"
+      },
+      "totalLoss": "120000000000000000000",
+      "refundRoot": "0xeed183ee43b2c4b0c4b3542357ec5e82db7cdd811b32d9b48fce2400d00eab88"
+    }
+  ],
+  "sandbox": true
 }
