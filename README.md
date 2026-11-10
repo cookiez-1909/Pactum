@@ -26,7 +26,7 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 | One approval, three signatures | [`Cx2DDSJa…`](https://testnet.nearblocks.io/txns/Cx2DDSJaDfdVgyB3WNezNHG7keSTNNTT4oU68dDpevGu) |
 | A signed offer, cancelled | [`GhHsjHZ5…`](https://testnet.nearblocks.io/txns/GhHsjHZ5f5tQeXhVWTwCejRWf5zSWk2DCXWgPoE7cHPB), the final cancel vote on a 12-case offer |
 | Video and X post | Not published yet |
-| Hosted demo | Not published yet |
+| Hosted demo | [cookiez-1909.github.io/Pactum](https://cookiez-1909.github.io/Pactum/), reading the live Sepolia and NEAR testnet contracts. Returning or claiming needs your own wallet. The GMX replay and the test accounts run only in `make web-local` |
 
 Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json), [`deployments/base-sepolia.json`](deployments/base-sepolia.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json) and [`deployments/drill.json`](deployments/drill.json).
 
