@@ -37,7 +37,7 @@ You need `git`, `make`, [Foundry](https://getfoundry.sh), Rust, Node.js 22 or ne
 ```text
 make setup        → installs submodules and npm packages
 make demo-local   → log contains: stolen 1,000,000; reward 100,000; refund pool 900,000; claimed 900,000
-make verify       → reads the existing testnet transactions, prints 93 checks marked PASS across the three chains and NEAR, then a PASS summary
+make verify       → reads the existing testnet transactions, prints 93 checks marked PASS across the three chains and NEAR, then a PASS summary. Old NEAR transactions are read from an archival node, set by `NEAR_ARCHIVAL_RPC`
 ```
 
 In a clean-room run on a machine with cached Rust crates, these three took about a minute. Warnings from `npm ci` do not stop the setup.
@@ -238,6 +238,19 @@ Someone holding the funds can also keep 10% and send the rest to the protocol wi
 - **Token assumptions.** Fee-on-transfer tokens are tested. Tokens whose balances rebase downward are not supported.
 - **NEAR binary provenance is partial.** `make verify` proves the deployed code matches [`deployments/pactum_controller.wasm`](deployments/pactum_controller.wasm), and `make verify-wasm` rebuilds that file from source. The rebuild matched byte for byte from another directory on the same machine, with Rust 1.97.1 and cargo-near 0.23.0. It has not been tested on another machine, and it is not a Docker reproducible build.
 - **Not audited.**
+
+## After the hackathon
+
+These are plans, not features. Nothing in this section is built yet.
+
+- **Audit, then mainnet.** NEAR Chain Signatures already runs on mainnet (`v1.signer`), so the same design can move there once the contracts are audited.
+- **Swap at claim time.** Today the app only shows a live NEAR Intents quote. Next, a claim would go straight into an Intents swap, so a user receives the asset and chain they chose in one step.
+- **One shared service.** Each protocol now needs its own controller and its own `Pactum` on each chain, about 3 NEAR plus gas each time. A shared deployment would let a protocol open a case without deploying anything.
+- **Independent guardians and real stakes.** Guardians and council members chosen in public, with stakes larger than what one act of fraud could take.
+- **Durable refund lists.** Store each list where it cannot disappear, and add a snapshot tool for pools whose depositors hold LP tokens, like GMX's GLP holders.
+- **Unlocking stuck funds.** A rule for rounding dust and for refunds nobody claims after a long deadline, instead of leaving them locked.
+- **Legal groundwork.** Offer templates that work alongside SEAL Safe Harbor, and sanctions screening before a reward is paid.
+- **Talk to users.** Interview protocol teams, incident responders and whitehats to test whether the demand is real.
 
 ## Tests
 

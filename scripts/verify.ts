@@ -21,7 +21,7 @@ import {
 } from "viem";
 import { baseSepolia, robinhoodTestnet, sepolia } from "viem/chains";
 import { ROOT, artifact, formatTokens, ONE_TOKEN, type CaseTerms } from "./lib/common.ts";
-import { accessKeyCount, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearChainProposal, type NearGuardianProposal, type NearProposal } from "./lib/near.ts";
+import { accessKeyCount, archival, deriveEvmAddress, MPC_CONTRACT, provider, toNearTerms, view, type NearChainProposal, type NearGuardianProposal, type NearProposal } from "./lib/near.ts";
 import { netDeposits, readTransfers, sumAllocations } from "./lib/refund.ts";
 import { buildRefundTree } from "./lib/common.ts";
 
@@ -90,7 +90,7 @@ async function checkController(targets: Target[]): Promise<void> {
   check("One offer covers every chain", targets.every((target) => target.d.near.proposalId === proposalId && proposal.cases[target.d.near.caseIndex]?.terms.chain_id === String(target.chain.id)) && proposal.cases.length === targets.length, `${proposal.cases.length} cases`);
   check("One approval round signed them all", proposal.status === "Signed" && proposal.approvals.length === config.threshold && proposal.cases.every((item) => item.status === "Signed"), `${proposal.approvals.length} approvals`);
   check("Offer text stored on NEAR hashes to evidenceHash on every chain", targets.every((target) => keccak256(stringToHex(proposal.evidence)) === target.terms.evidenceHash && proposal.evidence === JSON.stringify(target.d.evidence)), `${proposal.evidence.length} bytes`);
-  const approve = await provider.viewTransactionStatus({ txHash: targets[0]!.d.near.txs.approve2, accountId: proposal.approvals[1] as string, waitUntil: "FINAL" });
+  const approve = await archival.viewTransactionStatus({ txHash: targets[0]!.d.near.txs.approve2, accountId: proposal.approvals[1] as string, waitUntil: "FINAL" });
   check("Final approval transaction succeeded on NEAR", typeof (approve.status as { SuccessValue?: string }).SuccessValue === "string", targets[0]!.d.near.txs.approve2);
 
   // The last chain was added by vote after the contract lost every key, so nobody could have edited it by hand.
@@ -283,7 +283,7 @@ async function checkRegistry(targets: Target[]): Promise<void> {
   check("The operator is a guardian of that controller", guardians.guardians.includes(operator.owner), operator.owner);
   check("The stake is above the minimum", BigInt(operator.stake) >= BigInt(config.min_stake), `${Number(BigInt(operator.stake)) / 1e24} NEAR`);
 
-  const strangerTx = await provider.viewTransactionStatus({ txHash: saved.txs.strangerRegister, accountId: saved.stranger, waitUntil: "FINAL" });
+  const strangerTx = await archival.viewTransactionStatus({ txHash: saved.txs.strangerRegister, accountId: saved.stranger, waitUntil: "FINAL" });
   const answered = JSON.stringify(strangerTx.receipts_outcome.map((item: { outcome: { status: unknown } }) => item.outcome.status));
   check("A stranger's registration was refused", answered.includes(Buffer.from("false").toString("base64")), saved.txs.strangerRegister);
 

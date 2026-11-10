@@ -24,6 +24,9 @@ const STORAGE_DEPOSIT = 5_000n * YOCTO_PER_BYTE;
 const offerDeposit = (cases: number, evidence: string) => BigInt(cases * 3_000 + evidence.length + 1_000) * YOCTO_PER_BYTE;
 
 export const provider = new JsonRpcProvider({ url: NEAR_RPC });
+// Regular nodes keep transactions for only a few days, so old transactions must be read from an archival node.
+export const NEAR_ARCHIVAL_RPC = process.env.NEAR_ARCHIVAL_RPC ?? "https://archival-rpc.testnet.fastnear.com";
+export const archival = new JsonRpcProvider({ url: NEAR_ARCHIVAL_RPC });
 
 export interface NearCredentials {
   accountId: string;
