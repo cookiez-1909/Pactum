@@ -9,6 +9,7 @@
 <p>
   <a href="https://cookiez-1909.github.io/Pactum/"><img alt="Live demo" src="https://img.shields.io/badge/%E2%96%B6%20Live%20demo-in%20your%20browser-93a6ff?style=for-the-badge&labelColor=12141a" /></a>
   <a href="https://cookiez-1909.github.io/Pactum/?live#/cases"><img alt="Live testnet case" src="https://img.shields.io/badge/Testnet%20case-Sepolia%20%2B%20NEAR-36a37b?style=for-the-badge&labelColor=12141a" /></a>
+  <a href="https://x.com/Cookiez1909/status/2120326982953312640"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6%20Demo%20video-on%20X-eef0f3?style=for-the-badge&labelColor=12141a" /></a>
   <a href="#try-it-in-2-minutes"><img alt="make verify" src="https://img.shields.io/badge/make%20verify-93%20checks-bd8530?style=for-the-badge&labelColor=12141a" /></a>
   <a href="https://nearhackathon.com"><img alt="NEAR HACKATHON 2026" src="https://img.shields.io/badge/NEAR-HACKATHON%202026-7b61ff?style=for-the-badge&labelColor=12141a" /></a>
 </p>
@@ -42,7 +43,7 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 | The one transaction | reward and refund split on [Sepolia](https://sepolia.etherscan.io/tx/0x0624cd4238ef8d4e94c97e63265db87f4364e76191d4d85ada8bfd8b227d5f03), [Base Sepolia](https://sepolia.basescan.org/tx/0xa8d288b34372793c073784ed47da41a9bb510c602c6a6cba07d28837f28b3691) and [Robinhood testnet](https://explorer.testnet.chain.robinhood.com/tx/0x11c83ba3a2f49138c2d37b71810478d326414138b85af7ce2a2341ed8ca33b6d) |
 | One approval, three signatures | [`Cx2DDSJa…`](https://testnet.nearblocks.io/txns/Cx2DDSJaDfdVgyB3WNezNHG7keSTNNTT4oU68dDpevGu) |
 | A signed offer, cancelled | [`GhHsjHZ5…`](https://testnet.nearblocks.io/txns/GhHsjHZ5f5tQeXhVWTwCejRWf5zSWk2DCXWgPoE7cHPB), the final cancel vote on a 12-case offer |
-| Video and X post | Not published yet |
+| Video and X post | [Demo video on X](https://x.com/Cookiez1909/status/2120326982953312640), with the problem, the product walkthrough and the GMX replay |
 | Hosted demo | [cookiez-1909.github.io/Pactum](https://cookiez-1909.github.io/Pactum/) runs a private test chain in your browser with the same cases, test accounts and GMX replay as `make web-local`, so you can return, claim and publish an offer. Reloading starts over. [The live testnet case](https://cookiez-1909.github.io/Pactum/?live#/cases) reads the real Sepolia and NEAR contracts |
 
 Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json), [`deployments/base-sepolia.json`](deployments/base-sepolia.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json) and [`deployments/drill.json`](deployments/drill.json).
