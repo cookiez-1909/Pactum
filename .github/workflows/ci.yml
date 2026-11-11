@@ -1,0 +1,72 @@
+# Runs the unit and contract tests on every push and pull request.
+# The testnet checks (make verify) and the wasm rebuild (make verify-wasm) stay manual: the first reads public RPC,
+# and the second must run on the pinned toolchain described in the README.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Solidity (Foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge test
+        working-directory: contracts
+
+  near:
+    name: NEAR contracts (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            controller
+            registry
+      - run: cargo test
+        working-directory: controller
+      - run: cargo test
+        working-directory: registry
+
+  scripts:
+    name: Scripts and refund list (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci
+        working-directory: scripts
+      - run: npx tsc --noEmit -p .
+        working-directory: scripts
+      - run: npx tsx --test refund-list.test.ts
+        working-directory: scripts
+
+  web:
+    name: Web app build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web

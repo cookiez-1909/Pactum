@@ -1,4 +1,21 @@
+<div align="center">
+
+<img src="docs/readme/logo.png" alt="Pactum mascot" width="120" />
+
 # Pactum
+
+<img src="docs/readme/banner.png" alt="Pactum: 1,000,000 returned splits into a 100,000 reward and a 900,000 refund pool in one transaction" width="100%" />
+
+<p>
+  <a href="https://cookiez-1909.github.io/Pactum/"><img alt="Live demo" src="https://img.shields.io/badge/%E2%96%B6%20Live%20demo-in%20your%20browser-93a6ff?style=for-the-badge&labelColor=12141a" /></a>
+  <a href="https://cookiez-1909.github.io/Pactum/?live#/cases"><img alt="Live testnet case" src="https://img.shields.io/badge/Testnet%20case-Sepolia%20%2B%20NEAR-36a37b?style=for-the-badge&labelColor=12141a" /></a>
+  <a href="#try-it-in-2-minutes"><img alt="make verify" src="https://img.shields.io/badge/make%20verify-93%20checks-bd8530?style=for-the-badge&labelColor=12141a" /></a>
+  <a href="https://nearhackathon.com"><img alt="NEAR HACKATHON 2026" src="https://img.shields.io/badge/NEAR-HACKATHON%202026-7b61ff?style=for-the-badge&labelColor=12141a" /></a>
+</p>
+
+<a href="https://github.com/cookiez-1909/Pactum/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cookiez-1909/Pactum/actions/workflows/ci.yml/badge.svg" /></a>
+
+</div>
 
 Pactum lets whoever holds exploited funds return them and receive a published reward in one transaction, while the rest becomes refunds that users claim directly. It removes the step where a hacker and a protocol team each have to go first, and it reduces how much users have to trust the team after a hack. Users still rely on the refund list being honest.
 
@@ -29,6 +46,35 @@ Built at NEAR HACKATHON. Testnet prototype with fake tokens, not audited. **Do n
 | Hosted demo | [cookiez-1909.github.io/Pactum](https://cookiez-1909.github.io/Pactum/) runs a private test chain in your browser with the same cases, test accounts and GMX replay as `make web-local`, so you can return, claim and publish an offer. Reloading starts over. [The live testnet case](https://cookiez-1909.github.io/Pactum/?live#/cases) reads the real Sepolia and NEAR contracts |
 
 Every transaction is listed in [`deployments/sepolia.json`](deployments/sepolia.json), [`deployments/base-sepolia.json`](deployments/base-sepolia.json) and [`deployments/robinhood-testnet.json`](deployments/robinhood-testnet.json) and [`deployments/drill.json`](deployments/drill.json).
+
+## One return, start to finish
+
+<div align="center">
+<img src="docs/readme/demo.gif" alt="Returning 42,000,000 test USDC in the GMX replay: one transaction pays a 4,200,000 reward and books 37,800,000 for refunds" width="800" />
+<br /><sub>The GMX replay in the local demo: one transaction pays the 10% reward and books the rest for users. Test tokens.</sub>
+</div>
+
+<table>
+  <tr>
+    <td width="45%"><img src="docs/readme/receipt.png" alt="Settlement receipt of the Sepolia return: 1,000,000 mUSD returned, 100,000 reward, 900,000 refund pool claimed by users" /></td>
+    <td><b>The same split, for real, on Sepolia.</b><br /><br />Transaction <a href="https://sepolia.etherscan.io/tx/0x0624cd4238ef8d4e94c97e63265db87f4364e76191d4d85ada8bfd8b227d5f03"><code>0x0624…5f03</code></a> took back 1,000,000 mUSD, paid the 100,000 reward to the holder and booked 900,000 for users, who then claimed all of it. The terms were signed by the NEAR controller through Chain Signatures.<br /><br /><code>make verify</code> re-reads every one of these numbers from public testnet data.</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/readme/return.png" alt="Return funds tab with the reward and refund split and the Verify this offer checks" /><br /><sub><b>Return funds.</b> The holder sees exactly what they keep and what goes to users, and can check the offer before sending.</sub></td>
+    <td width="50%"><img src="docs/readme/refund.png" alt="Refund tab for a fully returned case, with the user's refund ready to claim" /><br /><sub><b>Refund.</b> Users claim their share with a Merkle proof. Nobody can redirect the pool.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/readme/profile.png" alt="Profile page asking where returned money should go, powered by NEAR Intents" /><br /><sub><b>Profile.</b> NEAR Intents quotes a refund into another asset on another chain. Quotes only; no swap runs on testnet.</sub></td>
+    <td width="50%"><img src="docs/readme/guardians.png" alt="Guardians page reading the NEAR controller: one approval, a signature for every chain" /><br /><sub><b>Guardians.</b> Read live from the NEAR controller: one approval signs the offer for every chain.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/readme/replay.png" alt="GMX replay case comparing what happened in July 2025 with how Pactum would handle it" /><br /><sub><b>A real hack, replayed.</b> The July 2025 GMX exploit and its real offer, run on Pactum with test tokens.</sub></td>
+    <td width="50%"><img src="docs/readme/landing.png" alt="Pactum landing page" /><br /><sub><b>Landing page.</b> What Pactum does, who it is for, and its limits, before anyone opens the app.</sub></td>
+  </tr>
+</table>
 
 ## Try it in 2 minutes
 
@@ -265,6 +311,8 @@ These are plans, not features. Nothing in this section is built yet.
 | `make test-ui` | 235 checks passed. Drives the app in Chromium through every role, offers, returns, refunds, the tour and phones. Needs `npx playwright install chromium` in `e2e/`, or `CHROMIUM_PATH` set |
 | `make test-sandbox` | 26 passed: the real NEAR wasm in a local sandbox. 17 run the controller against a **mock** MPC signer, including the largest offer with the longest text. 9 run the registry against the real controller wasm, with real refunds and transfers. The first build took about 8 minutes |
 
+[CI](.github/workflows/ci.yml) runs `make test-evm`, `make test-near`, `make test-refund-list`, the scripts typecheck and the web build on every push to `main`.
+
 Covered as the spec requires: a reward floor against a deadline or another return arriving first, wrong signature, reused signature, wrong chain, tier boundaries, partial returns, `rewardCap`, after the deadline, reentrancy, fee-on-transfer tokens, wrong Merkle proofs, double claims, refunds never exceeding funds, and on NEAR: below threshold, duplicate approval, stranger approval, invalid terms, a chain the controller does not serve, separate digests per chain, offer text that does not match its hash, one failed signature in a multi-chain offer, offers larger than one transaction can sign, a stranger adding a chain, a vote trying to replace a served chain, replacing a guardian, votes from a removed guardian, cancelling before and after signing, a failed revocation, and a proposal with no storage deposit.
 
 The mock signer exists to force failures the real MPC network will not produce on demand: a failed signature, a malformed response and too little gas. After each one the proposal stays recoverable, and anyone can retry signing the same digest. It proves nothing about real signatures. Those are checked by `make verify`, and Foundry also verifies two real MPC signatures from testnet.
@@ -307,7 +355,11 @@ web-sandbox/  in-browser test chain for the hosted demo, built by make pages
 e2e/          interface tests in Chromium
 deployments/  public addresses, transaction hashes and the deployed wasm of the testnet run
 spike/        first Chain Signatures experiment, kept as evidence
+docs/readme/  images used in this README
+.github/      CI workflow, contributing guide, security policy and code of conduct
 ```
+
+Built with Solidity 0.8.30 and Foundry, Rust 1.97.1 and near-sdk 5.30.1, React 19, Vite and viem.
 
 Code comments, identifiers, logs and the interface are all in English.
 
