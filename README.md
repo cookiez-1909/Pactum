@@ -309,7 +309,7 @@ deployments/  public addresses, transaction hashes and the deployed wasm of the 
 spike/        first Chain Signatures experiment, kept as evidence
 ```
 
-Code comments are written in Vietnamese, the language of the author. Identifiers, logs and the interface are in English.
+Code comments, identifiers, logs and the interface are all in English.
 
 ## Disclosure
 
