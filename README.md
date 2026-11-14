@@ -365,6 +365,7 @@ Code comments, identifiers, logs and the interface are all in English.
 
 All code in this repository was written during the hackathon window, from 2026-11-06. It reuses no earlier project and no template. Much of the code was written with an AI coding tool.
 
+- **Other project by the same author:** [Heavy Is The Crown](https://github.com/cookiez-1909/Heavy-Is-The-Crown), a separate NEAR HACKATHON submission (same-ticker memecoin brackets). The two projects are independent and share no code.
 - **AI tools:** Claude Code.
 - **Solidity:** [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) 5.6.1, [forge-std](https://github.com/foundry-rs/forge-std), [Foundry](https://getfoundry.sh).
 - **NEAR:** [near-sdk](https://crates.io/crates/near-sdk) 5.30.1, [cargo-near](https://crates.io/crates/cargo-near) 0.23.0, [near-workspaces](https://crates.io/crates/near-workspaces) 0.24.0 for the sandbox tests, NEAR Chain Signatures through `v1.signer-prod.testnet`.
